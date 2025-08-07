@@ -145,7 +145,9 @@ class PromptBatchSelector:
         print(f"[PromptBatchSelector] Prompt generado: '{final_prompt}'")
 
         from nodes import CLIPTextEncode
-        return CLIPTextEncode.encode(clip=clip, text=final_prompt)
+        encoder = CLIPTextEncode()
+        return encoder.encode(clip=clip, text=final_prompt)
+
 
 # =================================================================================
 # Mapeo de Nodos para ComfyUI
