@@ -110,19 +110,18 @@ class PromptBatchSelector:
                 "prompt_comun": ("STRING", {
                     "multiline": True,
                     "default": "",
-                    "lines": 7,
-                    "placeholder": "Texto común que se aplicará a todos los prompts"
+                    "placeholder": "Texto común aplicado a todos los prompts"
                 }),
-                "prompt_1": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_2": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_3": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_4": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_5": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_6": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_7": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_8": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_9": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
-                "prompt_10": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_1": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_2": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_3": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_4": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_5": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_6": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_7": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_8": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_9": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_10": ("STRING", {"multiline": True, "default": ""}),
             }
         }
 
