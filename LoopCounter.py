@@ -2,12 +2,12 @@ import os
 import json
 import folder_paths
 
-# --- Constante compartida por los nodos de contador y reseteo ---
+# --- Shared constant for the counter and reset nodes ---
 FILENAME = "loops.json"
 FILE_PATH = os.path.join(folder_paths.get_output_directory(), FILENAME)
 
 # =================================================================================
-# NODO 1: El Contador principal (Inicia en 0)
+# NODE 1: The main Counter (Starts at 0)
 # =================================================================================
 class LoopCounter:
     @classmethod
@@ -30,23 +30,20 @@ class LoopCounter:
                 data = json.load(f)
                 current_value_to_output = data.get('loop_count', 0)
         except (FileNotFoundError, json.JSONDecodeError):
-            print(f"[LoopCounter] File '{FILENAME}' not found. Starting in 0.")
+            print(f"[LoopCounter] File '{FILENAME}' not found. Starting at 0.")
             current_value_to_output = 0
 
         next_value_to_save = current_value_to_output + 1
-
         print(f"[LoopCounter] -> Current: {current_value_to_output}. Saving for next time: {next_value_to_save}")
-
         try:
             with open(FILE_PATH, 'w') as f:
                 json.dump({'loop_count': next_value_to_save}, f, indent=4)
         except Exception as e:
-            print(f"[LoopCounter] ERROR: The file could not be saved. {e}")
-
+            print(f"[LoopCounter] ERROR: Could not save the file. {e}")
         return (current_value_to_output,)
 
 # =================================================================================
-# NODO 2: El Reseteador dedicado (Resetea a 0)
+# NODE 2: The dedicated Resetter (Resets to 0)
 # =================================================================================
 class ResetCounter:
     @classmethod
@@ -59,29 +56,27 @@ class ResetCounter:
     CATEGORY = "Utilities/Counters"
 
     def execute(self, trigger_reset):
-        print(f"[ResetCounter] Acción de reseteo ejecutada.")
+        print(f"[ResetCounter] Reset action executed.")
         reset_value = 0
-
         try:
             with open(FILE_PATH, 'w') as f:
                 json.dump({'loop_count': reset_value}, f, indent=4)
-            print(f"[ResetCounter] Contador reseteado a {reset_value} en '{FILE_PATH}'")
+            print(f"[ResetCounter] Counter reset to {reset_value} in '{FILE_PATH}'")
         except Exception as e:
-            print(f"[ResetCounter] ERROR: No se pudo crear el fichero de reseteo. {e}")
-
+            print(f"[ResetCounter] ERROR: Could not write the reset file. {e}")
         return {}
 
 # =================================================================================
-# NODO 3: El Formateador de Nombres de Fichero (Padding)
+# NODE 3: The File Name Formatter (Padding)
 # =================================================================================
-class File_name:
+class PaddedFileName:
     @classmethod
     def INPUT_TYPES(s):
         return {
             "required": {
                 "loop_count": ("INT", {"default": 0, "min": 0, "step": 1, "display": "number"}),
-                "length": ("INT", {"default": 1, "min": 1, "step": 1, "display": "number"}),
-                "filename_prefix": ("STRING", {"multiline": False, "default": "fotograma"}),
+                "multiplier": ("INT", {"default": 1, "min": 1, "step": 1, "display": "number"}),
+                "filename_prefix": ("STRING", {"multiline": False, "default": "frame"}),
             }
         }
 
@@ -90,15 +85,15 @@ class File_name:
     FUNCTION = "format_filename"
     CATEGORY = "Utilities/Text"
 
-    def format_filename(self, loop_count, length, filename_prefix):
-        calculated_number = loop_count * length
+    def format_filename(self, loop_count, multiplier, filename_prefix):
+        calculated_number = loop_count * multiplier
         padded_number = f"{calculated_number:05d}"
         final_filename = f"{filename_prefix}_{padded_number}_.png"
-        print(f"[File_name] -> target: {final_filename}")
+        print(f"[PaddedFileName] -> Output: {final_filename}")
         return (final_filename,)
 
 # =================================================================================
-# NODO 4: PromptBatchSelector – Prompt variable con batch index
+# NODE 4: PromptBatchSelector – Alternative "by line" version
 # =================================================================================
 class PromptBatchSelector:
     @classmethod
@@ -106,22 +101,17 @@ class PromptBatchSelector:
         return {
             "required": {
                 "clip": ("CLIP",),
-                "batch_index": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
-                "prompt_comun": ("STRING", {
+                "batch_index": ("INT", {"default": 1, "min": 1, "step": 1}),
+                "common_prompt": ("STRING", {
                     "multiline": True,
-                    "default": "",
-                    "placeholder": "Texto común aplicado a todos los prompts"
+                    "default": "beautiful scenery, masterpiece, best quality",
+                    "placeholder": "Common styles and keywords for all prompts..."
                 }),
-                "prompt_1": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_2": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_3": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_4": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_5": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_6": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_7": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_8": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_9": ("STRING", {"multiline": True, "default": ""}),
-                "prompt_10": ("STRING", {"multiline": True, "default": ""}),
+                "prompts_by_line": ("STRING", {
+                    "multiline": True,
+                    "default": "a happy person smiling\na sad person crying\nan angry person shouting",
+                    "placeholder": "Enter one prompt per line. Line 1 corresponds to batch_index 1, etc."
+                }),
             }
         }
 
@@ -129,44 +119,35 @@ class PromptBatchSelector:
     FUNCTION = "combine_prompt"
     CATEGORY = "AcademiaSD/Prompt"
 
-    def combine_prompt(
-        self,
-        clip,
-        batch_index,
-        prompt_comun,
-        prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
-        prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
-    ):
-        prompts = [
-            prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
-            prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
-        ]
-
-        idx = max(1, min(batch_index, 10)) - 1
-        extra_prompt = prompts[idx]
-        final_prompt = f"{prompt_comun} {extra_prompt}".strip()
-
-        print(f"[PromptBatchSelector] Prompt generado: '{final_prompt}'")
-
+    def combine_prompt(self, clip, batch_index, common_prompt, prompts_by_line):
+        prompts = prompts_by_line.strip().split('\n')
+        idx = batch_index - 1
+        extra_prompt = ""
+        if 0 <= idx < len(prompts):
+            extra_prompt = prompts[idx].strip()
+            print(f"[PromptBatchSelector] Batch Index: {batch_index} -> Using line {idx + 1}: '{extra_prompt}'")
+        else:
+            print(f"[PromptBatchSelector] WARNING: batch_index ({batch_index}) is out of range for available prompts ({len(prompts)}). Using only the common prompt.")
+        final_prompt = f"{common_prompt.strip()} {extra_prompt.strip()}".strip()
+        print(f"[PromptBatchSelector] Final prompt: '{final_prompt}'")
         from nodes import CLIPTextEncode
         encoder = CLIPTextEncode()
         return encoder.encode(clip=clip, text=final_prompt)
 
-
 # =================================================================================
-# Mapeo de Nodos para ComfyUI
+# Node Mappings for ComfyUI
 # =================================================================================
 
 NODE_CLASS_MAPPINGS = {
     "LoopCounterToFile": LoopCounter,
     "ResetCounterFile": ResetCounter,
-    "File_namePadded": File_name,
+    "PaddedFileName": PaddedFileName,
     "PromptBatchSelector": PromptBatchSelector
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LoopCounterToFile": "Counter (Start at 0)",
-    "ResetCounterFile": "Reset Counter (Action)",
-    "File_namePadded": "Filename (Padding)",
-    "PromptBatchSelector": "Prompt Batch Selector"
+    "LoopCounterToFile": "Counter (from file)",
+    "ResetCounterFile": "Reset Counter (to file)",
+    "PaddedFileName": "Padded File Name",
+    "PromptBatchSelector": "Prompt Batch Selector (by line)"
 }
