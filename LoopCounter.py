@@ -107,22 +107,22 @@ class PromptBatchSelector:
             "required": {
                 "clip": ("CLIP",),
                 "batch_index": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
-                "common_prompt": ("STRING", {
+                "prompt_comun": ("STRING", {
                     "multiline": True,
                     "default": "",
                     "lines": 7,
-                    "placeholder": "Common text that will be applied to all prompts"
+                    "placeholder": "Texto común que se aplicará a todos los prompts"
                 }),
-                "prompt_1": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_2": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_3": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_4": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_5": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_6": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_7": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_8": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_9": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
-                "prompt_10": ("STRING", {"multiline": True, "default": "", "group": "Prompt variants"}),
+                "prompt_1": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_2": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_3": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_4": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_5": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_6": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_7": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_8": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_9": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
+                "prompt_10": ("STRING", {"multiline": True, "default": "", "group": "Variantes de prompt"}),
             }
         }
 
@@ -134,7 +134,7 @@ class PromptBatchSelector:
         self,
         clip,
         batch_index,
-        common_prompt,
+        prompt_comun,
         prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
         prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
     ):
@@ -145,7 +145,7 @@ class PromptBatchSelector:
 
         idx = max(1, min(batch_index, 10)) - 1
         extra_prompt = prompts[idx]
-        final_prompt = f"{common_prompt} {extra_prompt}".strip()
+        final_prompt = f"{prompt_comun} {extra_prompt}".strip()
 
         print(f"[PromptBatchSelector] Prompt generado: '{final_prompt}'")
 
