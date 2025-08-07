@@ -3,7 +3,6 @@ import json
 import folder_paths
 
 # --- Constante compartida por los nodos de contador y reseteo ---
-# Para asegurar que ambos operan sobre el mismo fichero.
 FILENAME = "loops.json"
 FILE_PATH = os.path.join(folder_paths.get_output_directory(), FILENAME)
 
@@ -11,12 +10,6 @@ FILE_PATH = os.path.join(folder_paths.get_output_directory(), FILENAME)
 # NODO 1: El Contador principal (Inicia en 0)
 # =================================================================================
 class LoopCounter:
-    """
-    Un nodo que lee un número de un fichero JSON, lo devuelve, y guarda el siguiente
-    número incrementado para la próxima ejecución.
-    - La secuencia es 0, 1, 2, 3, 4, ...
-    """
-
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {}}
@@ -33,40 +26,29 @@ class LoopCounter:
 
     def execute(self):
         try:
-            # Intentar leer el valor guardado para esta ejecución
             with open(FILE_PATH, 'r') as f:
                 data = json.load(f)
-                # Si la clave no existe, empezamos en 0 por defecto
                 current_value_to_output = data.get('loop_count', 0)
-        
         except (FileNotFoundError, json.JSONDecodeError):
-            # Si el fichero no existe, este es el primer ciclo. Empezamos en 0.
             print(f"[LoopCounter] File '{FILENAME}' not found. Starting in 0.")
             current_value_to_output = 0
-        
-        # Preparamos el valor para la SIGUIENTE ejecución
+
         next_value_to_save = current_value_to_output + 1
-        
+
         print(f"[LoopCounter] -> Current: {current_value_to_output}. Saving for next time: {next_value_to_save}")
 
-        # Guardar el valor para la siguiente ejecución
         try:
             with open(FILE_PATH, 'w') as f:
                 json.dump({'loop_count': next_value_to_save}, f, indent=4)
         except Exception as e:
             print(f"[LoopCounter] ERROR: The file could not be saved. {e}")
 
-        # Devolver el valor de la ejecución ACTUAL
         return (current_value_to_output,)
 
 # =================================================================================
 # NODO 2: El Reseteador dedicado (Resetea a 0)
 # =================================================================================
 class ResetCounter:
-    """
-    Un nodo de acción cuya única función es resetear el fichero del contador a 0.
-    Debe ser ejecutado para que tenga efecto.
-    """
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"trigger_reset": ("BOOLEAN", {"default": True, "label_on": "RESET", "label_off": "RESET"})}}
@@ -78,7 +60,6 @@ class ResetCounter:
 
     def execute(self, trigger_reset):
         print(f"[ResetCounter] Acción de reseteo ejecutada.")
-        # El valor al que se resetea ahora es 0
         reset_value = 0
 
         try:
@@ -87,17 +68,13 @@ class ResetCounter:
             print(f"[ResetCounter] Contador reseteado a {reset_value} en '{FILE_PATH}'")
         except Exception as e:
             print(f"[ResetCounter] ERROR: No se pudo crear el fichero de reseteo. {e}")
-        
+
         return {}
 
 # =================================================================================
-# NODO 3: El Formateador de Nombres de Fichero (Sin cambios)
+# NODO 3: El Formateador de Nombres de Fichero (Padding)
 # =================================================================================
 class File_name:
-    """
-    Un nodo que toma un número, un prefijo y un multiplicador para crear
-    un nombre de fichero formateado con ceros a la izquierda (padding).
-    """
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -121,17 +98,69 @@ class File_name:
         return (final_filename,)
 
 # =================================================================================
+# NODO 4: PromptBatchSelector – Prompt variable con batch index
+# =================================================================================
+class PromptBatchSelector:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "clip": ("CLIP",),
+                "batch_index": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
+                "prompt_comun": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_1": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_2": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_3": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_4": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_5": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_6": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_7": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_8": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_9": ("STRING", {"multiline": True, "default": ""}),
+                "prompt_10": ("STRING", {"multiline": True, "default": ""}),
+            }
+        }
+
+    RETURN_TYPES = ("CONDITIONING",)
+    FUNCTION = "combine_prompt"
+    CATEGORY = "AcademiaSD/Prompt"
+
+    def combine_prompt(
+        self,
+        clip,
+        batch_index,
+        prompt_comun,
+        prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
+        prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
+    ):
+        prompts = [
+            prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
+            prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
+        ]
+
+        idx = max(1, min(batch_index, 10)) - 1
+        extra_prompt = prompts[idx]
+        final_prompt = f"{prompt_comun} {extra_prompt}".strip()
+
+        print(f"[PromptBatchSelector] Prompt generado: '{final_prompt}'")
+
+        from nodes import CLIPTextEncode
+        return CLIPTextEncode.encode(clip=clip, text=final_prompt)
+
+# =================================================================================
 # Mapeo de Nodos para ComfyUI
 # =================================================================================
 
 NODE_CLASS_MAPPINGS = {
     "LoopCounterToFile": LoopCounter,
     "ResetCounterFile": ResetCounter,
-    "File_namePadded": File_name
+    "File_namePadded": File_name,
+    "PromptBatchSelector": PromptBatchSelector
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "LoopCounterToFile": "Counter (Start at 0)",
     "ResetCounterFile": "Reset Counter (Action)",
-    "File_namePadded": "Filename (Padding)"
+    "File_namePadded": "Filename (Padding)",
+    "PromptBatchSelector": "Prompt Batch Selector"
 }
