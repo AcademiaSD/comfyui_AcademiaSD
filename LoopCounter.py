@@ -107,7 +107,7 @@ class PromptBatchSelector:
             "required": {
                 "clip": ("CLIP",),
                 "batch_index": ("INT", {"default": 1, "min": 1, "max": 10, "step": 1}),
-                "common prompt": ("STRING", {
+                "common_prompt": ("STRING", {
                     "multiline": True,
                     "default": "",
                     "lines": 7,
@@ -134,7 +134,7 @@ class PromptBatchSelector:
         self,
         clip,
         batch_index,
-        common prompt,
+        common_prompt,
         prompt_1, prompt_2, prompt_3, prompt_4, prompt_5,
         prompt_6, prompt_7, prompt_8, prompt_9, prompt_10
     ):
@@ -145,7 +145,7 @@ class PromptBatchSelector:
 
         idx = max(1, min(batch_index, 10)) - 1
         extra_prompt = prompts[idx]
-        final_prompt = f"{common prompt} {extra_prompt}".strip()
+        final_prompt = f"{common_prompt} {extra_prompt}".strip()
 
         print(f"[PromptBatchSelector] Prompt generado: '{final_prompt}'")
 
