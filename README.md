@@ -1,2 +1,3 @@
 # comfyui_AcademiaSD
-Various tools
+Various loop tools
+Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
