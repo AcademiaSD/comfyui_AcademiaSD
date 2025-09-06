@@ -5,3 +5,5 @@ ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www
 
 ### - Loop Tools
 Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
+
+### - Bypass nodes by value
