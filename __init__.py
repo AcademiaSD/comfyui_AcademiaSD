@@ -3,6 +3,13 @@ from pathlib import Path
 import importlib.util
 import traceback
 
+# ======================================================
+# 🌟 Common version for all comfyui_AcademiaSD nodes
+# ======================================================
+__version__ = "1.2.3"
+print(f"[AcademiaSD Loader] Loading comfyui_AcademiaSD v{__version__}")
+# ======================================================
+
 try:
     current_path = Path(__file__)
     comfyui_root_path = current_path.parent.parent.parent
@@ -22,6 +29,7 @@ except Exception as e:
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
+
 def load_module(module_name: str, file_path: str):
     """Loads a Python module from a .py file path using importlib."""
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -33,11 +41,13 @@ def load_module(module_name: str, file_path: str):
     spec.loader.exec_module(module)
     return module
 
+
 def _module_name_for(path: Path, base_pkg: str, nodes_path: Path) -> str:
     """Converts a file path to a package-like module name (e.g., nodes.sub.module)."""
     rel = path.relative_to(nodes_path)
     parts = list(rel.with_suffix('').parts)
     return ".".join([base_pkg] + parts) if parts else base_pkg
+
 
 def load_nodes():
     """
@@ -55,7 +65,7 @@ def load_nodes():
 
     for file in py_files:
         try:
-            module_name = _module_name_for(file, "comfyui_academsd.nodes", nodes_path)
+            module_name = _module_name_for(file, "comfyui_academiasd.nodes", nodes_path)
             module = load_module(module_name, str(file))
 
             if hasattr(module, "NODE_CLASS_MAPPINGS") and isinstance(module.NODE_CLASS_MAPPINGS, dict):
@@ -74,8 +84,9 @@ def load_nodes():
             rel_path = file.relative_to(nodes_path)
             print(f"[AcademiaSD Loader] Error loading node from {rel_path}: {e}\n{traceback.format_exc()}")
 
+
 load_nodes()
 
 WEB_DIRECTORY = "./js"
 
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY", "__version__"]
