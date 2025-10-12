@@ -2,13 +2,16 @@ import os
 import json
 import folder_paths
 
-# --- Shared constant for the counter and reset nodes ---
+# Try to import the shared version from comfyui_AcademiaSD
+try:
+    from .. import __version__ as ACADEMIASD_VERSION
+except Exception:
+    ACADEMIASD_VERSION = "1.2.1"  # fallback local version
+
 FILENAME = "loops.json"
 FILE_PATH = os.path.join(folder_paths.get_output_directory(), FILENAME)
 
-# =================================================================================
-# NODE 1: The main Counter (Starts at 0)
-# =================================================================================
+
 class LoopCounter:
     @classmethod
     def INPUT_TYPES(s):
@@ -30,11 +33,11 @@ class LoopCounter:
                 data = json.load(f)
                 current_value_to_output = data.get('loop_count', 0)
         except (FileNotFoundError, json.JSONDecodeError):
-            print(f"[LoopCounter] File '{FILENAME}' not found. Starting at 0.")
+            print(f"[LoopCounter v{ACADEMIASD_VERSION}] File '{FILENAME}' not found. Starting at 0.")
             current_value_to_output = 0
 
         next_value_to_save = current_value_to_output + 1
-        print(f"[LoopCounter] -> Current: {current_value_to_output}. Saving for next time: {next_value_to_save}")
+        print(f"[LoopCounter v{ACADEMIASD_VERSION}] -> Current: {current_value_to_output}. Saving for next time: {next_value_to_save}")
         try:
             with open(FILE_PATH, 'w') as f:
                 json.dump({'loop_count': next_value_to_save}, f, indent=4)
@@ -42,9 +45,7 @@ class LoopCounter:
             print(f"[LoopCounter] ERROR: Could not save the file. {e}")
         return (current_value_to_output,)
 
-# =================================================================================
-# NODE 2: The dedicated Resetter (Resets to 0)
-# =================================================================================
+
 class ResetCounter:
     @classmethod
     def INPUT_TYPES(s):
@@ -56,7 +57,7 @@ class ResetCounter:
     CATEGORY = "ComfyUI_AcademiaSD/Utilities/Counters"
 
     def execute(self, trigger_reset):
-        print(f"[ResetCounter] Reset action executed.")
+        print(f"[ResetCounter v{ACADEMIASD_VERSION}] Reset action executed.")
         reset_value = 0
         try:
             with open(FILE_PATH, 'w') as f:
@@ -66,9 +67,7 @@ class ResetCounter:
             print(f"[ResetCounter] ERROR: Could not write the reset file. {e}")
         return {}
 
-# =================================================================================
-# NODE 3: The File Name Formatter (Padding)
-# =================================================================================
+
 class PaddedFileName:
     @classmethod
     def INPUT_TYPES(s):
@@ -89,12 +88,10 @@ class PaddedFileName:
         calculated_number = loop_count * multiplier
         padded_number = f"{calculated_number:05d}"
         final_filename = f"{filename_prefix}_{padded_number}_.png"
-        print(f"[PaddedFileName] -> Output: {final_filename}")
+        print(f"[PaddedFileName v{ACADEMIASD_VERSION}] -> Output: {final_filename}")
         return (final_filename,)
 
-# =================================================================================
-# NODE 4: PromptBatchSelector – Alternative "by line" version
-# =================================================================================
+
 class PromptBatchSelector:
     @classmethod
     def INPUT_TYPES(cls):
@@ -105,12 +102,10 @@ class PromptBatchSelector:
                 "common_prompt": ("STRING", {
                     "multiline": True,
                     "default": "beautiful scenery, masterpiece, best quality",
-                    "placeholder": "Common styles and keywords for all prompts..."
                 }),
                 "prompts_by_line": ("STRING", {
                     "multiline": True,
                     "default": "a happy person smiling\na sad person crying\nan angry person shouting",
-                    "placeholder": "Enter one prompt per line. Line 1 corresponds to batch_index 1, etc."
                 }),
             }
         }
@@ -125,18 +120,14 @@ class PromptBatchSelector:
         extra_prompt = ""
         if 0 <= idx < len(prompts):
             extra_prompt = prompts[idx].strip()
-            print(f"[PromptBatchSelector] Batch Index: {batch_index} -> Using line {idx + 1}: '{extra_prompt}'")
+            print(f"[PromptBatchSelector v{ACADEMIASD_VERSION}] Batch Index: {batch_index} -> '{extra_prompt}'")
         else:
-            print(f"[PromptBatchSelector] WARNING: batch_index ({batch_index}) is out of range for available prompts ({len(prompts)}). Using only the common prompt.")
+            print(f"[PromptBatchSelector] WARNING: batch_index out of range.")
         final_prompt = f"{common_prompt.strip()} {extra_prompt.strip()}".strip()
-        print(f"[PromptBatchSelector] Final prompt: '{final_prompt}'")
         from nodes import CLIPTextEncode
         encoder = CLIPTextEncode()
         return encoder.encode(clip=clip, text=final_prompt)
 
-# =================================================================================
-# Node Mappings for ComfyUI
-# =================================================================================
 
 NODE_CLASS_MAPPINGS = {
     "LoopCounterToFile": LoopCounter,
@@ -146,8 +137,8 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "LoopCounterToFile": "Counter (from file)",
-    "ResetCounterFile": "Reset Counter (to file)",
-    "PaddedFileName": "Padded File Name",
-    "PromptBatchSelector": "Prompt Batch Selector (by line)"
+    "LoopCounterToFile": f"Counter (from file) v{ACADEMIASD_VERSION}",
+    "ResetCounterFile": f"Reset Counter (to file) v{ACADEMIASD_VERSION}",
+    "PaddedFileName": f"Padded File Name v{ACADEMIASD_VERSION}",
+    "PromptBatchSelector": f"Prompt Batch Selector (by line) v{ACADEMIASD_VERSION}",
 }
