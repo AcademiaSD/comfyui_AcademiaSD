@@ -1,7 +1,7 @@
 [project]
 name = "academiasd"
 description = "Official set of custom nodes of AcademiaSD."
-version = "1.3.1"
+version = "1.3.2"
 license = {file = "LICENSE"} 
 # classifiers = [
 #     # For OS-independent nodes (works on all operating systems)
@@ -31,6 +31,6 @@ Documentation = "https://github.com/AcademiaSD/comfyui_AcademiaSD/wiki"
 PublisherId = "academia-sd"
 DisplayName = "comfyui_AcademiaSD"
 Icon = "https://raw.githubusercontent.com/AcademiaSD/comfyui_AcademiaSD/main/assets/icon.png"
-includes = [] 
+includes = ["example_workflows/*", "assets/*"]
 # "requires-comfyui" = ">=1.0.0"  # ComfyUI version compatibility
 
