@@ -28,7 +28,7 @@ Documentation = "https://github.com/AcademiaSD/comfyui_AcademiaSD/wiki"
 "Bug Tracker" = "https://github.com/AcademiaSD/comfyui_AcademiaSD/issues"
 
 [tool.comfy]
-PublisherId = "@academia-sd"
+PublisherId = "academia-sd"
 DisplayName = "comfyui_AcademiaSD"
 Icon = ""
 includes = [] 
