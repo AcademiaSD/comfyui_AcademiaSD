@@ -6,7 +6,7 @@ import traceback
 # ======================================================
 # 🌟 Common version for all comfyui_AcademiaSD nodes
 # ======================================================
-__version__ = "1.2.4"
+__version__ = "1.2.5"
 print(f"[AcademiaSD Loader] Loading comfyui_AcademiaSD v{__version__}")
 # ======================================================
 
@@ -90,4 +90,5 @@ load_nodes()
 WEB_DIRECTORY = "./js"
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY", "__version__"]
+
 
