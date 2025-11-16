@@ -1,10 +1,11 @@
 {
   "name": "comfyui_AcademiaSD",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Custom nodes and utilities for ComfyUI by AcademiaSD",
   "author": "AcademiaSD",
   "license": "MIT",
   "homepage": "https://github.com/AcademiaSD/comfyui_AcademiaSD",
   "update_url": "https://github.com/AcademiaSD/comfyui_AcademiaSD/archive/refs/heads/main.zip"
 }
+
 
