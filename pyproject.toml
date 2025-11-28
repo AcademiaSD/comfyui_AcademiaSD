@@ -1,7 +1,7 @@
 [project]
-name = "academiasd"
+name = "comfyui_AcademiaSD"
 description = "Official set of custom nodes of AcademiaSD."
-version = "1.3.4"
+version = "1.3.5"
 license = {file = "LICENSE"} 
 # classifiers = [
 #     # For OS-independent nodes (works on all operating systems)
