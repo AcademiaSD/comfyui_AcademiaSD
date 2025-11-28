@@ -1,5 +1,5 @@
 [project]
-name = "comfyui_AcademiaSD"
+name = "academiasd"
 description = "Official set of custom nodes of AcademiaSD."
 version = "1.3.6"
 license = {file = "LICENSE"} 
