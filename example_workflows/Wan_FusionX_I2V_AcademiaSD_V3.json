@@ -5,58 +5,6 @@
   "last_link_id": 183,
   "nodes": [
     {
-      "id": 339,
-      "type": "MarkdownNote",
-      "pos": [
-        -2600,
-        -1630
-      ],
-      "size": [
-        603.2123413085938,
-        821.88330078125
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "Color matching",
-      "properties": {
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        "## 🎥 Color Matching for Video – ComfyUI (`comfyui-ksnodes`)\n\nUse the **Color Match** node to apply consistent color grading across frames using your reference image or any image for a different result. \nCrucial for preventing flicker or color drift in image-to-video pipelines.\n\n---\n\n### 🔌 Inputs\n- `image_ref`: Your Ref image or an image you want to use for color matching. \n- `image_target`: Output from VAE decoder\n- `method`: Algorithm used to match colors.\n- `strength`: Blending factor (0 = no effect, 1 = full match).\n\n---\n\n### ✅ Best Methods for Video Consistency\n\n| Method         | Notes                                                                 |\n|----------------|-----------------------------------------------------------------------|\n| **`mvgd`**         | 🟢 Smooth, stable color match. Low flicker. Great default for video. |\n| **`hm-mvgd-hm`**   | 🟡 Strong match, but may blow highlights. Lower strength (~0.6–0.8). |\n| **`hm-mkl-hm`**    | 🟢 Stable, punchy results. Better highlight handling than `mvgd`.   |\n\n---\n\n### ⚠️ Methods to Use With Caution (for video)\n\n| Method      | Why to Avoid in Video Workflows                     |\n|-------------|-----------------------------------------------------|\n| `reinhard`  | Fast and natural for stills, but may drift over time. |\n| `hm`        | Can cause visible tone shifting between frames.     |\n| `mkl`       | Strong but unstable; may cause flicker or overmatch.|\n\n---\n\n### 💡 Tips for Video Use\n- ✅ Always use **the same `image_ref`** across all frames.\n- 🔧 Set `strength` to **0.7–0.9** for a softer, more stable blend."
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 288,
-      "type": "MarkdownNote",
-      "pos": [
-        -3150,
-        -1710
-      ],
-      "size": [
-        453.67791748046875,
-        866.26513671875
-      ],
-      "flags": {},
-      "order": 1,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "WAN - START HERE",
-      "properties": {
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        "## 📦 WAN Models to Download\n\n---\n\n### 🔴 Main WAN Model  \n`Choose gguf from list'  \n🔗 [Download Link](https://huggingface.co/city96/Wan2.1-I2V-14B-720P-gguf/tree/main)\n\n🗂️ Place in: `ComfyUI/models/diffusion_models`\n\n---\n\n### 🟣 WAN VAE  \n`wan_2.1_vae.safetensors`  \n🔗 [Download Link](https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/blob/main/split_files/vae/wan_2.1_vae.safetensors)\n\n🗂️ Place in: `ComfyUI/models/vae`\n\n---\n### 🟣 WAN Text Encoder\n`GGUF text encoders'\n\n🔗 [Download Link](https://huggingface.co/city96/umt5-xxl-encoder-gguf/tree/main)\n\n🗂️ Place in: `ComfyUI/models/text_encoders`\n\n---\n\n### ⚠️ OOM\nYou might get a false OOM, just run again. Seems to happen right before the WanImageToVideo Node but its false. I did add vram debug nodes that seems to mitigate this issue. Just a heads up on the reason why they are there.\n\n---\n\n### ⚠️ NAG (Negative Prompting @ CFG=1)\nWhen CFG scale is 1, normal negative prompts don’t apply. This is where NAG (Negative Activation Guidance) comes in — it mimics negative prompting without classifier-free guidance. Use it when you need prompt influence but want to keep CFG at 1.\n"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 358,
       "type": "RIFE VFI",
       "pos": [
@@ -70,7 +18,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 26,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -134,7 +82,7 @@
         "collapsed": false,
         "pinned": true
       },
-      "order": 28,
+      "order": 24,
       "mode": 0,
       "inputs": [
         {
@@ -174,7 +122,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 15,
+      "order": 11,
       "mode": 0,
       "inputs": [
         {
@@ -221,7 +169,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 21,
+      "order": 17,
       "mode": 0,
       "inputs": [
         {
@@ -287,7 +235,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 19,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -333,7 +281,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 20,
+      "order": 16,
       "mode": 0,
       "inputs": [
         {
@@ -385,7 +333,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 17,
+      "order": 13,
       "mode": 0,
       "inputs": [
         {
@@ -495,7 +443,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 2,
+      "order": 0,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -534,7 +482,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 24,
+      "order": 20,
       "mode": 0,
       "inputs": [
         {
@@ -624,7 +572,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 25,
+      "order": 21,
       "mode": 0,
       "inputs": [
         {
@@ -716,7 +664,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 30,
+      "order": 26,
       "mode": 0,
       "inputs": [
         {
@@ -806,7 +754,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 3,
+      "order": 1,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -833,7 +781,7 @@
         "widget_ue_connectable": {}
       },
       "widgets_values": [
-        "2025-01-17_11-10-06_6238.jpeg",
+        "2025-01-16_21-44-09_9884.png",
         "image"
       ],
       "color": "#233",
@@ -854,7 +802,7 @@
         "collapsed": false,
         "pinned": true
       },
-      "order": 22,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
@@ -902,7 +850,7 @@
         "collapsed": true,
         "pinned": true
       },
-      "order": 13,
+      "order": 9,
       "mode": 0,
       "inputs": [
         {
@@ -969,152 +917,6 @@
       ]
     },
     {
-      "id": 111,
-      "type": "ModelPatchTorchSettings",
-      "pos": [
-        -349.3819274902344,
-        1286.2259521484375
-      ],
-      "size": [
-        247.443359375,
-        60
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 114
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            115
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
-        "Node name for S&R": "ModelPatchTorchSettings",
-        "aux_id": "kijai/ComfyUI-KJNodes",
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        true
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
-      "id": 316,
-      "type": "MarkdownNote",
-      "pos": [
-        -2611.43115234375,
-        -1930.8592529296875
-      ],
-      "size": [
-        1103.74267578125,
-        236.16128540039062
-      ],
-      "flags": {},
-      "order": 4,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "FusionX Lora",
-      "properties": {
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        "## 🧪 Ingredients\n\nYou can now adjust these to get the custom look you want. For example, the **MPS LoRA** is known to cause some issues with faces — you can either bypass this node or set its value to `0` to disable it. ✨\n\nThe detail LoRA's were created by me! 🛠️ They add some extra detail and enhancements — feel free to tweak or turn them off depending on your preferences. 🎨\n\nCausVid has been replaced with the new LightX lora which lets you use just 4 steps for a huge speed boost with very little quality decrease."
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 301,
-      "type": "MarkdownNote",
-      "pos": [
-        -2482.353515625,
-        -731.0231323242188
-      ],
-      "size": [
-        466.6196594238281,
-        140.7075958251953
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "title": "FusionX Lora",
-      "properties": {
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        "## 📦 Main Model should NOT be a FusionX main model and instead the normal base Wan2.1 14B image to video model\n\n\n\n\n\n\n"
-      ],
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 330,
-      "type": "ColorMatch",
-      "pos": [
-        -584.2702026367188,
-        1056.2005615234375
-      ],
-      "size": [
-        280,
-        126
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image_ref",
-          "type": "IMAGE",
-          "link": 139
-        },
-        {
-          "name": "image_target",
-          "type": "IMAGE",
-          "link": 140
-        }
-      ],
-      "outputs": [
-        {
-          "name": "image",
-          "type": "IMAGE",
-          "links": [
-            169,
-            171
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "f7eb33abc80a2aded1b46dff0dd14d07856a7d50",
-        "Node name for S&R": "ColorMatch",
-        "aux_id": "kijai/ComfyUI-KJNodes",
-        "widget_ue_connectable": {}
-      },
-      "widgets_values": [
-        "mvgd",
-        0.6000000000000001,
-        true
-      ],
-      "color": "#233",
-      "bgcolor": "#355"
-    },
-    {
       "id": 347,
       "type": "PreviewAny",
       "pos": [
@@ -1128,7 +930,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 29,
+      "order": 25,
       "mode": 0,
       "inputs": [
         {
@@ -1160,7 +962,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 27,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
@@ -1227,160 +1029,6 @@
       ]
     },
     {
-      "id": 357,
-      "type": "INTConstant",
-      "pos": [
-        -595.7435302734375,
-        910.7150268554688
-      ],
-      "size": [
-        238.47828674316406,
-        58
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 6,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "value",
-          "type": "INT",
-          "links": [
-            177
-          ]
-        }
-      ],
-      "title": "Length",
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
-        "Node name for S&R": "INTConstant"
-      },
-      "widgets_values": [
-        81
-      ],
-      "color": "#233",
-      "bgcolor": "#355"
-    },
-    {
-      "id": 360,
-      "type": "Int",
-      "pos": [
-        -335.0472717285156,
-        908.20556640625
-      ],
-      "size": [
-        233.63636779785156,
-        58
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 7,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "INT",
-          "type": "INT",
-          "slot_index": 0,
-          "links": [
-            172
-          ]
-        }
-      ],
-      "title": "Interpolation frames",
-      "properties": {
-        "cnr_id": "ComfyLiterals",
-        "ver": "bdddb08ca82d90d75d97b1d437a652e0284a32ac",
-        "Node name for S&R": "Int",
-        "aux_id": "M1kep/ComfyLiterals"
-      },
-      "widgets_values": [
-        "2"
-      ],
-      "color": "#233",
-      "bgcolor": "#355"
-    },
-    {
-      "id": 356,
-      "type": "INTConstant",
-      "pos": [
-        -334.8425598144531,
-        797.3431396484375
-      ],
-      "size": [
-        232.79254150390625,
-        58
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 8,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "value",
-          "type": "INT",
-          "links": [
-            175
-          ]
-        }
-      ],
-      "title": "Height",
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
-        "Node name for S&R": "INTConstant"
-      },
-      "widgets_values": [
-        576
-      ],
-      "color": "#233",
-      "bgcolor": "#355"
-    },
-    {
-      "id": 355,
-      "type": "INTConstant",
-      "pos": [
-        -595.94482421875,
-        798.9592895507812
-      ],
-      "size": [
-        239.23422241210938,
-        58
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 9,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "value",
-          "type": "INT",
-          "links": [
-            176
-          ]
-        }
-      ],
-      "title": "Width",
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
-        "Node name for S&R": "INTConstant"
-      },
-      "widgets_values": [
-        1024
-      ],
-      "color": "#233",
-      "bgcolor": "#355"
-    },
-    {
       "id": 39,
       "type": "VAELoader",
       "pos": [
@@ -1394,7 +1042,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 10,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1441,7 +1089,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 11,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1482,7 +1130,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 12,
+      "order": 8,
       "mode": 0,
       "inputs": [
         {
@@ -1535,7 +1183,7 @@
           "strengthTwo": null
         },
         {
-          "on": false,
+          "on": true,
           "lora": "Wan2.1_I2V_14B_FusionX_LoRA.safetensors",
           "strength": 0.5,
           "strengthTwo": null
@@ -1547,7 +1195,7 @@
           "strengthTwo": null
         },
         {
-          "on": true,
+          "on": false,
           "lora": "Phantom_Wan_14B_FusionX_LoRA.safetensors",
           "strength": 1,
           "strengthTwo": null
@@ -1559,7 +1207,7 @@
           "strengthTwo": null
         },
         {
-          "on": false,
+          "on": true,
           "lora": "Wan21_AccVid_I2V_480P_14B_lora_rank32_fp16.safetensors",
           "strength": 1,
           "strengthTwo": null
@@ -1596,7 +1244,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 14,
+      "order": 10,
       "mode": 0,
       "inputs": [
         {
@@ -1629,6 +1277,160 @@
       "bgcolor": "#353"
     },
     {
+      "id": 357,
+      "type": "INTConstant",
+      "pos": [
+        -595.7435302734375,
+        905.9341430664062
+      ],
+      "size": [
+        238.47828674316406,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "links": [
+            177
+          ]
+        }
+      ],
+      "title": "Length",
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
+        "Node name for S&R": "INTConstant"
+      },
+      "widgets_values": [
+        81
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 360,
+      "type": "Int",
+      "pos": [
+        -335.0472717285156,
+        908.20556640625
+      ],
+      "size": [
+        233.63636779785156,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "slot_index": 0,
+          "links": [
+            172
+          ]
+        }
+      ],
+      "title": "Interpolation frames",
+      "properties": {
+        "cnr_id": "ComfyLiterals",
+        "ver": "bdddb08ca82d90d75d97b1d437a652e0284a32ac",
+        "Node name for S&R": "Int",
+        "aux_id": "M1kep/ComfyLiterals"
+      },
+      "widgets_values": [
+        "2"
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 356,
+      "type": "INTConstant",
+      "pos": [
+        -335.52557373046875,
+        801.4410400390625
+      ],
+      "size": [
+        232.79254150390625,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "links": [
+            175
+          ]
+        }
+      ],
+      "title": "Height",
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
+        "Node name for S&R": "INTConstant"
+      },
+      "widgets_values": [
+        576
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
+      "id": 355,
+      "type": "INTConstant",
+      "pos": [
+        -595.94482421875,
+        798.9592895507812
+      ],
+      "size": [
+        237.86819458007812,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "value",
+          "type": "INT",
+          "links": [
+            176
+          ]
+        }
+      ],
+      "title": "Width",
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "3e3a1a8aac61dc4515f6a7da74e026f05a80299f",
+        "Node name for S&R": "INTConstant"
+      },
+      "widgets_values": [
+        1024
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
+    },
+    {
       "id": 108,
       "type": "PathchSageAttentionKJ",
       "pos": [
@@ -1640,7 +1442,7 @@
         60
       ],
       "flags": {},
-      "order": 16,
+      "order": 12,
       "mode": 0,
       "inputs": [
         {
@@ -1670,6 +1472,100 @@
       ],
       "color": "#323",
       "bgcolor": "#535"
+    },
+    {
+      "id": 111,
+      "type": "ModelPatchTorchSettings",
+      "pos": [
+        -349.3819274902344,
+        1286.2259521484375
+      ],
+      "size": [
+        247.443359375,
+        60
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 114
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            115
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
+        "Node name for S&R": "ModelPatchTorchSettings",
+        "aux_id": "kijai/ComfyUI-KJNodes",
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        true
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 330,
+      "type": "ColorMatch",
+      "pos": [
+        -584.2702026367188,
+        1056.2005615234375
+      ],
+      "size": [
+        280,
+        126
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_ref",
+          "type": "IMAGE",
+          "link": 139
+        },
+        {
+          "name": "image_target",
+          "type": "IMAGE",
+          "link": 140
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            169,
+            171
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "f7eb33abc80a2aded1b46dff0dd14d07856a7d50",
+        "Node name for S&R": "ColorMatch",
+        "aux_id": "kijai/ComfyUI-KJNodes",
+        "widget_ue_connectable": {}
+      },
+      "widgets_values": [
+        "mvgd",
+        0.6000000000000001,
+        true
+      ],
+      "color": "#233",
+      "bgcolor": "#355"
     }
   ],
   "links": [
@@ -2062,10 +1958,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5644739300537777,
+      "scale": 0.5559917313492239,
       "offset": [
-        682.2794917232402,
-        183.04192898311868
+        640.7063004810307,
+        243.28471483891863
       ]
     },
     "frontendVersion": "1.23.4",
