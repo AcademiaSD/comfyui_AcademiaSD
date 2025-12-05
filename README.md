@@ -9,6 +9,8 @@ Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
 ### - Bypass nodes by value
 Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
 
-### - Gemini Vision 1.0.1
+### - Gemini Vision 1.1.2
+Dataset captions included
+
 
 Workflows included
