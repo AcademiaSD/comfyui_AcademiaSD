@@ -1,0 +1,386 @@
+{
+  "id": "7b486f11-79e6-4934-9249-12362c71568b",
+  "revision": 0,
+  "last_node_id": 8,
+  "last_link_id": 7,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AcademiaSD_BatchLoader",
+      "pos": [
+        -789.2731373480458,
+        377.35592175198633
+      ],
+      "size": [
+        324.44780309957866,
+        166
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_index",
+          "type": "INT",
+          "widget": {
+            "name": "image_index"
+          },
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1,
+            5
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "image_path",
+          "type": "STRING",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "filename_text",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-workflow-encrypt",
+        "ver": "1.0.0",
+        "Node name for S&R": "AcademiaSD_BatchLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "c:\\Users\\AcademiaSD\\Desktop\\Dataset\\",
+        30,
+        "mrrtsgrl"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 5,
+      "type": "PreviewImage",
+      "pos": [
+        -785.6816939609861,
+        594.3522512905797
+      ],
+      "size": [
+        316.9806483425974,
+        302.13467151808413
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.76",
+        "Node name for S&R": "PreviewImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 2,
+      "type": "AcademiaSD_SaveCaption",
+      "pos": [
+        -27.611913315929613,
+        235.08502217996843
+      ],
+      "size": [
+        402.10341074928056,
+        126
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "generated_caption",
+          "type": "STRING",
+          "link": 2
+        },
+        {
+          "name": "image_path",
+          "type": "STRING",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_saved_text",
+          "type": "STRING",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-workflow-encrypt",
+        "ver": "1.0.0",
+        "Node name for S&R": "AcademiaSD_SaveCaption",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "mrrtsgrl",
+        "Start (Prefix)",
+        ", "
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 4,
+      "type": "PrimitiveNode",
+      "pos": [
+        -789.6022408330513,
+        234.22740255170325
+      ],
+      "size": [
+        327.8048939923567,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "widget": {
+            "name": "image_index"
+          },
+          "links": [
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Run widget replace on values": false,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        30,
+        "increment"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 3,
+      "type": "AcademiaSD_Gemini_Node",
+      "pos": [
+        -442.2851401690252,
+        234.04833911283615
+      ],
+      "size": [
+        387.4561348876939,
+        653.3684329723044
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive_prompt",
+          "type": "STRING",
+          "links": [
+            2
+          ]
+        },
+        {
+          "name": "negative_prompt",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-workflow-encrypt",
+        "ver": "1.0.0",
+        "Node name for S&R": "AcademiaSD_Gemini_Node",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "",
+        "models/gemini-2.5-flash-preview-09-2025",
+        "Create an extremely detailed prompt for an image generative AI based on this input:",
+        "Describe this image...",
+        ". Write the positive prompt first. Then, add the separator '---NEGATIVE---' followed by a detailed negative prompt (things to avoid). Do not output reasoning.",
+        "A high-resolution, photorealistic studio portrait capturing a stunning young woman looking intensely directly into the camera. She has long, voluminous, multi-tonal blonde and light brown (bronde) hair with natural waves, dramatically tousled and lifted at the roots, suggesting movement. Her hands are raised and actively running through her hair near her temples and scalp. She wears a crisp, bright white bohemian-style blouse with a deep V-neckline framed by intricate white trim or lace detailing. The visible sleeve features an ornate, ruffled, or smocked cuff detail. A subtle red cord or thin bracelet is visible on her right wrist, which is bent behind her head. Her makeup is refined: defined dark eyebrows, subtle pink eyeshadow, perfectly applied eyeliner and mascara emphasizing her striking light blue-gray eyes, and soft pink nude lipstick. The subject is perfectly isolated against a smooth, solid, dark charcoal gray or slate backdrop. The lighting is professional studio quality, featuring soft, directed illumination that creates high contrast between the bright white garment and the dark background, emphasizing clarity and texture in the hair and clothing. Sharp focus, exquisite detail, fashion editorial quality, 8k photograph.\n\n---NEGATIVE---\nblurry, low quality, cropped head, out of focus, noise, compression artifacts, amateur photo, bad anatomy, mutated hands, missing fingers, extra fingers, distorted face, fused body parts, visible wrinkles on backdrop, signatures, watermarks, text, cartoon, painting, 3d render, sketch, illustration, oversaturated, unrealistic skin texture, malformed lips, asymmetrical eyes, distracting background elements, messy collar, incorrect clothing texture, color bleed on white shirt, poorly lit."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 8,
+      "type": "PreviewAny",
+      "pos": [
+        -25.2746642191188,
+        405.2989574116457
+      ],
+      "size": [
+        398.8597618630449,
+        480.82473771533483
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 7
+        }
+      ],
+      "outputs": [],
+      "title": "Captions Preview",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.76",
+        "Node name for S&R": "PreviewAny",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      3,
+      0,
+      2,
+      0,
+      "STRING"
+    ],
+    [
+      3,
+      1,
+      2,
+      2,
+      1,
+      "STRING"
+    ],
+    [
+      4,
+      4,
+      0,
+      1,
+      0,
+      "INT"
+    ],
+    [
+      5,
+      1,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      2,
+      0,
+      8,
+      0,
+      "*"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "ACADEMIA_SD GEMINI DATASET CAPTIONS",
+      "bounding": [
+        -548.1257691275163,
+        135.60585749706337,
+        750.0425768601822,
+        80
+      ],
+      "color": "#b58b2a",
+      "font_size": 35,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "workflowRendererVersion": "LG",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "ds": {
+      "scale": 0.9646149645000016,
+      "offset": [
+        1215.998468297112,
+        30.01462930806349
+      ]
+    },
+    "frontendVersion": "1.33.10",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
