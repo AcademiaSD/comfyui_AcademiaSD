@@ -4,19 +4,41 @@ from PIL import Image
 import sys
 import os
 
+# Importación segura
 try:
     import google.generativeai as genai
     GENAI_AVAILABLE = True
 except ImportError:
     GENAI_AVAILABLE = False
 
-class AcademiaSD_Gemini_Node:
-    def __init__(self):
+# ==============================================================================
+# FUNCIONES AUXILIARES DE CARGA (Se ejecutan al iniciar ComfyUI)
+# ==============================================================================
+
+def get_api_key_from_file():
+    """Intenta leer la API Key del archivo txt antes de cargar el nodo."""
+    try:
+        current_dir = os.path.dirname(os.path.realpath(__file__))
+        key_file_path = os.path.join(current_dir, "gemini_api_key.txt")
+        if os.path.exists(key_file_path):
+            with open(key_file_path, 'r', encoding='utf-8') as f:
+                key = f.read().strip()
+                if "AIza" in key:
+                    return key
+    except:
         pass
-    
-    @classmethod
-    def INPUT_TYPES(s):
-        ALL_MODELS = [
+    return None
+
+def get_dynamic_model_list():
+    """
+    Se conecta a Google para obtener la lista REAL de modelos permitidos.
+    Si falla, devuelve una lista de respaldo (Fallback).
+    """
+    # Lista de respaldo
+    fallback_models = [
+            "models/gemini-3-flash",
+            "models/gemini-3-flash-preview",
+            "models/gemini-3-flash-exp",
             "models/gemini-2.0-flash",
             "models/gemini-2.0-pro-exp",
             "models/gemini-3-pro-preview",
@@ -58,12 +80,58 @@ class AcademiaSD_Gemini_Node:
             "models/gemini-1.5-flash",
             "models/gemini-flash-latest",
             "models/gemini-pro-latest",
-        ]
+    ]
+
+    if not GENAI_AVAILABLE:
+        return fallback_models
+
+    api_key = get_api_key_from_file()
+    
+    if not api_key:
+        # Si no hay archivo de texto, no podemos saber la lista dinámica
+        return fallback_models
+
+    try:
+        # Intentamos conectar
+        genai.configure(api_key=api_key)
+        real_models = []
+        print(f"[AcademiaSD] Connecting to Google to fetch your model list...")
+        
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                real_models.append(m.name)
+        
+        if real_models:
+            # Ordenamos para que los modelos más nuevos (ej: 2.0, 1.5) salgan antes
+            # Truco: orden inverso suele poner los números altos arriba
+            real_models.sort(reverse=True)
+            print(f"[AcademiaSD] Success! Loaded {len(real_models)} models from your account.")
+            return real_models
+            
+    except Exception as e:
+        print(f"[AcademiaSD] Could not fetch dynamic list (using fallback): {e}")
+    
+    return fallback_models
+
+# ==============================================================================
+# DEFINICIÓN DEL NODO
+# ==============================================================================
+
+class AcademiaSD_Gemini_Node:
+    def __init__(self):
+        pass
+    
+    @classmethod
+    def INPUT_TYPES(s):
+        # AQUÍ OCURRE LA MAGIA: Cargamos la lista dinámica
+        DYNAMIC_MODELS = get_dynamic_model_list()
 
         return {
             "required": {
                 "api_key": ("STRING", {"multiline": False, "default": "", "placeholder": "Leave empty to use gemini_api_key.txt"}),
-                "model_selector": (ALL_MODELS, {"default": "models/gemini-2.0-flash"}),
+                
+                # Usamos la lista que acabamos de obtener
+                "model_selector": (DYNAMIC_MODELS, {"default": DYNAMIC_MODELS[0] if DYNAMIC_MODELS else ""}),
                 
                 "prefix_prompt": ("STRING", {
                     "multiline": True, 
@@ -75,7 +143,6 @@ class AcademiaSD_Gemini_Node:
                     "default": "Describe this image...", 
                 }),
 
-                # HE ACTUALIZADO EL SUFIJO POR DEFECTO PARA PEDIR EL NEGATIVO
                 "suffix_prompt": ("STRING", {
                     "multiline": True, 
                     "default": ". Write the positive prompt first. Then, add the separator '---NEGATIVE---' followed by a detailed negative prompt (things to avoid). Do not output reasoning.",
@@ -86,7 +153,6 @@ class AcademiaSD_Gemini_Node:
             }
         }
 
-    # AHORA TENEMOS 2 SALIDAS DE TEXTO
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("positive_prompt", "negative_prompt")
     FUNCTION = "generate_content"
@@ -100,28 +166,17 @@ class AcademiaSD_Gemini_Node:
             pil_images.append(img)
         return pil_images
 
+    # Reutilizamos la función de lectura para el momento de ejecución también
     def get_api_key(self, provided_key):
         key = provided_key.strip()
         if key and "AIza" in key:
             return key
-        try:
-            current_dir = os.path.dirname(os.path.realpath(__file__))
-            key_file_path = os.path.join(current_dir, "gemini_api_key.txt")
-            if os.path.exists(key_file_path):
-                with open(key_file_path, 'r', encoding='utf-8') as f:
-                    file_key = f.read().strip()
-                    if "AIza" in file_key:
-                        print(f"[AcademiaSD] API Key loaded from: {key_file_path}")
-                        return file_key
-        except Exception as e:
-            print(f"[AcademiaSD] Error reading key file: {e}")
-            pass
-        return None
+        return get_api_key_from_file()
 
     def generate_content(self, api_key, model_selector, prefix_prompt, main_prompt, suffix_prompt, image=None):
         if not GENAI_AVAILABLE:
             msg = "Error: 'google-generativeai' library not installed."
-            return {"ui": {"text": [msg]}, "result": (msg, "")} # Devuelve 2 valores
+            return {"ui": {"text": [msg]}, "result": (msg, "")}
         
         valid_api_key = self.get_api_key(api_key)
         if not valid_api_key:
@@ -156,27 +211,23 @@ class AcademiaSD_Gemini_Node:
             response = model.generate_content(inputs)
             full_text = response.text
             
-            # --- LÓGICA DE SEPARACIÓN (SPLIT) ---
             separator = "---NEGATIVE---"
-            
             if separator in full_text:
                 parts = full_text.split(separator)
                 pos_prompt = parts[0].strip()
                 neg_prompt = parts[1].strip()
             else:
-                # Si la IA olvida el separador, todo va al positivo y el negativo se queda vacío
                 pos_prompt = full_text.strip()
                 neg_prompt = ""
 
-            # En la UI mostramos el texto completo para ver qué ha hecho la IA
-            # Pero devolvemos los textos separados a los nodos siguientes
             return {"ui": {"text": [full_text]}, "result": (pos_prompt, neg_prompt)}
 
         except Exception as e:
             error_msg = str(e)
             diagnosis = f"❌ ERROR WITH MODEL '{model_to_use}':\n{error_msg}"
+            
             if "404" in error_msg:
-                diagnosis += "\n\n(Tip: Model not found or access denied)"
+                diagnosis += "\n\n(Tip: The model name might have changed or access revoked)"
             
             return {"ui": {"text": [diagnosis]}, "result": (diagnosis, "")}
 
