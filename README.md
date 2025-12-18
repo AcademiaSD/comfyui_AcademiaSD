@@ -10,6 +10,7 @@ Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
 Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
 
 ### - Gemini Vision 1.1.2
+Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
 Dataset captions included
 
 
