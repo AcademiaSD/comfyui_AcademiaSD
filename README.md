@@ -8,3 +8,7 @@ Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
 
 ### - Bypass nodes by value
 Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
+
+### - Gemini Vision
+Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
+
