@@ -1760,42 +1760,6 @@
       "bgcolor": "#353"
     },
     {
-      "id": 349,
-      "type": "PrimitiveFloat",
-      "pos": [
-        -309.6119554042783,
-        1488.8276732305333
-      ],
-      "size": [
-        210,
-        58
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 4,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "FLOAT",
-          "type": "FLOAT",
-          "links": [
-            724
-          ]
-        }
-      ],
-      "title": "Denoise",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.5.1",
-        "Node name for S&R": "PrimitiveFloat"
-      },
-      "widgets_values": [
-        0
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
       "id": 212,
       "type": "TextEncodeQwenImageEditPlus",
       "pos": [
@@ -1870,6 +1834,42 @@
       ],
       "color": "#232",
       "bgcolor": "#353"
+    },
+    {
+      "id": 349,
+      "type": "PrimitiveFloat",
+      "pos": [
+        -309.6119554042783,
+        1488.8276732305333
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            724
+          ]
+        }
+      ],
+      "title": "Denoise",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.5.1",
+        "Node name for S&R": "PrimitiveFloat"
+      },
+      "widgets_values": [
+        0.5
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
     },
     {
       "id": 343,
@@ -2283,10 +2283,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4376100102681535,
+      "scale": 0.7047752976369649,
       "offset": [
-        1280.2939178018576,
-        483.30536721046207
+        1424.8844936534704,
+        -321.3779276874149
       ]
     },
     "frontendVersion": "1.34.9",
