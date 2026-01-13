@@ -115,7 +115,7 @@
         "pinned": true
       },
       "order": 45,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "images",
@@ -171,7 +171,7 @@
         "pinned": true
       },
       "order": 52,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -228,7 +228,7 @@
         "pinned": true
       },
       "order": 33,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "input",
@@ -564,7 +564,7 @@
         "pinned": true
       },
       "order": 3,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -857,13 +857,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "LTX-2_00046-audio.mp4",
+            "filename": "LTX-2_00050-audio.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/h264-mp4",
             "frame_rate": 25,
-            "workflow": "LTX-2_00046.png",
-            "fullpath": "F:\\ComfyUI__windows_portable_new\\ComfyUI\\output\\LTX-2_00046-audio.mp4"
+            "workflow": "LTX-2_00050.png",
+            "fullpath": "F:\\ComfyUI__windows_portable_new\\ComfyUI\\output\\LTX-2_00050-audio.mp4"
           }
         }
       },
@@ -1323,6 +1323,12 @@
           "strength": 1,
           "strengthTwo": null
         },
+        {
+          "on": false,
+          "lora": "ltx-2-19b-distilled-lora-384.safetensors",
+          "strength": 1,
+          "strengthTwo": null
+        },
         {},
         ""
       ],
@@ -1400,7 +1406,7 @@
         "pinned": true
       },
       "order": 7,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1443,7 +1449,7 @@
         "pinned": true
       },
       "order": 8,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1489,7 +1495,7 @@
         "pinned": true
       },
       "order": 29,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "audio",
@@ -1539,7 +1545,7 @@
         "pinned": true
       },
       "order": 42,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "model",
@@ -1637,7 +1643,7 @@
         "pinned": true
       },
       "order": 10,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1682,7 +1688,7 @@
         "collapsed": true
       },
       "order": 11,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2062,7 +2068,7 @@
         }
       },
       "widgets_values": [
-        111111,
+        123456,
         "fixed"
       ],
       "color": "#232",
@@ -2083,7 +2089,7 @@
         "collapsed": true
       },
       "order": 13,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2125,7 +2131,7 @@
         "collapsed": true
       },
       "order": 14,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2170,7 +2176,7 @@
         "collapsed": true
       },
       "order": 44,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -2880,7 +2886,7 @@
         "secondTabWidth": 65
       },
       "widgets_values": [
-        111111,
+        123456,
         "fixed"
       ],
       "color": "#2a363b",
@@ -3859,7 +3865,7 @@
       ],
       "flags": {},
       "order": 56,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "samples",
@@ -3996,92 +4002,6 @@
       "bgcolor": "#535"
     },
     {
-      "id": 56,
-      "type": "Power Lora Loader (rgthree)",
-      "pos": [
-        -267.02712743951713,
-        3697.02712743952
-      ],
-      "size": [
-        410,
-        220
-      ],
-      "flags": {},
-      "order": 40,
-      "mode": 0,
-      "inputs": [
-        {
-          "dir": 3,
-          "name": "model",
-          "type": "MODEL",
-          "link": 245
-        },
-        {
-          "dir": 3,
-          "name": "clip",
-          "type": "CLIP",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "dir": 4,
-          "name": "MODEL",
-          "shape": 3,
-          "type": "MODEL",
-          "links": [
-            243
-          ]
-        },
-        {
-          "dir": 4,
-          "name": "CLIP",
-          "shape": 3,
-          "type": "CLIP",
-          "links": null
-        }
-      ],
-      "title": "Sampler 1 - Power Lora Loader (rgthree)",
-      "properties": {
-        "cnr_id": "rgthree-comfy",
-        "ver": "8ff50e4521881eca1fe26aec9615fc9362474931",
-        "Show Strengths": "Single Strength",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.2"
-        }
-      },
-      "widgets_values": [
-        {},
-        {
-          "type": "PowerLoraLoaderHeaderWidget"
-        },
-        {
-          "on": true,
-          "lora": "ltx-2-19b-ic-lora-detailer.safetensors",
-          "strength": 1,
-          "strengthTwo": null
-        },
-        {
-          "on": false,
-          "lora": "ltx-2-19b-lora-camera-control-dolly-left.safetensors",
-          "strength": 1,
-          "strengthTwo": null
-        },
-        {
-          "on": false,
-          "lora": "ltx-2-19b-distilled-lora-384.safetensors",
-          "strength": 1,
-          "strengthTwo": null
-        },
-        {},
-        ""
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 161,
       "type": "DualCLIPLoader",
       "pos": [
@@ -4186,46 +4106,6 @@
       "bgcolor": "#353"
     },
     {
-      "id": 55,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        -1000,
-        3150
-      ],
-      "size": [
-        286.83439753394146,
-        58
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "I2V ON/OFF",
-      "properties": {
-        "matchColors": "blue",
-        "matchTitle": "I2V",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 11,
       "type": "LTXVImgToVideoInplace",
       "pos": [
@@ -4240,7 +4120,7 @@
         "collapsed": true
       },
       "order": 70,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -4306,7 +4186,7 @@
         "collapsed": true
       },
       "order": 62,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -4576,7 +4456,7 @@
         "collapsed": false
       },
       "order": 50,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "audio",
@@ -4625,7 +4505,7 @@
         58
       ],
       "flags": {},
-      "order": 24,
+      "order": 23,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4664,7 +4544,7 @@
         106
       ],
       "flags": {},
-      "order": 25,
+      "order": 24,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4690,6 +4570,46 @@
       ],
       "color": "#323",
       "bgcolor": "#535"
+    },
+    {
+      "id": 55,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        -1000,
+        3150
+      ],
+      "size": [
+        286.83439753394146,
+        58
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "I2V ON/OFF",
+      "properties": {
+        "matchColors": "blue",
+        "matchTitle": "I2V",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
     },
     {
       "id": 35,
@@ -4754,6 +4674,92 @@
       },
       "widgets_values": [
         "ltx-2-19b-distilled-fp8.safetensors"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 56,
+      "type": "Power Lora Loader (rgthree)",
+      "pos": [
+        -267.02712743951713,
+        3697.02712743952
+      ],
+      "size": [
+        410,
+        220
+      ],
+      "flags": {},
+      "order": 40,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "model",
+          "type": "MODEL",
+          "link": 245
+        },
+        {
+          "dir": 3,
+          "name": "clip",
+          "type": "CLIP",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "name": "MODEL",
+          "shape": 3,
+          "type": "MODEL",
+          "links": [
+            243
+          ]
+        },
+        {
+          "dir": 4,
+          "name": "CLIP",
+          "shape": 3,
+          "type": "CLIP",
+          "links": null
+        }
+      ],
+      "title": "Sampler 1 - Power Lora Loader (rgthree)",
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "8ff50e4521881eca1fe26aec9615fc9362474931",
+        "Show Strengths": "Single Strength",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        {},
+        {
+          "type": "PowerLoraLoaderHeaderWidget"
+        },
+        {
+          "on": true,
+          "lora": "ltx-2-19b-ic-lora-detailer.safetensors",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {
+          "on": false,
+          "lora": "ltx-2-19b-lora-camera-control-dolly-left.safetensors",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {
+          "on": false,
+          "lora": "None",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {},
+        ""
       ],
       "color": "#323",
       "bgcolor": "#535"
@@ -5682,10 +5688,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5445000000000061,
+      "scale": 0.49500000000000555,
       "offset": [
-        1527.8966580344718,
-        -2942.4538520984743
+        1373.7706404028017,
+        -2832.848895273147
       ]
     },
     "frontendVersion": "1.35.9",
