@@ -1,7 +1,7 @@
 {
-  "id": "613f29fd-9bb8-4306-b3c8-3cfad70d135e",
+  "id": "6db96ee0-f631-4fa3-87d9-f395d5fb685d",
   "revision": 0,
-  "last_node_id": 175,
+  "last_node_id": 176,
   "last_link_id": 274,
   "nodes": [
     {
@@ -20,7 +20,7 @@
         "pinned": true
       },
       "order": 45,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "images",
@@ -76,7 +76,7 @@
         "pinned": true
       },
       "order": 33,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "input",
@@ -129,8 +129,8 @@
       },
       "widgets_values": [
         "scale dimensions",
-        762,
-        827,
+        1024,
+        768,
         "center",
         "lanczos"
       ],
@@ -355,7 +355,7 @@
         "pinned": true
       },
       "order": 1,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -391,7 +391,7 @@
         "secondTabWidth": 65
       },
       "widgets_values": [
-        "careto_naranja.png",
+        "Flux2_00095_.png",
         "image"
       ],
       "color": "#232",
@@ -491,6 +491,7 @@
         "cnr_id": "comfyui-workflow-encrypt",
         "ver": "1.0.0",
         "Node name for S&R": "VHS_VideoCombine",
+        "aux_id": "Kosinkadink/ComfyUI-VideoHelperSuite",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -512,13 +513,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "LTX-2_00077-audio.mp4",
+            "filename": "LTX-2_00078-audio.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/h264-mp4",
             "frame_rate": 25,
-            "workflow": "LTX-2_00077.png",
-            "fullpath": "F:\\ComfyUI__windows_portable_new\\ComfyUI\\output\\LTX-2_00077-audio.mp4"
+            "workflow": "LTX-2_00078.png",
+            "fullpath": "F:\\ComfyUI__windows_portable_new\\ComfyUI\\output\\LTX-2_00078-audio.mp4"
           }
         }
       },
@@ -755,7 +756,7 @@
         "pinned": true
       },
       "order": 4,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -770,6 +771,7 @@
         "cnr_id": "ComfyUI-MelBandRoFormer",
         "ver": "b40e263224778ec417114d91d8b3b39934e30de5",
         "Node name for S&R": "MelBandRoFormerModelLoader",
+        "aux_id": "kijai/ComfyUI-MelBandRoFormer",
         "ue_properties": {
           "widget_ue_connectable": {},
           "version": "7.5.2",
@@ -798,7 +800,7 @@
         "pinned": true
       },
       "order": 5,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -844,7 +846,7 @@
         "pinned": true
       },
       "order": 37,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "audio",
@@ -894,7 +896,7 @@
         "pinned": true
       },
       "order": 49,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "model",
@@ -925,6 +927,7 @@
         "cnr_id": "ComfyUI-MelBandRoFormer",
         "ver": "b40e263224778ec417114d91d8b3b39934e30de5",
         "Node name for S&R": "MelBandRoFormerSampler",
+        "aux_id": "kijai/ComfyUI-MelBandRoFormer",
         "ue_properties": {
           "widget_ue_connectable": {},
           "version": "7.5.2",
@@ -992,7 +995,7 @@
         "collapsed": true
       },
       "order": 7,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1012,6 +1015,7 @@
         "cnr_id": "comfyui-workflow-encrypt",
         "ver": "1.0.0",
         "Node name for S&R": "CreateShapeMask",
+        "aux_id": "kijai/ComfyUI-KJNodes",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -1092,7 +1096,7 @@
         "collapsed": true
       },
       "order": 9,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1134,7 +1138,7 @@
         "collapsed": true
       },
       "order": 10,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1179,7 +1183,7 @@
         "collapsed": true
       },
       "order": 44,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -1225,9 +1229,7 @@
         "secondTabOffset": 80,
         "secondTabWidth": 65
       },
-      "widgets_values": [
-        "width: 762, height: 827\n batch size: 1"
-      ],
+      "widgets_values": [],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
     },
@@ -1271,7 +1273,7 @@
         }
       },
       "widgets_values": [
-        827,
+        768,
         "fixed"
       ],
       "color": "#232",
@@ -1317,7 +1319,7 @@
         }
       },
       "widgets_values": [
-        762,
+        1024,
         "fixed"
       ],
       "color": "#232",
@@ -1599,9 +1601,7 @@
         "secondTabOffset": 80,
         "secondTabWidth": 65
       },
-      "widgets_values": [
-        "width: 381, height: 414\n batch size: 1"
-      ],
+      "widgets_values": [],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
     },
@@ -1953,86 +1953,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 76,
-      "type": "ImpactSwitch",
-      "pos": [
-        -1100,
-        4280
-      ],
-      "size": [
-        270,
-        122
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 60,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "input1",
-          "shape": 7,
-          "type": "*",
-          "link": 110
-        },
-        {
-          "name": "select",
-          "type": "INT",
-          "widget": {
-            "name": "select"
-          },
-          "link": 113
-        },
-        {
-          "name": "input2",
-          "type": "LATENT",
-          "link": 112
-        },
-        {
-          "name": "input3",
-          "type": "LATENT",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "label": "LATENT",
-          "name": "selected_value",
-          "type": "*",
-          "links": [
-            111
-          ]
-        },
-        {
-          "name": "selected_label",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "selected_index",
-          "type": "INT",
-          "links": []
-        }
-      ],
-      "title": "Switch Audio Latent (Any)",
-      "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
-        "Node name for S&R": "ImpactSwitch",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.2"
-        }
-      },
-      "widgets_values": [
-        1,
-        false
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
       "id": 79,
       "type": "ImpactSwitch",
       "pos": [
@@ -2100,6 +2020,7 @@
         "cnr_id": "comfyui-workflow-encrypt",
         "ver": "1.0.0",
         "Node name for S&R": "ImpactSwitch",
+        "aux_id": "ltdrdata/ComfyUI-Impact-Pack",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2201,6 +2122,7 @@
         "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
         "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
         "Node name for S&R": "CR Float To Integer",
+        "aux_id": "Suzie1/ComfyUI_Comfyroll_CustomNodes",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2278,101 +2200,7 @@
         "cnr_id": "comfyui-workflow-encrypt",
         "ver": "1.0.0",
         "Node name for S&R": "ImpactSwitch",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.2"
-        }
-      },
-      "widgets_values": [
-        1,
-        false
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
-      "id": 158,
-      "type": "ImpactSwitch",
-      "pos": [
-        -920,
-        4440
-      ],
-      "size": [
-        210,
-        182
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 51,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "input1",
-          "shape": 7,
-          "type": "*",
-          "link": 226
-        },
-        {
-          "name": "select",
-          "type": "INT",
-          "widget": {
-            "name": "select"
-          },
-          "link": 227
-        },
-        {
-          "name": "input2",
-          "type": "INT",
-          "link": 225
-        },
-        {
-          "name": "input3",
-          "type": "INT",
-          "link": null
-        },
-        {
-          "name": "input4",
-          "type": "INT",
-          "link": null
-        },
-        {
-          "name": "input5",
-          "type": "INT",
-          "link": null
-        },
-        {
-          "name": "input6",
-          "type": "INT",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "label": "INT",
-          "name": "selected_value",
-          "type": "*",
-          "links": [
-            228
-          ]
-        },
-        {
-          "name": "selected_label",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "selected_index",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "title": "Switch  Height (Any)",
-      "properties": {
-        "cnr_id": "comfyui-impact-pack",
-        "ver": "8.28.2",
-        "Node name for S&R": "ImpactSwitch",
+        "aux_id": "ltdrdata/ComfyUI-Impact-Pack",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2458,6 +2286,7 @@
         "cnr_id": "comfyui-impact-pack",
         "ver": "8.28.2",
         "Node name for S&R": "ImpactSwitch",
+        "aux_id": "ltdrdata/ComfyUI-Impact-Pack",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2512,6 +2341,7 @@
         "cnr_id": "ComfyUI_Comfyroll_CustomNodes",
         "ver": "d78b780ae43fcf8c6b7c6505e6ffb4584281ceca",
         "Node name for S&R": "CR Float To Integer",
+        "aux_id": "Suzie1/ComfyUI_Comfyroll_CustomNodes",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2561,6 +2391,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2568,7 +2399,7 @@
         }
       },
       "widgets_values": [
-        827
+        768
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
@@ -2612,6 +2443,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -2619,57 +2451,8 @@
         }
       },
       "widgets_values": [
-        762
+        1024
       ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
-      "id": 65,
-      "type": "SetLatentNoiseMask",
-      "pos": [
-        140,
-        4600
-      ],
-      "size": [
-        188.1373046875,
-        46
-      ],
-      "flags": {},
-      "order": 58,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "samples",
-          "type": "LATENT",
-          "link": 92
-        },
-        {
-          "name": "mask",
-          "type": "MASK",
-          "link": 171
-        }
-      ],
-      "outputs": [
-        {
-          "name": "LATENT",
-          "type": "LATENT",
-          "links": [
-            112
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.7.0",
-        "Node name for S&R": "SetLatentNoiseMask",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.5.2",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
     },
@@ -2688,7 +2471,7 @@
         "collapsed": true
       },
       "order": 71,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -2754,7 +2537,7 @@
         "collapsed": true
       },
       "order": 63,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -2943,7 +2726,7 @@
         "collapsed": false
       },
       "order": 55,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "audio",
@@ -2979,46 +2762,6 @@
       "widgets_values": [],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
-    },
-    {
-      "id": 55,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        -1000,
-        3150
-      ],
-      "size": [
-        286.83439753394146,
-        58
-      ],
-      "flags": {},
-      "order": 17,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "I2V ON/OFF",
-      "properties": {
-        "matchColors": "blue",
-        "matchTitle": "I2V",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
     },
     {
       "id": 28,
@@ -3115,8 +2858,8 @@
       "flags": {
         "pinned": true
       },
-      "order": 18,
-      "mode": 0,
+      "order": 17,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -3340,7 +3083,7 @@
         60
       ],
       "flags": {},
-      "order": 19,
+      "order": 18,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -3433,6 +3176,7 @@
         "cnr_id": "rgthree-comfy",
         "ver": "8ff50e4521881eca1fe26aec9615fc9362474931",
         "Show Strengths": "Single Strength",
+        "aux_id": "rgthree/rgthree-comfy",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -3519,6 +3263,7 @@
         "cnr_id": "rgthree-comfy",
         "ver": "8ff50e4521881eca1fe26aec9615fc9362474931",
         "Show Strengths": "Single Strength",
+        "aux_id": "rgthree/rgthree-comfy",
         "ue_properties": {
           "widget_ue_connectable": {},
           "input_ue_unconnectable": {},
@@ -3566,7 +3311,7 @@
         131.59235172198441
       ],
       "flags": {},
-      "order": 20,
+      "order": 19,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -3583,7 +3328,17 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.8.2",
-        "Node name for S&R": "DualCLIPLoader"
+        "Node name for S&R": "DualCLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "clip_name1": true,
+            "clip_name2": true,
+            "type": true,
+            "device": true
+          },
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
       },
       "widgets_values": [
         "gemma_3_12B_it_fp8_e4m3fn.safetensors",
@@ -3606,7 +3361,7 @@
         106
       ],
       "flags": {},
-      "order": 21,
+      "order": 20,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -3623,7 +3378,17 @@
       "properties": {
         "cnr_id": "comfyui-kjnodes",
         "ver": "16cbf238a74cac17082d6888bc8934899c850645",
-        "Node name for S&R": "VAELoaderKJ"
+        "Node name for S&R": "VAELoaderKJ",
+        "aux_id": "kijai/ComfyUI-KJNodes",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "vae_name": true,
+            "device": true,
+            "weight_dtype": true
+          },
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
       },
       "widgets_values": [
         "LTX2_audio_vae_bf16.safetensors",
@@ -3647,7 +3412,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 22,
+      "order": 21,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -3698,100 +3463,6 @@
       "bgcolor": "#535"
     },
     {
-      "id": 167,
-      "type": "VantageGGUFLoader",
-      "pos": [
-        -271.8867588367198,
-        3043.2193601406343
-      ],
-      "size": [
-        404.7890019624899,
-        58
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            254,
-            255
-          ]
-        }
-      ],
-      "properties": {
-        "aux_id": "vantagewithai/Vantage-Nodes",
-        "ver": "827eb2c553ae48ab525f49e7e23b92862940867c",
-        "Node name for S&R": "VantageGGUFLoader",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.2"
-        }
-      },
-      "widgets_values": [
-        "ltx-2-19b-distilled_Q4_K_M.gguf"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
-      "id": 31,
-      "type": "CLIPTextEncode",
-      "pos": [
-        170,
-        3220
-      ],
-      "size": [
-        440,
-        320
-      ],
-      "flags": {},
-      "order": 38,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 231
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": [
-            41
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.56",
-        "Node name for S&R": "CLIPTextEncode",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.5.2",
-          "input_ue_unconnectable": {}
-        },
-        "enableTabs": false,
-        "tabWidth": 65,
-        "tabXOffset": 10,
-        "hasSecondTab": false,
-        "secondTabText": "Send Back",
-        "secondTabOffset": 80,
-        "secondTabWidth": 65
-      },
-      "widgets_values": [
-        "A cinematic scene of a man talking"
-      ],
-      "color": "#232",
-      "bgcolor": "#353"
-    },
-    {
       "id": 170,
       "type": "FL_IntToFloat",
       "pos": [
@@ -3831,6 +3502,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "int_value": true
@@ -3898,6 +3570,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_Math",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "A": true,
@@ -3958,6 +3631,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "int_value": true
@@ -4012,6 +3686,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "int_value": true
@@ -4079,6 +3754,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_Math",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "A": true,
@@ -4138,6 +3814,7 @@
         "cnr_id": "comfyui_fill-nodes",
         "ver": "2.2.3",
         "Node name for S&R": "FL_IntToFloat",
+        "aux_id": "filliptm/ComfyUI_Fill-Nodes",
         "ue_properties": {
           "widget_ue_connectable": {
             "int_value": true
@@ -4160,13 +3837,13 @@
         3210
       ],
       "size": [
-        210,
+        248.15234375,
         68.85964862615401
       ],
       "flags": {
         "pinned": true
       },
-      "order": 24,
+      "order": 22,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4209,7 +3886,7 @@
         3330
       ],
       "size": [
-        210.58390889115628,
+        226.548828125,
         154
       ],
       "flags": {
@@ -4277,13 +3954,13 @@
         3530
       ],
       "size": [
-        216.22250528231245,
+        248.15234375,
         58
       ],
       "flags": {
         "pinned": true
       },
-      "order": 25,
+      "order": 23,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4332,7 +4009,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 26,
+      "order": 24,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4436,7 +4113,7 @@
         "collapsed": true
       },
       "order": 52,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -4489,7 +4166,7 @@
         58
       ],
       "flags": {},
-      "order": 27,
+      "order": 25,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -4508,7 +4185,14 @@
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.8.2",
-        "Node name for S&R": "VAELoader"
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "vae_name": true
+          },
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
       },
       "widgets_values": [
         "LTX2_video_vae_bf16.safetensors"
@@ -4627,6 +4311,7 @@
         "cnr_id": "comfyui-frame-interpolation",
         "ver": "1.0.7",
         "Node name for S&R": "RIFE VFI",
+        "aux_id": "Fannovel16/ComfyUI-Frame-Interpolation",
         "ue_properties": {
           "widget_ue_connectable": {
             "multiplier": true
@@ -4654,7 +4339,7 @@
       ],
       "size": [
         1020,
-        1438.909090909091
+        1257.090909090909
       ],
       "flags": {},
       "order": 80,
@@ -4703,6 +4388,7 @@
         "cnr_id": "comfyui-videohelpersuite",
         "ver": "8e4d79471bf1952154768e8435a9300077b534fa",
         "Node name for S&R": "VHS_VideoCombine",
+        "aux_id": "Kosinkadink/ComfyUI-VideoHelperSuite",
         "ue_properties": {
           "widget_ue_connectable": {
             "frame_rate": true,
@@ -4748,11 +4434,237 @@
       "bgcolor": "#335"
     },
     {
+      "id": 76,
+      "type": "ImpactSwitch",
+      "pos": [
+        -1100,
+        4280
+      ],
+      "size": [
+        270,
+        122
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 60,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input1",
+          "shape": 7,
+          "type": "*",
+          "link": 110
+        },
+        {
+          "name": "select",
+          "type": "INT",
+          "widget": {
+            "name": "select"
+          },
+          "link": 113
+        },
+        {
+          "name": "input2",
+          "type": "LATENT",
+          "link": 112
+        },
+        {
+          "name": "input3",
+          "type": "LATENT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "label": "LATENT",
+          "name": "selected_value",
+          "type": "*",
+          "links": [
+            111
+          ]
+        },
+        {
+          "name": "selected_label",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "selected_index",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "title": "Switch Audio Latent (Any)",
+      "properties": {
+        "cnr_id": "comfyui-workflow-encrypt",
+        "ver": "1.0.0",
+        "Node name for S&R": "ImpactSwitch",
+        "aux_id": "ltdrdata/ComfyUI-Impact-Pack",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        1,
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 158,
+      "type": "ImpactSwitch",
+      "pos": [
+        -920,
+        4440
+      ],
+      "size": [
+        210,
+        182
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 51,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input1",
+          "shape": 7,
+          "type": "*",
+          "link": 226
+        },
+        {
+          "name": "select",
+          "type": "INT",
+          "widget": {
+            "name": "select"
+          },
+          "link": 227
+        },
+        {
+          "name": "input2",
+          "type": "INT",
+          "link": 225
+        },
+        {
+          "name": "input3",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "input4",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "input5",
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "input6",
+          "type": "INT",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "label": "INT",
+          "name": "selected_value",
+          "type": "*",
+          "links": [
+            228
+          ]
+        },
+        {
+          "name": "selected_label",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "selected_index",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "title": "Switch  Height (Any)",
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "8.28.2",
+        "Node name for S&R": "ImpactSwitch",
+        "aux_id": "ltdrdata/ComfyUI-Impact-Pack",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        1,
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 65,
+      "type": "SetLatentNoiseMask",
+      "pos": [
+        140,
+        4600
+      ],
+      "size": [
+        200,
+        46
+      ],
+      "flags": {},
+      "order": 58,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 92
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 171
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            112
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.7.0",
+        "Node name for S&R": "SetLatentNoiseMask",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
       "id": 175,
       "type": "LTXVSpatioTemporalTiledVAEDecode",
       "pos": [
-        390.92390248113884,
-        4653.504217927962
+        399.40585484858843,
+        4656.331535383778
       ],
       "size": [
         349.0142578125,
@@ -4786,9 +4698,22 @@
         }
       ],
       "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
+        "cnr_id": "ComfyUI-LTXVideo",
         "ver": "1.0.0",
-        "Node name for S&R": "LTXVSpatioTemporalTiledVAEDecode"
+        "Node name for S&R": "LTXVSpatioTemporalTiledVAEDecode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "spatial_tiles": true,
+            "spatial_overlap": true,
+            "temporal_tile_length": true,
+            "temporal_overlap": true,
+            "last_frame_fix": true,
+            "working_device": true,
+            "working_dtype": true
+          },
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        }
       },
       "widgets_values": [
         4,
@@ -4798,6 +4723,140 @@
         false,
         "auto",
         "auto"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 167,
+      "type": "VantageGGUFLoader",
+      "pos": [
+        -271.8867588367198,
+        3043.2193601406343
+      ],
+      "size": [
+        404.7890019624899,
+        58
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            254,
+            255
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "vantagewithai/Vantage-Nodes",
+        "ver": "827eb2c553ae48ab525f49e7e23b92862940867c",
+        "Node name for S&R": "VantageGGUFLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.2"
+        }
+      },
+      "widgets_values": [
+        "ltx-2-19b-distilled_Q4_K_M.gguf"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 55,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        -1000,
+        3150
+      ],
+      "size": [
+        286.83439753394146,
+        58
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "I2V ON/OFF",
+      "properties": {
+        "matchColors": "blue",
+        "matchTitle": "I2V",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 31,
+      "type": "CLIPTextEncode",
+      "pos": [
+        170,
+        3220
+      ],
+      "size": [
+        440,
+        320
+      ],
+      "flags": {},
+      "order": 38,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 231
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            41
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.56",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        },
+        "enableTabs": false,
+        "tabWidth": 65,
+        "tabXOffset": 10,
+        "hasSecondTab": false,
+        "secondTabText": "Send Back",
+        "secondTabOffset": 80,
+        "secondTabWidth": 65
+      },
+      "widgets_values": [
+        "a man singing"
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -5726,13 +5785,13 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.4950000000000189,
+      "scale": 0.45,
       "offset": [
-        1847.4201939534942,
-        -3138.8413278441467
+        1743.3333333333335,
+        -2296.666666666667
       ]
     },
-    "frontendVersion": "1.36.14",
+    "frontendVersion": "1.35.9",
     "workflowRendererVersion": "LG",
     "ue_links": [],
     "links_added_by_ue": [],
