@@ -2,7 +2,7 @@
   "id": "c704b051-17b0-428d-ad08-dded148e4026",
   "revision": 0,
   "last_node_id": 55,
-  "last_link_id": 87,
+  "last_link_id": 94,
   "nodes": [
     {
       "id": 46,
@@ -408,12 +408,12 @@
           {
             "name": "A",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00001_.png&type=temp&subfolder=&rand=0.1286678604334388"
+            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00001_.png&type=temp&subfolder=&rand=0.17935297658591332"
           },
           {
             "name": "B",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00002_.png&type=temp&subfolder=&rand=0.9461290496705156"
+            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00002_.png&type=temp&subfolder=&rand=0.12925133559456137"
           }
         ]
       ],
@@ -516,116 +516,6 @@
       "shape": 2
     },
     {
-      "id": 9,
-      "type": "SaveImage",
-      "pos": [
-        378.9651014919775,
-        -73.88742343429585
-      ],
-      "size": [
-        816.2316141398865,
-        982.9048315548077
-      ],
-      "flags": {},
-      "order": 18,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "images",
-          "type": "IMAGE",
-          "link": 16
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.73",
-        "Node name for S&R": "SaveImage",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "filename_prefix": true
-          },
-          "version": "7.5.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "Z-Image"
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
-    },
-    {
-      "id": 29,
-      "type": "Power Lora Loader (rgthree)",
-      "pos": [
-        -773.3275102586691,
-        564.8357482782964
-      ],
-      "size": [
-        333.86402806007885,
-        118
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [
-        {
-          "dir": 3,
-          "name": "model",
-          "type": "MODEL",
-          "link": 86
-        },
-        {
-          "dir": 3,
-          "name": "clip",
-          "type": "CLIP",
-          "link": 87
-        }
-      ],
-      "outputs": [
-        {
-          "dir": 4,
-          "name": "MODEL",
-          "shape": 3,
-          "type": "MODEL",
-          "links": [
-            67
-          ]
-        },
-        {
-          "dir": 4,
-          "name": "CLIP",
-          "shape": 3,
-          "type": "CLIP",
-          "links": [
-            57,
-            58
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "rgthree-comfy",
-        "ver": "eadc24ecc8bfc3c80fcc50724c0ebe74489f255b",
-        "Show Strengths": "Single Strength",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
-        }
-      },
-      "widgets_values": [
-        {},
-        {
-          "type": "PowerLoraLoaderHeaderWidget"
-        },
-        {},
-        ""
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 13,
       "type": "EmptySD3LatentImage",
       "pos": [
@@ -688,48 +578,6 @@
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
-    },
-    {
-      "id": 17,
-      "type": "VAELoader",
-      "pos": [
-        -773.3275102586691,
-        457.4620998769114
-      ],
-      "size": [
-        334.8219232141096,
-        58.620174837646346
-      ],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "VAE",
-          "type": "VAE",
-          "links": [
-            45
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.73",
-        "Node name for S&R": "VAELoader",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "vae_name": true
-          },
-          "version": "7.5.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "z-image_vae.safetensors"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
     },
     {
       "id": 8,
@@ -837,7 +685,7 @@
         82
       ],
       "flags": {},
-      "order": 3,
+      "order": 2,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -880,7 +728,7 @@
         82
       ],
       "flags": {},
-      "order": 4,
+      "order": 3,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -912,43 +760,119 @@
       "bgcolor": "#353"
     },
     {
-      "id": 16,
-      "type": "UNETLoader",
+      "id": 17,
+      "type": "VAELoader",
       "pos": [
         -773.3275102586691,
-        36.52804253173095
+        457.4620998769114
       ],
       "size": [
-        339.91929385520126,
-        82
+        334.8219232141096,
+        58.620174837646346
       ],
       "flags": {},
-      "order": 5,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
         {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": []
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            45
+          ]
         }
       ],
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.3.73",
-        "Node name for S&R": "UNETLoader",
+        "Node name for S&R": "VAELoader",
         "ue_properties": {
           "widget_ue_connectable": {
-            "unet_name": true,
-            "weight_dtype": true
+            "vae_name": true
           },
           "version": "7.5.1",
           "input_ue_unconnectable": {}
         }
       },
       "widgets_values": [
-        "z_image_bf16.safetensors",
-        "default"
+        "ae.safetensors"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 29,
+      "type": "Power Lora Loader (rgthree)",
+      "pos": [
+        -773.3275102586691,
+        564.8357482782964
+      ],
+      "size": [
+        333.86402806007885,
+        142
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "model",
+          "type": "MODEL",
+          "link": 91
+        },
+        {
+          "dir": 3,
+          "name": "clip",
+          "type": "CLIP",
+          "link": 94
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "name": "MODEL",
+          "shape": 3,
+          "type": "MODEL",
+          "links": [
+            67
+          ]
+        },
+        {
+          "dir": 4,
+          "name": "CLIP",
+          "shape": 3,
+          "type": "CLIP",
+          "links": [
+            57,
+            58
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "eadc24ecc8bfc3c80fcc50724c0ebe74489f255b",
+        "Show Strengths": "Single Strength",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        {},
+        {
+          "type": "PowerLoraLoaderHeaderWidget"
+        },
+        {
+          "on": true,
+          "lora": "None",
+          "strength": 1,
+          "strengthTwo": null
+        },
+        {},
+        ""
       ],
       "color": "#323",
       "bgcolor": "#535"
@@ -965,7 +889,7 @@
         82
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -997,259 +921,44 @@
       "bgcolor": "#353"
     },
     {
-      "id": 53,
-      "type": "Fast Groups Bypasser (rgthree)",
+      "id": 9,
+      "type": "SaveImage",
       "pos": [
-        1213.9516221562947,
-        1163.2155653472744
-      ],
-      "size": [
-        286.83439753394146,
-        58
-      ],
-      "flags": {},
-      "order": 7,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "SeedVR2 Upscaler ON/OFF",
-      "properties": {
-        "matchColors": "blue",
-        "matchTitle": "SeedVR2",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 6,
-      "type": "CLIPTextEncode",
-      "pos": [
-        -395.9734080094699,
+        378.9651014919775,
         -73.88742343429585
       ],
       "size": [
-        417.1516633040519,
-        235.55330192450617
+        816.2316141398865,
+        982.9048315548077
       ],
       "flags": {},
-      "order": 14,
+      "order": 18,
       "mode": 0,
       "inputs": [
         {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 57
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
         }
       ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            4
-          ]
-        }
-      ],
-      "title": "CLIP Text Encode (Positive Prompt)",
+      "outputs": [],
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.3.73",
-        "Node name for S&R": "CLIPTextEncode",
+        "Node name for S&R": "SaveImage",
         "ue_properties": {
           "widget_ue_connectable": {
-            "text": true
+            "filename_prefix": true
           },
           "version": "7.5.1",
           "input_ue_unconnectable": {}
         }
       },
       "widgets_values": [
-        "Two young different looking beautiful Japanese women sit next to each other next to a piano, the woman on the left has dark contoured glossy lipstick, white glasses, short bobcut hair and and is wearing an elegant shiny dress and she looks serious, she has a beauty spot on her left cheek. The woman on the right has very long straight hair parted in the middle, she is very pale with freckles, a pink t-shirt with pokemon on it and she is smiling, she has a dark blue eyepatch."
+        "Z-Image"
       ],
-      "color": "#232",
-      "bgcolor": "#353"
-    },
-    {
-      "id": 7,
-      "type": "CLIPTextEncode",
-      "pos": [
-        -397.24284715883516,
-        204.50637099773118
-      ],
-      "size": [
-        413.37182977642874,
-        135.5754596073093
-      ],
-      "flags": {},
-      "order": 15,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 58
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            6
-          ]
-        }
-      ],
-      "title": "CLIP Text Encode (Negative Prompt)",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.73",
-        "Node name for S&R": "CLIPTextEncode",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "text": true
-          },
-          "version": "7.5.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "doll skin, doll face, plastic skin, busty, tann, tann skin, big breast, saggy chest, unexpressive, uncanny valley expression, expressionless, deformed face, deformed hands, deformed fingers, deformed bellybutton, deformed belly, perfect skin, deformed eyes, blurry eyes, ai-generated, 3d, 2d, anime, cartoon, poreless skin\n"
-      ],
-      "color": "#322",
-      "bgcolor": "#533"
-    },
-    {
-      "id": 18,
-      "type": "CLIPLoader",
-      "pos": [
-        -773.3275102586691,
-        298.6619472768916
-      ],
-      "size": [
-        338.40283680877945,
-        106
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.73",
-        "Node name for S&R": "CLIPLoader",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "clip_name": true,
-            "type": true,
-            "device": true
-          },
-          "version": "7.5.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "qwen_3_4b.safetensors",
-        "lumina2",
-        "cpu"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
-      "id": 40,
-      "type": "UnetLoaderGGUF",
-      "pos": [
-        -773.3275102586691,
-        -70.62588960367685
-      ],
-      "size": [
-        338.99125811768374,
-        58
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            86
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI-GGUF",
-        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
-        "Node name for S&R": "UnetLoaderGGUF"
-      },
-      "widgets_values": [
-        "z_image-Q8_0.gguf"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
-      "id": 38,
-      "type": "CLIPLoaderGGUF",
-      "pos": [
-        -773.3275102586691,
-        168.73566594570178
-      ],
-      "size": [
-        340.1658200327452,
-        82
-      ],
-      "flags": {},
-      "order": 10,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            87
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI-GGUF",
-        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
-        "Node name for S&R": "CLIPLoaderGGUF"
-      },
-      "widgets_values": [
-        "Qwen3-4B-UD-Q6_K_XL.gguf",
-        "lumina2"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
+      "color": "#223",
+      "bgcolor": "#335"
     },
     {
       "id": 3,
@@ -1323,7 +1032,7 @@
         }
       },
       "widgets_values": [
-        606877445095073,
+        461455337150695,
         "randomize",
         20,
         4,
@@ -1333,6 +1042,303 @@
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
+    },
+    {
+      "id": 16,
+      "type": "UNETLoader",
+      "pos": [
+        -773.3275102586691,
+        36.52804253173095
+      ],
+      "size": [
+        339.91929385520126,
+        82
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "UNETLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "unet_name": true,
+            "weight_dtype": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "z_image_bf16.safetensors",
+        "default"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 18,
+      "type": "CLIPLoader",
+      "pos": [
+        -773.3275102586691,
+        298.6619472768916
+      ],
+      "size": [
+        338.40283680877945,
+        106
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "clip_name": true,
+            "type": true,
+            "device": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "qwen_3_4b_fp8_mixed.safetensors",
+        "lumina2",
+        "cpu"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 38,
+      "type": "CLIPLoaderGGUF",
+      "pos": [
+        -773.3275102586691,
+        168.73566594570178
+      ],
+      "size": [
+        340.1658200327452,
+        82
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            94
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-GGUF",
+        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
+        "Node name for S&R": "CLIPLoaderGGUF"
+      },
+      "widgets_values": [
+        "Qwen3-4B-UD-Q6_K_XL.gguf",
+        "lumina2"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 40,
+      "type": "UnetLoaderGGUF",
+      "pos": [
+        -773.3275102586691,
+        -70.62588960367685
+      ],
+      "size": [
+        338.99125811768374,
+        58
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            91
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-GGUF",
+        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
+        "Node name for S&R": "UnetLoaderGGUF"
+      },
+      "widgets_values": [
+        "z_image-Q8_0.gguf"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -395.9734080094699,
+        -73.88742343429585
+      ],
+      "size": [
+        417.1516633040519,
+        235.55330192450617
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 57
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "a casual point and shoot photo of a female e-girl with grey and purple hair, wearing a skin thight outfit that covers all her skin,looking at the viewer , lying on side,amateur onlyfans photo, from fansly, dim lighting, plush toys, curvy, dim lighting, purple lighting, fairy lights, seductive smile with a direct intense gaze, no bare skin is visible due to the skin-suit"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -397.24284715883516,
+        204.50637099773118
+      ],
+      "size": [
+        413.37182977642874,
+        135.5754596073093
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Negative Prompt)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "doll skin, doll face, plastic skin, busty, tann, tann skin, big breast, saggy chest, unexpressive, uncanny valley expression, expressionless, deformed face, deformed hands, deformed fingers, deformed bellybutton, deformed belly, perfect skin, deformed eyes, blurry eyes, ai-generated, 3d, 2d, anime, cartoon, poreless skin, text, subtitles\n"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 53,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        1213.9516221562947,
+        1163.2155653472744
+      ],
+      "size": [
+        286.83439753394146,
+        58
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "SeedVR2 Upscaler ON/OFF",
+      "properties": {
+        "matchColors": "blue",
+        "matchTitle": "SeedVR2",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
     }
   ],
   "links": [
@@ -1521,7 +1527,7 @@
       "IMAGE"
     ],
     [
-      86,
+      91,
       40,
       0,
       29,
@@ -1529,7 +1535,7 @@
       "MODEL"
     ],
     [
-      87,
+      94,
       38,
       0,
       29,
@@ -1581,10 +1587,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7627768444385533,
+      "scale": 0.5730855330116875,
       "offset": [
-        907.0108895867129,
-        252.4548232909433
+        1242.892878651613,
+        299.99146883150144
       ]
     },
     "frontendVersion": "1.37.11",
