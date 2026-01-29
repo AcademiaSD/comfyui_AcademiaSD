@@ -1,0 +1,1600 @@
+{
+  "id": "c704b051-17b0-428d-ad08-dded148e4026",
+  "revision": 0,
+  "last_node_id": 55,
+  "last_link_id": 87,
+  "nodes": [
+    {
+      "id": 46,
+      "type": "SeedVR2LoadDiTModel",
+      "pos": [
+        1235.8079969764333,
+        -20.778224883652136
+      ],
+      "size": [
+        356.01170787138324,
+        202
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 0,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "torch_compile_args",
+          "shape": 7,
+          "type": "TORCH_COMPILE_ARGS",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SEEDVR2_DIT",
+          "type": "SEEDVR2_DIT",
+          "links": [
+            76
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "seedvr2_videoupscaler",
+        "ver": "690cc39379c1481159ddd451368dbf2295930fc6",
+        "Node name for S&R": "SeedVR2LoadDiTModel",
+        "aux_id": "ainvfx/ComfyUI-SeedVR2_VideoUpscaler",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "model": true,
+            "device": true,
+            "blocks_to_swap": true,
+            "swap_io_components": true,
+            "offload_device": true,
+            "cache_model": true,
+            "attention_mode": true
+          },
+          "version": "7.4",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "seedvr2_ema_7b_sharp-Q4_K_M.gguf",
+        "cuda:0",
+        32,
+        false,
+        "cpu",
+        false,
+        "sdpa"
+      ],
+      "color": "#323",
+      "bgcolor": "#535",
+      "shape": 2
+    },
+    {
+      "id": 49,
+      "type": "SeedVR2LoadVAEModel",
+      "pos": [
+        1236.7087735284324,
+        229.51559071890793
+      ],
+      "size": [
+        354.4421650942635,
+        298
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 1,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "torch_compile_args",
+          "shape": 7,
+          "type": "TORCH_COMPILE_ARGS",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SEEDVR2_VAE",
+          "type": "SEEDVR2_VAE",
+          "links": [
+            77
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "seedvr2_videoupscaler",
+        "ver": "690cc39379c1481159ddd451368dbf2295930fc6",
+        "Node name for S&R": "SeedVR2LoadVAEModel",
+        "aux_id": "ainvfx/ComfyUI-SeedVR2_VideoUpscaler",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "model": true,
+            "device": true,
+            "encode_tiled": true,
+            "encode_tile_size": true,
+            "encode_tile_overlap": true,
+            "decode_tiled": true,
+            "decode_tile_size": true,
+            "decode_tile_overlap": true,
+            "tile_debug": true,
+            "offload_device": true,
+            "cache_model": true
+          },
+          "version": "7.4",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "ema_vae_fp16.safetensors",
+        "cuda:0",
+        true,
+        1024,
+        128,
+        true,
+        1024,
+        128,
+        "false",
+        "cpu",
+        false
+      ],
+      "color": "#323",
+      "bgcolor": "#535",
+      "shape": 2
+    },
+    {
+      "id": 50,
+      "type": "easy cleanGpuUsed",
+      "pos": [
+        1244.2323385190623,
+        642.8452829425472
+      ],
+      "size": [
+        161.3404296875,
+        26
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 22,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "anything",
+          "type": "*",
+          "link": 73
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": [
+            74
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "125b3a4905ac9367f7aae5c2df67e2282f0a3d37",
+        "Node name for S&R": "easy cleanGpuUsed",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4"
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159",
+      "shape": 2
+    },
+    {
+      "id": 51,
+      "type": "easy clearCacheAll",
+      "pos": [
+        1440.0217089354057,
+        641.6081061637836
+      ],
+      "size": [
+        141.7896484375,
+        26
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 25,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "anything",
+          "type": "*",
+          "link": 74
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "125b3a4905ac9367f7aae5c2df67e2282f0a3d37",
+        "Node name for S&R": "easy clearCacheAll",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4"
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159",
+      "shape": 2
+    },
+    {
+      "id": 52,
+      "type": "SeedVR2VideoUpscaler",
+      "pos": [
+        1238.7515404751305,
+        695.8124771430091
+      ],
+      "size": [
+        347.36483223304083,
+        393.5890383929452
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 75
+        },
+        {
+          "name": "dit",
+          "type": "SEEDVR2_DIT",
+          "link": 76
+        },
+        {
+          "name": "vae",
+          "type": "SEEDVR2_VAE",
+          "link": 77
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            73,
+            78,
+            79
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "seedvr2_videoupscaler",
+        "ver": "690cc39379c1481159ddd451368dbf2295930fc6",
+        "Node name for S&R": "SeedVR2VideoUpscaler",
+        "aux_id": "ainvfx/ComfyUI-SeedVR2_VideoUpscaler",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "seed": true,
+            "resolution": true,
+            "max_resolution": true,
+            "batch_size": true,
+            "uniform_batch_size": true,
+            "color_correction": true,
+            "temporal_overlap": true,
+            "prepend_frames": true,
+            "input_noise_scale": true,
+            "latent_noise_scale": true,
+            "offload_device": true,
+            "enable_debug": true
+          },
+          "version": "7.4",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        4105349922,
+        "fixed",
+        4000,
+        4000,
+        1,
+        false,
+        "lab",
+        16,
+        0,
+        0,
+        0,
+        "cpu",
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159",
+      "shape": 2
+    },
+    {
+      "id": 54,
+      "type": "SaveImage",
+      "pos": [
+        1618.6374668995422,
+        -18.724142076705576
+      ],
+      "size": [
+        766.9297783434499,
+        904.3807450687298
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 78
+        }
+      ],
+      "outputs": [],
+      "title": "Save Image SeedVR2 Upscaled",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.76",
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        "qi_2512_SeedVR2_upscaled"
+      ],
+      "color": "#223",
+      "bgcolor": "#335",
+      "shape": 2
+    },
+    {
+      "id": 55,
+      "type": "Image Comparer (rgthree)",
+      "pos": [
+        2404.6977303968074,
+        -12.80354640831419
+      ],
+      "size": [
+        798.1349490748266,
+        901.6365746830202
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 24,
+      "mode": 4,
+      "inputs": [
+        {
+          "dir": 3,
+          "label": "BEFORE UPSCALE",
+          "name": "image_a",
+          "type": "IMAGE",
+          "link": 80
+        },
+        {
+          "dir": 3,
+          "label": "AFTER UPSCALE",
+          "name": "image_b",
+          "type": "IMAGE",
+          "link": 79
+        }
+      ],
+      "outputs": [],
+      "title": "BEFORE AFTER UPSCALE",
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "42e73c3c48e8268129a6a1ea6d9766913bfc5435",
+        "comparer_mode": "Slide",
+        "ue_properties": {
+          "version": "7.5.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        [
+          {
+            "name": "A",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00001_.png&type=temp&subfolder=&rand=0.1286678604334388"
+          },
+          {
+            "name": "B",
+            "selected": true,
+            "url": "/api/view?filename=rgthree.compare._temp_hrmad_00002_.png&type=temp&subfolder=&rand=0.9461290496705156"
+          }
+        ]
+      ],
+      "color": "#223",
+      "bgcolor": "#335",
+      "shape": 2
+    },
+    {
+      "id": 48,
+      "type": "easy clearCacheAll",
+      "pos": [
+        1436.6877110524667,
+        588.1112377834312
+      ],
+      "size": [
+        141.7896484375,
+        26
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 20,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "anything",
+          "type": "*",
+          "link": 72
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": [
+            75
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "125b3a4905ac9367f7aae5c2df67e2282f0a3d37",
+        "Node name for S&R": "easy clearCacheAll",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4"
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159",
+      "shape": 2
+    },
+    {
+      "id": 47,
+      "type": "easy cleanGpuUsed",
+      "pos": [
+        1245.5570452003103,
+        587.9985106820271
+      ],
+      "size": [
+        179.97595600986088,
+        26
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 19,
+      "mode": 4,
+      "inputs": [
+        {
+          "name": "anything",
+          "type": "*",
+          "link": 81
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": [
+            72
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "125b3a4905ac9367f7aae5c2df67e2282f0a3d37",
+        "Node name for S&R": "easy cleanGpuUsed",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.4"
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159",
+      "shape": 2
+    },
+    {
+      "id": 9,
+      "type": "SaveImage",
+      "pos": [
+        378.9651014919775,
+        -73.88742343429585
+      ],
+      "size": [
+        816.2316141398865,
+        982.9048315548077
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "SaveImage",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "filename_prefix": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Z-Image"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 29,
+      "type": "Power Lora Loader (rgthree)",
+      "pos": [
+        -773.3275102586691,
+        564.8357482782964
+      ],
+      "size": [
+        333.86402806007885,
+        118
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "dir": 3,
+          "name": "model",
+          "type": "MODEL",
+          "link": 86
+        },
+        {
+          "dir": 3,
+          "name": "clip",
+          "type": "CLIP",
+          "link": 87
+        }
+      ],
+      "outputs": [
+        {
+          "dir": 4,
+          "name": "MODEL",
+          "shape": 3,
+          "type": "MODEL",
+          "links": [
+            67
+          ]
+        },
+        {
+          "dir": 4,
+          "name": "CLIP",
+          "shape": 3,
+          "type": "CLIP",
+          "links": [
+            57,
+            58
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "rgthree-comfy",
+        "ver": "eadc24ecc8bfc3c80fcc50724c0ebe74489f255b",
+        "Show Strengths": "Single Strength",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "widgets_values": [
+        {},
+        {
+          "type": "PowerLoraLoaderHeaderWidget"
+        },
+        {},
+        ""
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 13,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        91.70708981365887,
+        257.64536850081305
+      ],
+      "size": [
+        210,
+        106
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 59
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 60
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "EmptySD3LatentImage",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "width": true,
+            "height": true,
+            "batch_size": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        768,
+        1024,
+        1
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 17,
+      "type": "VAELoader",
+      "pos": [
+        -773.3275102586691,
+        457.4620998769114
+      ],
+      "size": [
+        334.8219232141096,
+        58.620174837646346
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            45
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "VAELoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "vae_name": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "z-image_vae.safetensors"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        128.3049679253678,
+        418.35325821964176
+      ],
+      "size": [
+        141.51780767858895,
+        46
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 51
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 45
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            16,
+            80,
+            81
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "VAEDecode",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 39,
+      "type": "ModelSamplingAuraFlow",
+      "pos": [
+        92.74108000144939,
+        517.2384493067832
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 67
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            68
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.75",
+        "Node name for S&R": "ModelSamplingAuraFlow"
+      },
+      "widgets_values": [
+        3
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 31,
+      "type": "PrimitiveNode",
+      "pos": [
+        -178.46702268748754,
+        386.1302574528887
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "links": [
+            60
+          ]
+        }
+      ],
+      "title": "height",
+      "properties": {
+        "Run widget replace on values": false,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        1024,
+        "fixed"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 30,
+      "type": "PrimitiveNode",
+      "pos": [
+        -402.3150324598879,
+        383.8802034729315
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "links": [
+            59
+          ]
+        }
+      ],
+      "title": "width",
+      "properties": {
+        "Run widget replace on values": false,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        768,
+        "fixed"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 16,
+      "type": "UNETLoader",
+      "pos": [
+        -773.3275102586691,
+        36.52804253173095
+      ],
+      "size": [
+        339.91929385520126,
+        82
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "UNETLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "unet_name": true,
+            "weight_dtype": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "z_image_bf16.safetensors",
+        "default"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 32,
+      "type": "PrimitiveNode",
+      "pos": [
+        -292.16461976675447,
+        515.2090028475191
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "links": [
+            61
+          ]
+        }
+      ],
+      "title": "Steps",
+      "properties": {
+        "Run widget replace on values": false,
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        20,
+        "fixed"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 53,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        1213.9516221562947,
+        1163.2155653472744
+      ],
+      "size": [
+        286.83439753394146,
+        58
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "SeedVR2 Upscaler ON/OFF",
+      "properties": {
+        "matchColors": "blue",
+        "matchTitle": "SeedVR2",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -395.9734080094699,
+        -73.88742343429585
+      ],
+      "size": [
+        417.1516633040519,
+        235.55330192450617
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 57
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            4
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "Two young different looking beautiful Japanese women sit next to each other next to a piano, the woman on the left has dark contoured glossy lipstick, white glasses, short bobcut hair and and is wearing an elegant shiny dress and she looks serious, she has a beauty spot on her left cheek. The woman on the right has very long straight hair parted in the middle, she is very pale with freckles, a pink t-shirt with pokemon on it and she is smiling, she has a dark blue eyepatch."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -397.24284715883516,
+        204.50637099773118
+      ],
+      "size": [
+        413.37182977642874,
+        135.5754596073093
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 58
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            6
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Negative Prompt)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPTextEncode",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "text": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "doll skin, doll face, plastic skin, busty, tann, tann skin, big breast, saggy chest, unexpressive, uncanny valley expression, expressionless, deformed face, deformed hands, deformed fingers, deformed bellybutton, deformed belly, perfect skin, deformed eyes, blurry eyes, ai-generated, 3d, 2d, anime, cartoon, poreless skin\n"
+      ],
+      "color": "#322",
+      "bgcolor": "#533"
+    },
+    {
+      "id": 18,
+      "type": "CLIPLoader",
+      "pos": [
+        -773.3275102586691,
+        298.6619472768916
+      ],
+      "size": [
+        338.40283680877945,
+        106
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "CLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "clip_name": true,
+            "type": true,
+            "device": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "qwen_3_4b.safetensors",
+        "lumina2",
+        "cpu"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 40,
+      "type": "UnetLoaderGGUF",
+      "pos": [
+        -773.3275102586691,
+        -70.62588960367685
+      ],
+      "size": [
+        338.99125811768374,
+        58
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            86
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-GGUF",
+        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
+        "Node name for S&R": "UnetLoaderGGUF"
+      },
+      "widgets_values": [
+        "z_image-Q8_0.gguf"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 38,
+      "type": "CLIPLoaderGGUF",
+      "pos": [
+        -773.3275102586691,
+        168.73566594570178
+      ],
+      "size": [
+        340.1658200327452,
+        82
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            87
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-GGUF",
+        "ver": "d3e14efda6bb891de0406d2debffcb07e88d4231",
+        "Node name for S&R": "CLIPLoaderGGUF"
+      },
+      "widgets_values": [
+        "Qwen3-4B-UD-Q6_K_XL.gguf",
+        "lumina2"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        39.577360676018905,
+        -59.06285557429764
+      ],
+      "size": [
+        315,
+        262
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 68
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 4
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 6
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 17
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": 61
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            51
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.73",
+        "Node name for S&R": "KSampler",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "seed": true,
+            "steps": true,
+            "cfg": true,
+            "sampler_name": true,
+            "scheduler": true,
+            "denoise": true
+          },
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        606877445095073,
+        "randomize",
+        20,
+        4,
+        "res_2s",
+        "bong_tangent",
+        1
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    }
+  ],
+  "links": [
+    [
+      4,
+      6,
+      0,
+      3,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      6,
+      7,
+      0,
+      3,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      16,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      13,
+      0,
+      3,
+      3,
+      "LATENT"
+    ],
+    [
+      45,
+      17,
+      0,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      51,
+      3,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      57,
+      29,
+      1,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      58,
+      29,
+      1,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      59,
+      30,
+      0,
+      13,
+      0,
+      "INT"
+    ],
+    [
+      60,
+      31,
+      0,
+      13,
+      1,
+      "INT"
+    ],
+    [
+      61,
+      32,
+      0,
+      3,
+      4,
+      "INT"
+    ],
+    [
+      67,
+      29,
+      0,
+      39,
+      0,
+      "MODEL"
+    ],
+    [
+      68,
+      39,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      72,
+      47,
+      0,
+      48,
+      0,
+      "*"
+    ],
+    [
+      73,
+      52,
+      0,
+      50,
+      0,
+      "IMAGE"
+    ],
+    [
+      74,
+      50,
+      0,
+      51,
+      0,
+      "*"
+    ],
+    [
+      75,
+      48,
+      0,
+      52,
+      0,
+      "IMAGE"
+    ],
+    [
+      76,
+      46,
+      0,
+      52,
+      1,
+      "SEEDVR2_DIT"
+    ],
+    [
+      77,
+      49,
+      0,
+      52,
+      2,
+      "SEEDVR2_VAE"
+    ],
+    [
+      78,
+      52,
+      0,
+      54,
+      0,
+      "IMAGE"
+    ],
+    [
+      79,
+      52,
+      0,
+      55,
+      1,
+      "IMAGE"
+    ],
+    [
+      80,
+      8,
+      0,
+      55,
+      0,
+      "IMAGE"
+    ],
+    [
+      81,
+      8,
+      0,
+      47,
+      0,
+      "IMAGE"
+    ],
+    [
+      86,
+      40,
+      0,
+      29,
+      0,
+      "MODEL"
+    ],
+    [
+      87,
+      38,
+      0,
+      29,
+      1,
+      "CLIP"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "ACADEMIA_SD Z-IMAGE BASE - GGUF",
+      "bounding": [
+        -185.05945415783557,
+        -162.57142290809344,
+        631.4236156687277,
+        80
+      ],
+      "color": "#b58b2a",
+      "font_size": 35,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "SeedVR2 Upscaler",
+      "bounding": [
+        1210.8698481913073,
+        -103.13073973027556,
+        2039.5527296735988,
+        1213.0748920804094
+      ],
+      "color": "#88A",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 5,
+      "title": "SeedVR2 Upscaler",
+      "bounding": [
+        1454.1682487225132,
+        -156.08742715520978,
+        268.8096763534136,
+        80
+      ],
+      "color": "#b58b2a",
+      "font_size": 30,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7627768444385533,
+      "offset": [
+        907.0108895867129,
+        252.4548232909433
+      ]
+    },
+    "frontendVersion": "1.37.11",
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "workflowRendererVersion": "LG"
+  },
+  "version": 0.4
+}
