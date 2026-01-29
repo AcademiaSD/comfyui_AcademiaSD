@@ -1,7 +1,7 @@
 [project]
 name = "academiasd"
 description = "Official set of custom nodes of AcademiaSD."
-version = "1.4.5"
+version = "1.4.6"
 license = {file = "LICENSE"} 
 # classifiers = [
 #     # For OS-independent nodes (works on all operating systems)
