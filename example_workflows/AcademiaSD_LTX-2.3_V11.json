@@ -20,7 +20,7 @@
         "pinned": true
       },
       "order": 45,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "images",
@@ -76,7 +76,7 @@
         "pinned": true
       },
       "order": 52,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -133,7 +133,7 @@
         "pinned": true
       },
       "order": 33,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "input",
@@ -256,7 +256,7 @@
         "pinned": true
       },
       "order": 1,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -798,7 +798,7 @@
         "collapsed": true
       },
       "order": 6,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -840,7 +840,7 @@
         "collapsed": true
       },
       "order": 44,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -1997,7 +1997,7 @@
         "collapsed": true
       },
       "order": 71,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -3555,46 +3555,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 55,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        -1000,
-        3150
-      ],
-      "size": [
-        286.83439753394146,
-        58
-      ],
-      "flags": {},
-      "order": 25,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "I2V ON/OFF",
-      "properties": {
-        "matchColors": "blue",
-        "matchTitle": "I2V",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "version": "7.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 25,
       "type": "LTXVImgToVideoInplace",
       "pos": [
@@ -3609,7 +3569,7 @@
         "collapsed": true
       },
       "order": 63,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "vae",
@@ -3674,8 +3634,8 @@
       "flags": {
         "collapsed": true
       },
-      "order": 26,
-      "mode": 0,
+      "order": 25,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -4188,7 +4148,7 @@
         163.97727917753218
       ],
       "flags": {},
-      "order": 27,
+      "order": 26,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -4657,7 +4617,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 28,
+      "order": 27,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -4692,6 +4652,46 @@
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
+    },
+    {
+      "id": 55,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        -1000,
+        3150
+      ],
+      "size": [
+        286.83439753394146,
+        58
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "I2V ON/OFF",
+      "properties": {
+        "matchColors": "blue",
+        "matchTitle": "I2V",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "version": "7.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
     }
   ],
   "links": [
@@ -5617,10 +5617,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.40909090909093754,
+      "scale": 0.45000000000003143,
       "offset": [
-        1496.069295751464,
-        -2890.4410483266347
+        1281.2256407026166,
+        -2944.503511810336
       ]
     },
     "frontendVersion": "1.39.19",
