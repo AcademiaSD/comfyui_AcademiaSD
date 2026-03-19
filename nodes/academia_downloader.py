@@ -24,9 +24,9 @@ def get_filename_from_url(url):
                 
         parsed = urllib.parse.urlparse(response.url)
         name = os.path.basename(parsed.path)
-        return name if name else "descarga_desconocida.safetensors"
+        return name if name else "unknown_download.safetensors"
     except Exception as e:
-        print(f"[AcademiaSD] Error obteniendo nombre del modelo: {e}")
+        print(f"[AcademiaSD] Error getting model name: {e}")
         return None
 
 def get_smart_folder_path(folder_name):
@@ -42,9 +42,7 @@ def get_smart_folder_path(folder_name):
 def background_download_task(url, file_path):
     temp_path = file_path + ".temp"
     try:
-        # CREA LA SUBCARPETA SI NO EXISTE
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
         with requests.get(url, stream=True, allow_redirects=True, headers=HEADERS) as r:
             r.raise_for_status()
             with open(temp_path, 'wb') as f:
@@ -53,18 +51,54 @@ def background_download_task(url, file_path):
                         f.write(chunk)
         
         os.replace(temp_path, file_path)
-        print(f"[AcademiaSD] ✅ Descarga completada: {file_path}")
+        print(f"[AcademiaSD] ✅ Download completed: {file_path}")
     except Exception as e:
-        print(f"[AcademiaSD] ❌ Error en la descarga de {url}: {e}")
+        print(f"[AcademiaSD] ❌ Error downloading {url}: {e}")
         if os.path.exists(temp_path):
             os.remove(temp_path)
     finally:
         ACTIVE_DOWNLOADS.discard(url)
 
+# --- API ROUTES ---
+
 @PromptServer.instance.routes.get("/academia/folders")
 async def get_folders(request):
     folders = list(folder_paths.folder_names_and_paths.keys())
     return web.json_response(folders)
+
+@PromptServer.instance.routes.post("/academia/parse_url")
+async def parse_url(request):
+    data = await request.json()
+    url = data.get("url", "")
+    
+    if "huggingface.co" in url and "/resolve/" not in url and "/blob/" not in url:
+        match = re.search(r"huggingface\.co/([^/]+/[^/?#]+)(?:/tree/([^/?#]+))?", url)
+        if match:
+            repo_id = match.group(1)
+            branch = match.group(2) if match.group(2) else "main"
+            
+            api_url = f"https://huggingface.co/api/models/{repo_id}"
+            try:
+                response = await asyncio.to_thread(requests.get, api_url, headers=HEADERS, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    siblings = data.get("siblings", [])
+                    valid_exts = (".safetensors", ".gguf", ".ckpt", ".pt", ".bin", ".pth", ".onnx", ".sft")
+                    files = []
+                    
+                    for s in siblings:
+                        fname = s["rfilename"]
+                        if fname.endswith(valid_exts):
+                            direct_url = f"https://huggingface.co/{repo_id}/resolve/{branch}/{fname}"
+                            files.append({"name": fname, "url": direct_url})
+                    
+                    if files:
+                        return web.json_response({"status": "success", "type": "repo", "files": files})
+            except Exception as e:
+                print(f"[AcademiaSD] Error fetching files from HF API: {e}")
+                
+    return web.json_response({"status": "success", "type": "direct", "url": url})
+
 
 @PromptServer.instance.routes.post("/academia/check")
 async def check_file(request):
@@ -73,14 +107,13 @@ async def check_file(request):
     folder = data.get("folder")
     subfolder = data.get("subfolder", "").strip()
     
-    if not url or not folder:
+    if not url or not folder or url == "none":
         return web.json_response({"status": "error", "exists": False})
 
     folder_path = get_smart_folder_path(folder)
     if not folder_path:
         return web.json_response({"status": "error", "exists": False})
 
-    # Si hay subcarpeta, la unimos a la ruta (evitando que suban directorios con "..")
     if subfolder:
         safe_subfolder = subfolder.replace("..", "").strip("\\/")
         folder_path = os.path.join(folder_path, safe_subfolder)
@@ -108,11 +141,11 @@ async def download_file(request):
     subfolder = data.get("subfolder", "").strip()
     
     if url in ACTIVE_DOWNLOADS:
-        return web.json_response({"status": "started", "message": "Ya se está descargando."})
+        return web.json_response({"status": "started", "message": "Already downloading."})
 
     folder_path = get_smart_folder_path(folder)
     if not folder_path:
-        return web.json_response({"status": "error", "message": "No se encontró la ruta de destino."})
+        return web.json_response({"status": "error", "message": "Target path not found."})
 
     if subfolder:
         safe_subfolder = subfolder.replace("..", "").strip("\\/")
@@ -122,7 +155,7 @@ async def download_file(request):
     file_path = os.path.join(folder_path, filename)
 
     if os.path.exists(file_path):
-        return web.json_response({"status": "exists", "message": "El archivo ya existe."})
+        return web.json_response({"status": "exists", "message": "File already exists."})
 
     ACTIVE_DOWNLOADS.add(url)
     asyncio.create_task(asyncio.to_thread(background_download_task, url, file_path))
