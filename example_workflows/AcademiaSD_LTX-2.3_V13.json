@@ -4565,60 +4565,6 @@
       "bgcolor": "#535"
     },
     {
-      "id": 13,
-      "type": "LatentUpscaleModelLoader",
-      "pos": [
-        -291.40644791956134,
-        4191.400277079167
-      ],
-      "size": [
-        428.06316576172003,
-        58
-      ],
-      "flags": {},
-      "order": 28,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "LATENT_UPSCALE_MODEL",
-          "type": "LATENT_UPSCALE_MODEL",
-          "links": [
-            22
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.7.0",
-        "Node name for S&R": "LatentUpscaleModelLoader",
-        "models": [
-          {
-            "name": "ltx-2-spatial-upscaler-x2-1.0.safetensors",
-            "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors",
-            "directory": "latent_upscale_models"
-          }
-        ],
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.5.2",
-          "input_ue_unconnectable": {}
-        },
-        "enableTabs": false,
-        "tabWidth": 65,
-        "tabXOffset": 10,
-        "hasSecondTab": false,
-        "secondTabText": "Send Back",
-        "secondTabOffset": 80,
-        "secondTabWidth": 65
-      },
-      "widgets_values": [
-        "ltx-2.3-spatial-upscaler-x2-1.0.safetensors"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 174,
       "type": "Power Lora Loader (rgthree)",
       "pos": [
@@ -4705,7 +4651,7 @@
         543.4981960411355
       ],
       "flags": {},
-      "order": 29,
+      "order": 28,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -4766,6 +4712,60 @@
           "subfolder": ""
         }
       ]
+    },
+    {
+      "id": 13,
+      "type": "LatentUpscaleModelLoader",
+      "pos": [
+        -291.40644791956134,
+        4191.400277079167
+      ],
+      "size": [
+        428.06316576172003,
+        58
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT_UPSCALE_MODEL",
+          "type": "LATENT_UPSCALE_MODEL",
+          "links": [
+            22
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.7.0",
+        "Node name for S&R": "LatentUpscaleModelLoader",
+        "models": [
+          {
+            "name": "ltx-2-spatial-upscaler-x2-1.0.safetensors",
+            "url": "https://huggingface.co/Lightricks/LTX-2/resolve/main/ltx-2-spatial-upscaler-x2-1.0.safetensors",
+            "directory": "latent_upscale_models"
+          }
+        ],
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.2",
+          "input_ue_unconnectable": {}
+        },
+        "enableTabs": false,
+        "tabWidth": 65,
+        "tabXOffset": 10,
+        "hasSecondTab": false,
+        "secondTabText": "Send Back",
+        "secondTabOffset": 80,
+        "secondTabWidth": 65
+      },
+      "widgets_values": [
+        "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
     }
   ],
   "links": [
@@ -5691,10 +5691,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5989500000000433,
+      "scale": 0.4950000000000357,
       "offset": [
-        1406.3580101060688,
-        -2259.377693396968
+        1705.3400260042677,
+        -2403.166929230343
       ]
     },
     "frontendVersion": "1.39.19",
