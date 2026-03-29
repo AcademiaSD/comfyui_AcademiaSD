@@ -6,7 +6,7 @@ import traceback
 # ======================================================
 # 🌟 Common version for all comfyui_AcademiaSD nodes
 # ======================================================
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 print(f"[AcademiaSD Loader] Loading comfyui_AcademiaSD v{__version__}")
 # ======================================================
 
