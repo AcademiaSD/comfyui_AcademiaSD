@@ -29,15 +29,59 @@ def get_filename_from_url(url):
         print(f"[AcademiaSD] Error getting model name: {e}")
         return None
 
-def get_smart_folder_path(folder_name):
+def find_existing_file(folder_name, subfolder, filename):
+    """
+    Search for the file in ALL configured ComfyUI paths, 
+    including those defined in extra_model_paths.yaml.
+    """
     paths = folder_paths.get_folder_paths(folder_name)
-    if not paths: return None
-    target_path = paths[0]
-    for p in paths:
-        if os.path.basename(os.path.normpath(p)) == folder_name:
-            target_path = p
-            break
-    return target_path
+    if not paths:
+        return None
+        
+    for base_path in paths:
+        check_path = base_path
+        if subfolder:
+            safe_subfolder = subfolder.replace("..", "").strip("\\/")
+            check_path = os.path.join(check_path, safe_subfolder)
+            
+        full_file_path = os.path.join(check_path, filename)
+        if os.path.exists(full_file_path):
+            return full_file_path # Found it!
+            
+    return None
+
+def get_download_target_path(folder_name, subfolder):
+    """
+    Determine WHERE to save a NEW file.
+    Prioritizes the exact folder name match in the primary ComfyUI models directory.
+    """
+    paths = folder_paths.get_folder_paths(folder_name)
+    target_base = None
+    
+    if paths:
+        # Prioritize the path that exactly matches the requested folder name 
+        # (to respect the unet vs diffusion_models distinction)
+        for p in paths:
+            if os.path.basename(os.path.normpath(p)) == folder_name:
+                target_base = p
+                break
+        # If no exact match, fallback to the primary path (usually index 0)
+        if not target_base:
+            target_base = paths[0]
+    else:
+        # If folder category doesn't exist natively, force it under /models/
+        try:
+            base_models_dir = folder_paths.get_folder_paths("checkpoints")[0]
+            base_models_dir = os.path.dirname(base_models_dir)
+            target_base = os.path.join(base_models_dir, folder_name)
+        except:
+            target_base = os.path.join(folder_paths.base_path, "models", folder_name)
+
+    if subfolder:
+        safe_subfolder = subfolder.replace("..", "").strip("\\/")
+        target_base = os.path.join(target_base, safe_subfolder)
+        
+    return target_base
 
 def background_download_task(url, file_path):
     temp_path = file_path + ".temp"
@@ -63,8 +107,17 @@ def background_download_task(url, file_path):
 
 @PromptServer.instance.routes.get("/academia/folders")
 async def get_folders(request):
-    folders = list(folder_paths.folder_names_and_paths.keys())
-    return web.json_response(folders)
+    raw_folders = list(folder_paths.folder_names_and_paths.keys())
+    essential_folders = [
+        "checkpoints", "unet", "diffusion_models", "loras", 
+        "vae", "text_encoders", "clip", "controlnet", "upscale_models", "embeddings"
+    ]
+    for ef in essential_folders:
+        if ef not in raw_folders:
+            raw_folders.append(ef)
+            
+    raw_folders.sort()
+    return web.json_response(raw_folders)
 
 @PromptServer.instance.routes.post("/academia/parse_url")
 async def parse_url(request):
@@ -110,20 +163,13 @@ async def check_file(request):
     if not url or not folder or url == "none":
         return web.json_response({"status": "error", "exists": False})
 
-    folder_path = get_smart_folder_path(folder)
-    if not folder_path:
-        return web.json_response({"status": "error", "exists": False})
-
-    if subfolder:
-        safe_subfolder = subfolder.replace("..", "").strip("\\/")
-        folder_path = os.path.join(folder_path, safe_subfolder)
-
     filename = await asyncio.to_thread(get_filename_from_url, url)
     if not filename:
         return web.json_response({"status": "error", "exists": False})
 
-    file_path = os.path.join(folder_path, filename)
-    exists = os.path.exists(file_path)
+    # Buscamos en TODAS las rutas de extra_model_paths.yaml
+    existing_file = find_existing_file(folder, subfolder, filename)
+    exists = existing_file is not None
     is_downloading = url in ACTIVE_DOWNLOADS
 
     return web.json_response({
@@ -143,19 +189,18 @@ async def download_file(request):
     if url in ACTIVE_DOWNLOADS:
         return web.json_response({"status": "started", "message": "Already downloading."})
 
-    folder_path = get_smart_folder_path(folder)
-    if not folder_path:
-        return web.json_response({"status": "error", "message": "Target path not found."})
-
-    if subfolder:
-        safe_subfolder = subfolder.replace("..", "").strip("\\/")
-        folder_path = os.path.join(folder_path, safe_subfolder)
-
     filename = await asyncio.to_thread(get_filename_from_url, url)
-    file_path = os.path.join(folder_path, filename)
+    if not filename:
+        return web.json_response({"status": "error", "message": "Could not determine filename."})
 
-    if os.path.exists(file_path):
+    # Volvemos a comprobar por si acaso
+    existing_file = find_existing_file(folder, subfolder, filename)
+    if existing_file:
         return web.json_response({"status": "exists", "message": "File already exists."})
+
+    # Determinamos la ruta de descarga primaria
+    target_dir = get_download_target_path(folder, subfolder)
+    file_path = os.path.join(target_dir, filename)
 
     ACTIVE_DOWNLOADS.add(url)
     asyncio.create_task(asyncio.to_thread(background_download_task, url, file_path))
