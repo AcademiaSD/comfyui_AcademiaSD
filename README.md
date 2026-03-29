@@ -13,6 +13,6 @@ Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
 Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
 Dataset captions included
 
-### - Automatic Downloader 0.6
+### - Automatic Downloader 0.9
 
 Workflows included.
