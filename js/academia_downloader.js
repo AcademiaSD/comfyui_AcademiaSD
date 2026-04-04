@@ -5,10 +5,14 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "AcademiaSD_Downloader") {
             
-            // SAVE DATA TO WORKFLOW
             const onSerialize = nodeType.prototype.onSerialize;
             nodeType.prototype.onSerialize = function(o) {
                 if (onSerialize) onSerialize.apply(this, arguments);
+                
+                if (this.tokenInput) {
+                    o.civitai_token = this.tokenInput.value;
+                }
+
                 o.academia_models = [];
                 if (this.rowsContainer) {
                     for(let row of this.rowsContainer.children) {
@@ -29,17 +33,15 @@ app.registerExtension({
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function(o) {
                 if (onConfigure) onConfigure.apply(this, arguments);
-                if (o.academia_models) {
-                    this.restored_models = o.academia_models;
-                }
+                if (o.academia_models) this.restored_models = o.academia_models;
+                if (o.civitai_token) this.restored_token = o.civitai_token;
             };
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
 
-                // Wider node to fit the file selection box
-                this.size = [900, 200];
+                this.size = [900, 240];
                 let folders = [];
 
                 const container = document.createElement("div");
@@ -51,18 +53,25 @@ app.registerExtension({
                 `;
 
                 const topBar = document.createElement("div");
-                topBar.style.display = "flex"; topBar.style.gap = "8px";
+                topBar.style.display = "flex"; topBar.style.gap = "8px"; topBar.style.alignItems = "center";
                 
                 const btnAdd = document.createElement("button");
                 btnAdd.innerText = "➕ Add Model";
-                btnAdd.style.cssText = "cursor: pointer; flex: 1; padding: 5px; background: #444; color: white; border: 1px solid #666; border-radius: 4px;";
+                btnAdd.style.cssText = "cursor: pointer; padding: 5px 10px; background: #444; color: white; border: 1px solid #666; border-radius: 4px;";
                 
                 const btnRefresh = document.createElement("button");
-                btnRefresh.innerText = "🔄 Refresh Status";
-                btnRefresh.style.cssText = "cursor: pointer; padding: 5px; background: #444; color: white; border: 1px solid #666; border-radius: 4px;";
+                btnRefresh.innerText = "🔄 Refresh";
+                btnRefresh.style.cssText = "cursor: pointer; padding: 5px 10px; background: #444; color: white; border: 1px solid #666; border-radius: 4px;";
+                
+                this.tokenInput = document.createElement("input");
+                this.tokenInput.type = "password";
+                this.tokenInput.placeholder = "Civitai API Key (Optional)";
+                this.tokenInput.title = "Paste your Civitai API Key here to download secure/NSFW models";
+                this.tokenInput.style.cssText = "flex: 1; padding: 5px; border-radius: 3px; border: 1px solid #555; outline: none; background: #111; color: white;";
                 
                 topBar.appendChild(btnAdd);
                 topBar.appendChild(btnRefresh);
+                topBar.appendChild(this.tokenInput);
                 container.appendChild(topBar);
 
                 this.rowsContainer = document.createElement("div");
@@ -83,13 +92,11 @@ app.registerExtension({
                     } catch (e) {}
                 }
 
-                // addRow handles restored data including the extra file selection box
                 const addRow = (data = {}, isRestoring = false) => {
                     const row = document.createElement("div");
                     row.style.display = "flex"; row.style.gap = "8px"; row.style.alignItems = "center";
                     row.style.background = "#333"; row.style.padding = "5px"; row.style.borderRadius = "4px";
 
-                    // 1. Main URL (HF Repo or Direct Link)
                     const inputUrl = document.createElement("input");
                     inputUrl.className = "url-input";
                     inputUrl.type = "text";
@@ -97,7 +104,6 @@ app.registerExtension({
                     inputUrl.placeholder = "URL (Civitai, HF Repository...)";
                     inputUrl.style.cssText = "flex: 2; padding: 4px; border-radius: 3px; border: none; outline: none; background: #111; color: white;";
 
-                    // 2. File Dropdown (Hidden by default if it's a direct link)
                     const selectFile = document.createElement("select");
                     selectFile.className = "file-select";
                     selectFile.style.cssText = "flex: 2; padding: 4px; border-radius: 3px; border: none; background: #2a2a2a; color: white; display: none;";
@@ -115,7 +121,6 @@ app.registerExtension({
                         selectFile.appendChild(opt);
                     }
 
-                    // 3. Base Folder
                     const selectFolder = document.createElement("select");
                     selectFolder.className = "folder-select";
                     selectFolder.style.cssText = "flex: 1.2; padding: 4px; border-radius: 3px; border: none; background: #111; color: white;";
@@ -127,7 +132,6 @@ app.registerExtension({
                     if (data.folder && folders.includes(data.folder)) selectFolder.value = data.folder;
                     else if (folders.includes("loras")) selectFolder.value = "loras";
 
-                    // 4. Subfolder
                     const inputSubfolder = document.createElement("input");
                     inputSubfolder.className = "subfolder-input";
                     inputSubfolder.type = "text";
@@ -135,7 +139,6 @@ app.registerExtension({
                     inputSubfolder.placeholder = "Subfolder (Opt.)";
                     inputSubfolder.style.cssText = "flex: 1; padding: 4px; border-radius: 3px; border: none; outline: none; background: #111; color: white;";
 
-                    // 5. Controls (Button, LED, Delete)
                     const btnDownload = document.createElement("button");
                     btnDownload.innerText = "Download";
                     btnDownload.style.cssText = "cursor: pointer; padding: 4px 8px; background: #225588; color: white; border: none; border-radius: 3px;";
@@ -149,10 +152,9 @@ app.registerExtension({
                     btnDelete.title = "Delete row";
                     btnDelete.style.cssText = "background: transparent; border: none; cursor: pointer; padding: 0px 4px;";
                     
-                    // MAGIC LOGIC: Parse entered URL
                     const handleUrlFetch = async () => {
                         const url = inputUrl.value;
-                        if(!url) return;
+                        if(!url || !url.startsWith("http")) return;
                         
                         try {
                             const res = await fetch("/academia/parse_url", {
@@ -172,7 +174,6 @@ app.registerExtension({
                                     selectFile.appendChild(opt);
                                 });
                                 selectFile.style.display = "block";
-                                
                                 if (Array.from(selectFile.options).some(opt => opt.value === currentSelection)) {
                                     selectFile.value = currentSelection;
                                 }
@@ -193,6 +194,7 @@ app.registerExtension({
                     selectFile.addEventListener("change", triggerCheck);
                     selectFolder.addEventListener("change", triggerCheck);
                     inputSubfolder.addEventListener("change", triggerCheck);
+                    this.tokenInput.addEventListener("change", triggerCheck); 
 
                     btnDownload.addEventListener("click", async () => {
                         await downloadFile(selectFile.value, selectFolder.value, inputSubfolder.value, led, btnDownload);
@@ -213,21 +215,22 @@ app.registerExtension({
                     this.rowsContainer.appendChild(row);
 
                     if (!isRestoring) this.size[1] += 42;
-                    
-                    if (data.url) {
-                        setTimeout(() => handleUrlFetch(), 500); 
-                    }
+                    if (data.url && data.url.startsWith("http")) setTimeout(() => handleUrlFetch(), 500); 
                 };
 
+                const getPayload = (url, folder, subfolder) => ({
+                    url, folder, subfolder, token: this.tokenInput.value
+                });
+
                 async function checkStatus(url, folder, subfolder, ledElement, btnElement) {
-                    if(!url || url === "none") return;
+                    if(!url || url === "none" || !url.startsWith("http")) return;
                     ledElement.style.backgroundColor = "orange";
                     ledElement.style.boxShadow = "0 0 6px orange";
                     
                     try {
                         const res = await fetch("/academia/check", {
                             method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url, folder, subfolder })
+                            body: JSON.stringify(getPayload(url, folder, subfolder))
                         });
                         const data = await res.json();
                         
@@ -241,6 +244,11 @@ app.registerExtension({
                             ledElement.style.boxShadow = "0 0 6px yellow";
                             ledElement.title = `Downloading...`;
                             if(btnElement) { btnElement.innerText = "⏳ Downloading..."; btnElement.disabled = true; btnElement.style.background = "#555"; }
+                        } else if (data.message === "auth_required") {
+                            ledElement.style.backgroundColor = "#ff00ff";
+                            ledElement.style.boxShadow = "0 0 6px #ff00ff";
+                            ledElement.title = "API Key required!";
+                            if(btnElement) { btnElement.innerText = "Need API Key"; btnElement.disabled = false; btnElement.style.background = "#aa00aa"; }
                         } else {
                             ledElement.style.backgroundColor = "red";
                             ledElement.style.boxShadow = "0 0 6px red";
@@ -254,7 +262,7 @@ app.registerExtension({
                 }
 
                 async function downloadFile(url, folder, subfolder, ledElement, btnElement) {
-                    if(!url || url === "none") return;
+                    if(!url || url === "none" || !url.startsWith("http")) return;
                     btnElement.innerText = "⏳ Starting...";
                     btnElement.disabled = true;
                     btnElement.style.background = "#555";
@@ -264,15 +272,18 @@ app.registerExtension({
                     try {
                         await fetch("/academia/download", {
                             method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ url, folder, subfolder })
+                            body: JSON.stringify(getPayload(url, folder, subfolder))
                         });
                         
-                        const pollInterval = setInterval(async () => {
+                        // Sondeo seguro y recursivo: Garantiza que no se acumulen peticiones
+                        const poll = async () => {
                             const data = await checkStatus(url, folder, subfolder, ledElement, btnElement);
                             if(data && data.exists && !data.is_downloading) {
-                                clearInterval(pollInterval);
+                                return; // Termina el bucle
                             }
-                        }, 3000);
+                            setTimeout(poll, 3000); // Pregunta de nuevo 3 segundos DESPUÉS de recibir respuesta
+                        };
+                        setTimeout(poll, 3000);
 
                     } catch (e) {
                         btnElement.innerText = "Error";
@@ -304,6 +315,8 @@ app.registerExtension({
                         
                         if(led.style.backgroundColor === "red" || led.style.backgroundColor === "rgb(255, 0, 0)") {
                             await downloadFile(url, folder, subfolder, led, btn);
+                        } else if (led.style.backgroundColor === "rgb(255, 0, 255)") {
+                            alert("Please provide a Civitai API Key at the top to download secure models.");
                         }
                     }
                 });
@@ -311,7 +324,10 @@ app.registerExtension({
                 container.addEventListener("mousedown", (e) => e.stopPropagation());
                 this.addDOMWidget("UI", "HTML", container);
                 
-                // INITIALIZATION
+                if (this.restored_token) {
+                    this.tokenInput.value = this.restored_token;
+                }
+
                 fetchFolders().then(() => {
                     if (this.restored_models && this.restored_models.length > 0) {
                         this.restored_models.forEach(modelData => {
