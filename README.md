@@ -16,6 +16,7 @@ Dataset captions included
 ### - Automatic Downloader 0.99
 
 ### - Multilora injection 0.4
+Using official lora injection, standard method and using clip
 
 ### - Numeric to Int&Float 
 
