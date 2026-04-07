@@ -13,6 +13,10 @@ Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
 Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
 Dataset captions included
 
-### - Automatic Downloader 0.98
+### - Automatic Downloader 0.99
+
+### - Multilora injection 0.4
+
+### - Numeric to Int&Float 
 
 Workflows included.
