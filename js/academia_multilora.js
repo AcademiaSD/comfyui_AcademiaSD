@@ -16,7 +16,8 @@ app.registerExtension({
                     dataWidget.draw = function() {}; 
                 }
 
-                this.size = [420, 130];
+                // Tamaño inicial base (anchura, altura)
+                this.size = [420, 140];
                 let loraList = [];
 
                 const container = document.createElement("div");
@@ -84,15 +85,43 @@ app.registerExtension({
                 this.rowsContainer = document.createElement("div");
                 this.rowsContainer.style.display = "flex";
                 this.rowsContainer.style.flexDirection = "column";
-                this.rowsContainer.style.gap = "2px";
+                this.rowsContainer.style.gap = "4px";
                 container.appendChild(this.rowsContainer);
 
                 const btnAdd = document.createElement("button");
                 btnAdd.innerText = "➕ Add Lora";
-                btnAdd.style.cssText = "cursor: pointer; padding: 4px; background: rgba(255,255,255,0.05); color: #aaa; border: 1px solid #444; border-radius: 6px; font-weight: bold; margin-top: 2px; font-size: 11px; transition: background 0.2s;";
+                btnAdd.style.cssText = "cursor: pointer; padding: 5px; background: rgba(255,255,255,0.05); color: #aaa; border: 1px solid #444; border-radius: 6px; font-weight: bold; margin-top: 2px; font-size: 12px; transition: background 0.2s;";
                 btnAdd.onmouseover = () => btnAdd.style.background = "rgba(255,255,255,0.1)";
                 btnAdd.onmouseout = () => btnAdd.style.background = "rgba(255,255,255,0.05)";
                 container.appendChild(btnAdd);
+
+                // --- NUEVO: CÁLCULO RÍGIDO DE ALTURA ---
+                const updateNodeHeight = () => {
+                    const BASE_HEIGHT = 145; // Altura de los conectores + barra superior + botón Add
+                    const ROW_HEIGHT = 36;   // Altura exacta de cada fila de LoRA + el gap
+                    const numRows = this.rowsContainer.children.length;
+                    
+                    const targetHeight = BASE_HEIGHT + (numRows * ROW_HEIGHT);
+                    this.size[1] = targetHeight;
+                    
+                    app.graph.setDirtyCanvas(true, true);
+                };
+
+                // --- NUEVO: BLOQUEAR REDIMENSIÓN MANUAL ERRÓNEA ---
+                const originalOnResize = this.onResize;
+                this.onResize = function(size) {
+                    if (originalOnResize) originalOnResize.apply(this, arguments);
+                    
+                    const BASE_HEIGHT = 145;
+                    const ROW_HEIGHT = 36;
+                    const numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
+                    const minHeight = BASE_HEIGHT + (numRows * ROW_HEIGHT);
+                    
+                    // Si el usuario intenta hacerlo más pequeño que el contenido, lo forzamos a rebotar
+                    if (size[1] < minHeight) {
+                        size[1] = minHeight;
+                    }
+                };
 
                 const updateData = () => {
                     if (!dataWidget) return;
@@ -148,8 +177,6 @@ app.registerExtension({
                     } catch (e) {}
                 }
 
-                const ROW_HEIGHT = 30;
-
                 const addRow = (data = {}) => {
                     const row = document.createElement("div");
                     row.className = "asd-lora-row";
@@ -157,7 +184,6 @@ app.registerExtension({
                     const isEnabled = data.enabled !== undefined ? data.enabled : true;
                     if(!isEnabled) row.classList.add("disabled");
 
-                    // 1. Toggle
                     const labelToggle = document.createElement("label");
                     labelToggle.className = "asd-switch";
                     const inputToggle = document.createElement("input");
@@ -169,10 +195,9 @@ app.registerExtension({
                     labelToggle.appendChild(inputToggle);
                     labelToggle.appendChild(spanSlider);
 
-                    // 2. Select
                     const selectFile = document.createElement("select");
                     selectFile.className = "lora-select";
-                    selectFile.style.cssText = "flex: 1; min-width: 0; padding: 2px; border: none; background: transparent; color: #ddd; outline: none; font-size: 12px; text-overflow: ellipsis;";
+                    selectFile.style.cssText = "flex: 1; min-width: 0; padding: 2px; border: none; background: transparent; color: #ddd; outline: none; font-size: 13px; text-overflow: ellipsis;";
                     
                     if (loraList.length === 0 && data.name) {
                         const opt = document.createElement("option");
@@ -187,7 +212,6 @@ app.registerExtension({
                     }
                     if (data.name) selectFile.value = data.name;
 
-                    // 3. Controles Numéricos (+, Valor, -)
                     const strengthContainer = document.createElement("div");
                     strengthContainer.style.cssText = "display: flex; align-items: center; background: rgba(0,0,0,0.4); border-radius: 4px; padding: 0 2px;";
 
@@ -203,13 +227,12 @@ app.registerExtension({
                     if (isNaN(initialValue)) initialValue = 1.0;
                     inputStrength.value = initialValue.toFixed(2);
                     
-                    inputStrength.style.cssText = "width: 36px; padding: 2px 0; border: none; background: transparent; color: white; outline: none; text-align: center; font-family: monospace; font-size: 12px; font-weight: bold;";
+                    inputStrength.style.cssText = "width: 40px; padding: 4px 0; border: none; background: transparent; color: white; outline: none; text-align: center; font-family: monospace; font-size: 13px; font-weight: bold;";
 
                     const btnPlus = document.createElement("button");
                     btnPlus.innerText = "+";
                     btnPlus.className = "asd-step-btn";
 
-                    // Lógica botones suma/resta
                     const adjustValue = (amount) => {
                         let val = parseFloat(inputStrength.value);
                         if (isNaN(val)) val = 0.0;
@@ -221,7 +244,6 @@ app.registerExtension({
                     btnMinus.addEventListener("click", () => adjustValue(-0.05));
                     btnPlus.addEventListener("click", () => adjustValue(0.05));
 
-                    // Lógica máscara de texto manual
                     inputStrength.addEventListener("input", function() {
                         this.value = this.value.replace(/,/g, '.');
                         this.value = this.value.replace(/(?!^-)[^0-9.]/g, '');
@@ -241,14 +263,12 @@ app.registerExtension({
                     strengthContainer.appendChild(inputStrength);
                     strengthContainer.appendChild(btnPlus);
 
-                    // 4. Botón Delete
                     const btnDelete = document.createElement("button");
-                    btnDelete.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>`;
+                    btnDelete.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>`;
                     btnDelete.style.cssText = "background: transparent; border: none; color: #666; cursor: pointer; padding: 0 0 0 4px; display: flex; align-items: center; transition: color 0.2s;";
                     btnDelete.onmouseover = () => btnDelete.style.color = "#ff4444";
                     btnDelete.onmouseout = () => btnDelete.style.color = "#666";
                     
-                    // Eventos actualización de datos
                     inputToggle.addEventListener("change", () => {
                         if(inputToggle.checked) row.classList.remove("disabled");
                         else row.classList.add("disabled");
@@ -259,18 +279,18 @@ app.registerExtension({
 
                     btnDelete.addEventListener("click", () => {
                         row.remove();
-                        this.size[1] -= ROW_HEIGHT;
+                        updateNodeHeight(); // RECALCULAR ALTURA EXACTA
                         updateData();
                     });
 
-                    // Añadir a la fila
                     row.appendChild(labelToggle);
                     row.appendChild(selectFile);
                     row.appendChild(strengthContainer);
                     row.appendChild(btnDelete);
                     
                     this.rowsContainer.appendChild(row);
-                    this.size[1] += ROW_HEIGHT;
+                    
+                    updateNodeHeight(); // RECALCULAR ALTURA EXACTA
                     updateData();
                 };
 
@@ -296,6 +316,9 @@ app.registerExtension({
                     } else {
                         addRow();
                     }
+                    
+                    // Una vez añadidos todos al reiniciar el workflow, forzamos el cálculo maestro
+                    updateNodeHeight();
                 });
             };
         }
