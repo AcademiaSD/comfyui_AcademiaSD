@@ -1,5 +1,24 @@
 import { app } from "../../scripts/app.js";
 
+// Crear un Tooltip flotante global (solo se crea una vez en todo ComfyUI)
+let loraTooltip = document.getElementById("asd-lora-tooltip");
+if (!loraTooltip) {
+    loraTooltip = document.createElement("div");
+    loraTooltip.id = "asd-lora-tooltip";
+    loraTooltip.style.cssText = `
+        position: fixed; background: rgba(20, 20, 20, 0.95); color: #fff; 
+        border: 1px solid #555; padding: 10px; border-radius: 6px; 
+        z-index: 999999; display: none; pointer-events: none; 
+        font-family: monospace; font-size: 13px; line-height: 1.4;
+        white-space: pre-wrap; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+        backdrop-filter: blur(4px);
+    `;
+    document.body.appendChild(loraTooltip);
+}
+
+// Caché para no bombardear al servidor con peticiones del mismo LoRA
+const loraMetadataCache = {};
+
 app.registerExtension({
     name: "AcademiaSD.MultiLora",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
@@ -16,8 +35,7 @@ app.registerExtension({
                     dataWidget.draw = function() {}; 
                 }
 
-                // Tamaño inicial base (anchura, altura)
-                this.size = [420, 140];
+                this.size = [420, 130];
                 let loraList = [];
 
                 const container = document.createElement("div");
@@ -85,43 +103,15 @@ app.registerExtension({
                 this.rowsContainer = document.createElement("div");
                 this.rowsContainer.style.display = "flex";
                 this.rowsContainer.style.flexDirection = "column";
-                this.rowsContainer.style.gap = "4px";
+                this.rowsContainer.style.gap = "2px";
                 container.appendChild(this.rowsContainer);
 
                 const btnAdd = document.createElement("button");
                 btnAdd.innerText = "➕ Add Lora";
-                btnAdd.style.cssText = "cursor: pointer; padding: 5px; background: rgba(255,255,255,0.05); color: #aaa; border: 1px solid #444; border-radius: 6px; font-weight: bold; margin-top: 2px; font-size: 12px; transition: background 0.2s;";
+                btnAdd.style.cssText = "cursor: pointer; padding: 4px; background: rgba(255,255,255,0.05); color: #aaa; border: 1px solid #444; border-radius: 6px; font-weight: bold; margin-top: 2px; font-size: 11px; transition: background 0.2s;";
                 btnAdd.onmouseover = () => btnAdd.style.background = "rgba(255,255,255,0.1)";
                 btnAdd.onmouseout = () => btnAdd.style.background = "rgba(255,255,255,0.05)";
                 container.appendChild(btnAdd);
-
-                // --- NUEVO: CÁLCULO RÍGIDO DE ALTURA ---
-                const updateNodeHeight = () => {
-                    const BASE_HEIGHT = 145; // Altura de los conectores + barra superior + botón Add
-                    const ROW_HEIGHT = 36;   // Altura exacta de cada fila de LoRA + el gap
-                    const numRows = this.rowsContainer.children.length;
-                    
-                    const targetHeight = BASE_HEIGHT + (numRows * ROW_HEIGHT);
-                    this.size[1] = targetHeight;
-                    
-                    app.graph.setDirtyCanvas(true, true);
-                };
-
-                // --- NUEVO: BLOQUEAR REDIMENSIÓN MANUAL ERRÓNEA ---
-                const originalOnResize = this.onResize;
-                this.onResize = function(size) {
-                    if (originalOnResize) originalOnResize.apply(this, arguments);
-                    
-                    const BASE_HEIGHT = 145;
-                    const ROW_HEIGHT = 36;
-                    const numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
-                    const minHeight = BASE_HEIGHT + (numRows * ROW_HEIGHT);
-                    
-                    // Si el usuario intenta hacerlo más pequeño que el contenido, lo forzamos a rebotar
-                    if (size[1] < minHeight) {
-                        size[1] = minHeight;
-                    }
-                };
 
                 const updateData = () => {
                     if (!dataWidget) return;
@@ -177,6 +167,8 @@ app.registerExtension({
                     } catch (e) {}
                 }
 
+                const ROW_HEIGHT = 30;
+
                 const addRow = (data = {}) => {
                     const row = document.createElement("div");
                     row.className = "asd-lora-row";
@@ -197,7 +189,7 @@ app.registerExtension({
 
                     const selectFile = document.createElement("select");
                     selectFile.className = "lora-select";
-                    selectFile.style.cssText = "flex: 1; min-width: 0; padding: 2px; border: none; background: transparent; color: #ddd; outline: none; font-size: 13px; text-overflow: ellipsis;";
+                    selectFile.style.cssText = "flex: 1; min-width: 0; padding: 2px; border: none; background: transparent; color: #ddd; outline: none; font-size: 12px; text-overflow: ellipsis; cursor: help;";
                     
                     if (loraList.length === 0 && data.name) {
                         const opt = document.createElement("option");
@@ -211,6 +203,54 @@ app.registerExtension({
                         });
                     }
                     if (data.name) selectFile.value = data.name;
+
+                    // --- SISTEMA DE METADATOS AL PASAR EL RATÓN ---
+                    let hoverTimeout;
+                    selectFile.addEventListener("mouseenter", async (e) => {
+                        const loraName = selectFile.value;
+                        if (!loraName || loraName === "None") return;
+
+                        // Pequeño retraso para que no parpadee si pasas el ratón rápido sin querer
+                        hoverTimeout = setTimeout(async () => {
+                            loraTooltip.style.display = "block";
+                            loraTooltip.style.left = (e.clientX + 15) + "px";
+                            loraTooltip.style.top = (e.clientY + 15) + "px";
+
+                            if (loraMetadataCache[loraName]) {
+                                loraTooltip.innerText = loraMetadataCache[loraName];
+                                return;
+                            }
+
+                            loraTooltip.innerText = "⏳ Loading metadata...";
+                            
+                            try {
+                                const res = await fetch("/academia/lora_info", {
+                                    method: "POST", headers: {"Content-Type": "application/json"},
+                                    body: JSON.stringify({name: loraName})
+                                });
+                                const jsonRes = await res.json();
+                                loraMetadataCache[loraName] = jsonRes.info;
+                                
+                                // Si el ratón sigue encima, actualizamos el texto
+                                if (loraTooltip.style.display === "block") {
+                                    loraTooltip.innerText = jsonRes.info;
+                                }
+                            } catch(e) {
+                                loraTooltip.innerText = "❌ Error loading metadata.";
+                            }
+                        }, 400); // 400ms de retraso
+                    });
+
+                    selectFile.addEventListener("mousemove", (e) => {
+                        loraTooltip.style.left = (e.clientX + 15) + "px";
+                        loraTooltip.style.top = (e.clientY + 15) + "px";
+                    });
+
+                    selectFile.addEventListener("mouseleave", () => {
+                        clearTimeout(hoverTimeout);
+                        loraTooltip.style.display = "none";
+                    });
+                    // ------------------------------------------------
 
                     const strengthContainer = document.createElement("div");
                     strengthContainer.style.cssText = "display: flex; align-items: center; background: rgba(0,0,0,0.4); border-radius: 4px; padding: 0 2px;";
@@ -279,7 +319,7 @@ app.registerExtension({
 
                     btnDelete.addEventListener("click", () => {
                         row.remove();
-                        updateNodeHeight(); // RECALCULAR ALTURA EXACTA
+                        this.size[1] -= ROW_HEIGHT;
                         updateData();
                     });
 
@@ -290,7 +330,7 @@ app.registerExtension({
                     
                     this.rowsContainer.appendChild(row);
                     
-                    updateNodeHeight(); // RECALCULAR ALTURA EXACTA
+                    this.size[1] += ROW_HEIGHT;
                     updateData();
                 };
 
@@ -316,9 +356,6 @@ app.registerExtension({
                     } else {
                         addRow();
                     }
-                    
-                    // Una vez añadidos todos al reiniciar el workflow, forzamos el cálculo maestro
-                    updateNodeHeight();
                 });
             };
         }
