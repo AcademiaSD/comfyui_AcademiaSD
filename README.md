@@ -22,6 +22,7 @@ Numeric to Int&Float
 
 Image Save & Send
 
-Resolution settings
+## Resolution Selector 0.9
+!(./assets/Resolution_Selector.png)
 
 Workflows included.
