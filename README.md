@@ -38,4 +38,4 @@ A utility node for ComfyUI designed to make image resolution management fast, pr
     - **Get Size (📐):** A unique feature that reads the dimensions of an input image (from a `Load Image` node) and automatically updates the Width and Height widgets.
 - **Smart State:** If you manually edit the width or height, the preset selector automatically switches to "Custom," keeping your workflow organized.
 
-Workflows included.
+# Workflows included.
