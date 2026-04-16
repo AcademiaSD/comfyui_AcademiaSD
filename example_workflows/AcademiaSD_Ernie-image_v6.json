@@ -2,7 +2,7 @@
   "id": "cd62944d-c557-4bcd-b67e-3dc1c844fded",
   "revision": 0,
   "last_node_id": 408,
-  "last_link_id": 843,
+  "last_link_id": 844,
   "nodes": [
     {
       "id": 234,
@@ -1532,7 +1532,9 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": []
+          "links": [
+            844
+          ]
         }
       ],
       "properties": {
@@ -1548,7 +1550,7 @@
         }
       },
       "widgets_values": [
-        "ernie-image-UD-Q5_K_M.gguf"
+        "ernie-image-turbo-UD-Q5_K_M.gguf"
       ],
       "color": "#323",
       "bgcolor": "#535"
@@ -1574,9 +1576,7 @@
         {
           "name": "MODEL",
           "type": "MODEL",
-          "links": [
-            806
-          ]
+          "links": []
         }
       ],
       "properties": {
@@ -1691,7 +1691,7 @@
           "selected_url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/diffusion_models/ernie-image-turbo.safetensors",
           "filename": "diffusion_models/ernie-image-turbo.safetensors",
           "filesize": "14.96 GB",
-          "folder": "diffusion_models",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1699,7 +1699,7 @@
           "selected_url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/diffusion_models/ernie-image.safetensors",
           "filename": "diffusion_models/ernie-image.safetensors",
           "filesize": "14.96 GB",
-          "folder": "diffusion_models",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1707,7 +1707,7 @@
           "selected_url": "https://huggingface.co/unsloth/ERNIE-Image-Turbo-GGUF/resolve/main/ernie-image-turbo-Q2_K.gguf",
           "filename": "ernie-image-turbo-Q2_K.gguf",
           "filesize": "2.96 GB",
-          "folder": "diffusion_models",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1715,7 +1715,7 @@
           "selected_url": "https://huggingface.co/unsloth/ERNIE-Image-GGUF/resolve/main/ernie-image-UD-Q5_K_M.gguf",
           "filename": "ernie-image-UD-Q5_K_M.gguf",
           "filesize": "6.27 GB",
-          "folder": "diffusion_models",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1723,7 +1723,7 @@
           "selected_url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ministral-3-3b.safetensors",
           "filename": "text_encoders/ministral-3-3b.safetensors",
           "filesize": "7.19 GB",
-          "folder": "text_encoders",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1731,7 +1731,7 @@
           "selected_url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/text_encoders/ernie-image-prompt-enhancer.safetensors",
           "filename": "text_encoders/ernie-image-prompt-enhancer.safetensors",
           "filesize": "6.41 GB",
-          "folder": "text_encoders",
+          "folder": "loras",
           "subfolder": ""
         },
         {
@@ -1739,7 +1739,7 @@
           "selected_url": "https://huggingface.co/Comfy-Org/ERNIE-Image/resolve/main/vae/flux2-vae.safetensors",
           "filename": "vae/flux2-vae.safetensors",
           "filesize": "320.64 MB",
-          "folder": "vae",
+          "folder": "loras",
           "subfolder": ""
         }
       ]
@@ -1753,7 +1753,7 @@
       ],
       "size": [
         405.51276667759123,
-        342.7424242918348
+        402.7424242918348
       ],
       "flags": {
         "pinned": true
@@ -1764,7 +1764,7 @@
         {
           "name": "model",
           "type": "MODEL",
-          "link": 806
+          "link": 844
         },
         {
           "name": "clip",
@@ -2484,14 +2484,6 @@
       "INT"
     ],
     [
-      806,
-      242,
-      0,
-      360,
-      0,
-      "MODEL"
-    ],
-    [
       808,
       363,
       0,
@@ -2570,6 +2562,14 @@
       408,
       1,
       "INT"
+    ],
+    [
+      844,
+      190,
+      0,
+      360,
+      0,
+      "MODEL"
     ]
   ],
   "groups": [
@@ -2629,10 +2629,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.8390545288824074,
+      "scale": 0.7627768444385521,
       "offset": [
-        1232.8298722788495,
-        415.06052022278277
+        1526.4578354156902,
+        315.03460449644655
       ]
     },
     "frontendVersion": "1.42.11",
