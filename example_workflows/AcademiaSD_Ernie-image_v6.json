@@ -1207,7 +1207,7 @@
         }
       },
       "widgets_values": [
-        8
+        10
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -1294,7 +1294,7 @@
         }
       },
       "widgets_values": [
-        714403944891872,
+        498692434881608,
         "randomize",
         20,
         4,
@@ -2003,7 +2003,7 @@
         "Node name for S&R": "Float"
       },
       "widgets_values": [
-        "1"
+        "0.6"
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -2575,11 +2575,11 @@
   "groups": [
     {
       "id": 1,
-      "title": "ACADEMIA_SD Ernie-Image - T2I - Multilora - Upscaler",
+      "title": "ACACADEMIA_SD ERNIE-IMAGE - T2I - Multilora - Upscaler",
       "bounding": [
-        -612.093459225422,
-        -258.8895834919797,
-        739.1819388922806,
+        -743.1934011404198,
+        -250.5468599155707,
+        805.9237275035524,
         80
       ],
       "color": "#b58b2a",
@@ -2629,10 +2629,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.6934334949441379,
+      "scale": 0.8390545288824074,
       "offset": [
-        1891.3568898655078,
-        426.36018646025724
+        1232.8298722788495,
+        415.06052022278277
       ]
     },
     "frontendVersion": "1.42.11",
