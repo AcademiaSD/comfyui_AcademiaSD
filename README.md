@@ -25,14 +25,19 @@ A smart download manager integrated directly into the ComfyUI canvas.
 *   **Cache & Security:** Non-blocking UI. It manages Civitai and HuggingFace tokens to download NSFW or private models, and displays real-time MB/GB weight with progress bars.
 *   **Smart Path Management:** Detects your secondary paths in `extra_model_paths.yaml` (e.g., Automatic1111) to avoid downloading the same model twice.
 
-Multilora injection 0.6
-Using official lora injection, native method or using clip method
+## 💊 Academia SD Multi-LoRA v0.7
+![Academia SD Multi-LoRA](assets/AcademiaSD_MultiLora.png)
+
+Load multiple LoRAs in a hyper-compact space without cluttering your workflow with dozens of chained nodes.
+*   **Global & Individual Toggles:** Enable or disable LoRAs with a single click for quick testing without disconnecting cables.
+*   **On-the-fly Metadata:** Hover your mouse over a LoRA in the menu and a floating *tooltip* will appear showing the base model, training resolution, and the Top 15 Trigger Words.
+*   **Agnostic & Native:** Uses ComfyUI's official injection engine. 100% compatible with SD1.5, SDXL, Flux, and complex video architectures. Allows "Model Only" injection to bypass text errors in video models.
 
 Numeric to Int&Float 
 
 Image Save & Send
 
-# Academia SD Resolution Selector for ComfyUI v0.9
+## Academia SD Resolution Selector for ComfyUI v0.9
 ![](./assets/Resolution_Selector.png)
 
 A utility node for ComfyUI designed to make image resolution management fast, precise, and user-friendly. Whether you are working with SDXL or SD 1.5 models, this node provides a clean interface to calculate and set your dimensions.
