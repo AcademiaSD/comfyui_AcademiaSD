@@ -63,14 +63,13 @@ A utility node for ComfyUI designed to make image resolution management fast, pr
 
 ## Features
 
-- **Quick Presets:** Easily select common resolutions for SDXL/SD 1.5 with a single click.
-- **Manual Control:** Full control over width and height with built-in validation (rounds to the nearest multiple of 8 to ensure model compatibility).
-- **Workflow Utilities:**
-    - **Half (➗):** Quickly halve the resolution.
-    - **Double (✖️):** Quickly double the resolution.
-    - **Swap (🔄):** Instantly swap width and height.
-    - **Get Size (📐):** A unique feature that reads the dimensions of an input image (from a `Load Image` node) and automatically updates the Width and Height widgets.
-- **Smart State:** If you manually edit the width or height, the preset selector automatically switches to "Custom," keeping your workflow organized.
+## 🖥️ Academia SD Resolution Selector
+![Academia SD Resolution Selector](assets/AcademiaSD_Resolution.png)
+
+Absolute control over resolution with mathematical precision.
+*   **Tensor Safety:** Every number entering and leaving this node is mathematically forced to be a multiple of 8, ensuring the generation process doesn't throw errors (Ideal for Flux and LTX-Video).
+*   **Quick Controls:** Integrated grid buttons (Half, Double, Swap) to modify the axes without typing.
+*   **Get Image Size:** Connect a `Load Image` node to the side cable, press the 📐 button, and the node will automatically adopt the exact resolution of the original image.
 
 ---
 
