@@ -38,7 +38,7 @@ Load multiple LoRAs in a hyper-compact space without cluttering your workflow wi
 ---
 
 ## 🔢 Academia SD Numeric Input
-![Academia SD Numeric Input](assets/AcademiaSD_Numeric.png)
+![Academia SD Numeric Input](assets/AcademiaSD_Numeric_Input.png)
 
 Dual data converter for maximum compatibility.
 *   Enter a single integer value (e.g., `1024`).
