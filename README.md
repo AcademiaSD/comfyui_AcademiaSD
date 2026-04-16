@@ -5,15 +5,8 @@ A collection of custom nodes designed for **Academia SD**, created to optimize w
 
 ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www.youtube.com/@Academia_SD)
 
-Loop Tools
-Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
+---
 
-Bypass nodes by value
-Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
-
-Gemini Vision 1.1.2
-Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
-Dataset captions included
 
 
 ## ⬇️ Academia SD Automatic Downloader v0.99
@@ -63,6 +56,21 @@ Absolute control over resolution with mathematical precision.
 *   **Tensor Safety:** Every number entering and leaving this node is mathematically forced to be a multiple of 8, ensuring the generation process doesn't throw errors (Ideal for Flux and LTX-Video).
 *   **Quick Controls:** Integrated grid buttons (Half, Double, Swap) to modify the axes without typing.
 *   **Get Image Size:** Connect a `Load Image` node to the side cable, press the 📐 button, and the node will automatically adopt the exact resolution of the original image.
+
+---
+## Loop Tools
+Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
+
+---
+
+## Bypass nodes by value
+Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
+
+---
+
+## Gemini Vision 1.1.2
+Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
+Dataset captions included
 
 ---
 
