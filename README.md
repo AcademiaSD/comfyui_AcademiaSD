@@ -1,5 +1,7 @@
 # comfyui_AcademiaSD
-# Official set of custom nodes of AcademiaSD.
+# Academia SD Custom Nodes for ComfyUI
+
+A collection of custom nodes designed for **Academia SD**, created to optimize workflows, save downloading time, and improve the user experience (UX) in ComfyUI while maintaining 100% native compatibility.
 
 ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www.youtube.com/@Academia_SD)
 
@@ -13,7 +15,15 @@ Gemini Vision 1.1.2
 Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
 Dataset captions included
 
- Automatic Downloader 0.99
+
+## ⬇️ Academia SD Automatic Downloader v0.99
+![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
+
+A smart download manager integrated directly into the ComfyUI canvas.
+*   **Multi-Link Support:** Paste links from Civitai or HuggingFace repositories.
+*   **Automatic HF Detection:** When pasting a HuggingFace repo link, it automatically displays a dropdown list to choose the exact version (e.g., quantized `.gguf` files).
+*   **Cache & Security:** Non-blocking UI. It manages Civitai and HuggingFace tokens to download NSFW or private models, and displays real-time MB/GB weight with progress bars.
+*   **Smart Path Management:** Detects your secondary paths in `extra_model_paths.yaml` (e.g., Automatic1111) to avoid downloading the same model twice.
 
 Multilora injection 0.6
 Using official lora injection, native method or using clip method
