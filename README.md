@@ -37,7 +37,13 @@ Load multiple LoRAs in a hyper-compact space without cluttering your workflow wi
 
 ---
 
-Numeric to Int&Float 
+## 🔢 Academia SD Numeric Input
+![Academia SD Numeric Input](assets/AcademiaSD_Numeric.png)
+
+Dual data converter for maximum compatibility.
+*   Enter a single integer value (e.g., `1024`).
+*   The node outputs two simultaneous cables: A pure `INT` (`1024`) and a `FLOAT` with decimals (`1024.0`).
+*   Avoid using additional converter nodes when connecting the same value to parameters that require strict data types in Python.
 
 ---
 
