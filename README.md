@@ -25,6 +25,8 @@ A smart download manager integrated directly into the ComfyUI canvas.
 *   **Cache & Security:** Non-blocking UI. It manages Civitai and HuggingFace tokens to download NSFW or private models, and displays real-time MB/GB weight with progress bars.
 *   **Smart Path Management:** Detects your secondary paths in `extra_model_paths.yaml` (e.g., Automatic1111) to avoid downloading the same model twice.
 
+---
+
 ## 💊 Academia SD Multi-LoRA v0.7
 ![Academia SD Multi-LoRA](assets/AcademiaSD_MultiLora.png)
 
@@ -33,9 +35,20 @@ Load multiple LoRAs in a hyper-compact space without cluttering your workflow wi
 *   **On-the-fly Metadata:** Hover your mouse over a LoRA in the menu and a floating *tooltip* will appear showing the base model, training resolution, and the Top 15 Trigger Words.
 *   **Agnostic & Native:** Uses ComfyUI's official injection engine. 100% compatible with SD1.5, SDXL, Flux, and complex video architectures. Allows "Model Only" injection to bypass text errors in video models.
 
+---
+
 Numeric to Int&Float 
 
-Image Save & Send
+---
+
+## 💾🚀 Academia SD Image Save & Send v0.3
+![Academia SD Image Save & Send](assets/AcademiaSD_SaveAndSend.png)
+
+End circular connections and easily build cyclic image editing workflows.
+*   **Standard Saving:** Safely saves your images in the `output` folder.
+*   **"Send to Edit" Button:** Send your rendered image directly to the beginning of the workflow with a single click. When pressed, the node performs a silent copy to the `input/Academia_Edits` folder and instantly refreshes your source `Load Image` node. Perfect for Inpainting and Image-to-Image workflows.
+
+---
 
 ## Academia SD Resolution Selector for ComfyUI v0.9
 ![](./assets/Resolution_Selector.png)
@@ -52,5 +65,7 @@ A utility node for ComfyUI designed to make image resolution management fast, pr
     - **Swap (🔄):** Instantly swap width and height.
     - **Get Size (📐):** A unique feature that reads the dimensions of an input image (from a `Load Image` node) and automatically updates the Width and Height widgets.
 - **Smart State:** If you manually edit the width or height, the preset selector automatically switches to "Custom," keeping your workflow organized.
+
+---
 
 # Workflows included.
