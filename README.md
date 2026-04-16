@@ -23,6 +23,6 @@ Numeric to Int&Float
 Image Save & Send
 
 ## Resolution Selector 0.9
-!(./assets/Resolution_Selector.png)
+![](./assets/Resolution_Selector.png)
 
 Workflows included.
