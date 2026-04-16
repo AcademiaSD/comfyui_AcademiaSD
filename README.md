@@ -50,7 +50,7 @@ End circular connections and easily build cyclic image editing workflows.
 
 ---
 
-## Academia SD Resolution Selector for ComfyUI v0.9
+## 🖥️ Academia SD Resolution Selector v0.9
 ![](./assets/Resolution_Selector.png)
 
 A utility node for ComfyUI designed to make image resolution management fast, precise, and user-friendly. Whether you are working with SDXL or SD 1.5 models, this node provides a clean interface to calculate and set your dimensions.
