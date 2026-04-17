@@ -20,7 +20,7 @@ A smart download manager integrated directly into the ComfyUI canvas.
 
 ---
 
-## 💊 Academia SD Multi-LoRA v0.7
+## 💊 Academia SD Multi-LoRA v0.8
 ![Academia SD Multi-LoRA](assets/AcademiaSD_MultiLora.png)
 
 Load multiple LoRAs in a hyper-compact space without cluttering your workflow with dozens of chained nodes.
