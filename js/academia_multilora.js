@@ -1,24 +1,5 @@
 import { app } from "../../scripts/app.js";
 
-// Crear un Tooltip flotante global (solo se crea una vez en todo ComfyUI)
-let loraTooltip = document.getElementById("asd-lora-tooltip");
-if (!loraTooltip) {
-    loraTooltip = document.createElement("div");
-    loraTooltip.id = "asd-lora-tooltip";
-    loraTooltip.style.cssText = `
-        position: fixed; background: rgba(20, 20, 20, 0.95); color: #fff; 
-        border: 1px solid #555; padding: 10px; border-radius: 6px; 
-        z-index: 999999; display: none; pointer-events: none; 
-        font-family: monospace; font-size: 13px; line-height: 1.4;
-        white-space: pre-wrap; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
-        backdrop-filter: blur(4px);
-    `;
-    document.body.appendChild(loraTooltip);
-}
-
-// Caché para no bombardear al servidor con peticiones del mismo LoRA
-const loraMetadataCache = {};
-
 app.registerExtension({
     name: "AcademiaSD.MultiLora",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
@@ -28,6 +9,7 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
 
+                // Ocultar Widget JSON
                 const dataWidget = this.widgets.find(w => w.name === "lora_data");
                 if (dataWidget) {
                     dataWidget.type = "hidden";
@@ -35,7 +17,8 @@ app.registerExtension({
                     dataWidget.draw = function() {}; 
                 }
 
-                this.size = [420, 130];
+                // TAMAÑO BASE INICIAL (Con 0 LoRAs)
+                this.size = [420, 110];
                 let loraList = [];
 
                 const container = document.createElement("div");
@@ -64,6 +47,7 @@ app.registerExtension({
                 `;
                 container.appendChild(style);
 
+                // --- TOP BAR ---
                 const topBar = document.createElement("div");
                 topBar.style.display = "flex"; 
                 topBar.style.justifyContent = "space-between";
@@ -103,7 +87,7 @@ app.registerExtension({
                 this.rowsContainer = document.createElement("div");
                 this.rowsContainer.style.display = "flex";
                 this.rowsContainer.style.flexDirection = "column";
-                this.rowsContainer.style.gap = "2px";
+                this.rowsContainer.style.gap = "4px"; // Gap restaurado a 4px para que cuadre la matemática
                 container.appendChild(this.rowsContainer);
 
                 const btnAdd = document.createElement("button");
@@ -113,6 +97,8 @@ app.registerExtension({
                 btnAdd.onmouseout = () => btnAdd.style.background = "rgba(255,255,255,0.05)";
                 container.appendChild(btnAdd);
 
+
+                // --- GUARDAR Y ACTUALIZAR DATOS ---
                 const updateData = () => {
                     if (!dataWidget) return;
                     const data = [];
@@ -167,7 +153,8 @@ app.registerExtension({
                     } catch (e) {}
                 }
 
-                const ROW_HEIGHT = 30;
+                // ALTO EXACTO QUE OCUPA CADA NUEVA FILA (Incluyendo padding y gap)
+                const ROW_HEIGHT = 38; 
 
                 const addRow = (data = {}) => {
                     const row = document.createElement("div");
@@ -204,20 +191,22 @@ app.registerExtension({
                     }
                     if (data.name) selectFile.value = data.name;
 
-                    // --- SISTEMA DE METADATOS AL PASAR EL RATÓN ---
+                    // Tooltip Metadata
                     let hoverTimeout;
                     selectFile.addEventListener("mouseenter", async (e) => {
                         const loraName = selectFile.value;
                         if (!loraName || loraName === "None") return;
 
-                        // Pequeño retraso para que no parpadee si pasas el ratón rápido sin querer
                         hoverTimeout = setTimeout(async () => {
+                            let loraTooltip = document.getElementById("asd-lora-tooltip");
+                            if (!loraTooltip) return;
+
                             loraTooltip.style.display = "block";
                             loraTooltip.style.left = (e.clientX + 15) + "px";
                             loraTooltip.style.top = (e.clientY + 15) + "px";
 
-                            if (loraMetadataCache[loraName]) {
-                                loraTooltip.innerText = loraMetadataCache[loraName];
+                            if (window.loraMetadataCache && window.loraMetadataCache[loraName]) {
+                                loraTooltip.innerText = window.loraMetadataCache[loraName];
                                 return;
                             }
 
@@ -229,28 +218,31 @@ app.registerExtension({
                                     body: JSON.stringify({name: loraName})
                                 });
                                 const jsonRes = await res.json();
-                                loraMetadataCache[loraName] = jsonRes.info;
+                                if(!window.loraMetadataCache) window.loraMetadataCache = {};
+                                window.loraMetadataCache[loraName] = jsonRes.info;
                                 
-                                // Si el ratón sigue encima, actualizamos el texto
                                 if (loraTooltip.style.display === "block") {
                                     loraTooltip.innerText = jsonRes.info;
                                 }
                             } catch(e) {
                                 loraTooltip.innerText = "❌ Error loading metadata.";
                             }
-                        }, 400); // 400ms de retraso
+                        }, 400); 
                     });
 
                     selectFile.addEventListener("mousemove", (e) => {
-                        loraTooltip.style.left = (e.clientX + 15) + "px";
-                        loraTooltip.style.top = (e.clientY + 15) + "px";
+                        let loraTooltip = document.getElementById("asd-lora-tooltip");
+                        if(loraTooltip) {
+                            loraTooltip.style.left = (e.clientX + 15) + "px";
+                            loraTooltip.style.top = (e.clientY + 15) + "px";
+                        }
                     });
 
                     selectFile.addEventListener("mouseleave", () => {
                         clearTimeout(hoverTimeout);
-                        loraTooltip.style.display = "none";
+                        let loraTooltip = document.getElementById("asd-lora-tooltip");
+                        if(loraTooltip) loraTooltip.style.display = "none";
                     });
-                    // ------------------------------------------------
 
                     const strengthContainer = document.createElement("div");
                     strengthContainer.style.cssText = "display: flex; align-items: center; background: rgba(0,0,0,0.4); border-radius: 4px; padding: 0 2px;";
@@ -319,7 +311,9 @@ app.registerExtension({
 
                     btnDelete.addEventListener("click", () => {
                         row.remove();
+                        // Al borrar, restamos los píxeles exactos y forzamos redibujado
                         this.size[1] -= ROW_HEIGHT;
+                        app.graph.setDirtyCanvas(true, true);
                         updateData();
                     });
 
@@ -330,7 +324,10 @@ app.registerExtension({
                     
                     this.rowsContainer.appendChild(row);
                     
+                    // Al añadir, sumamos los píxeles exactos y forzamos redibujado
                     this.size[1] += ROW_HEIGHT;
+                    app.graph.setDirtyCanvas(true, true);
+                    
                     updateData();
                 };
 
@@ -343,18 +340,31 @@ app.registerExtension({
                 container.addEventListener("mousedown", (e) => e.stopPropagation());
                 this.addDOMWidget("UI", "HTML", container);
                 
+                if(!window.loraMetadataCache) window.loraMetadataCache = {};
+                let globalTooltip = document.getElementById("asd-lora-tooltip");
+                if (!globalTooltip) {
+                    globalTooltip = document.createElement("div");
+                    globalTooltip.id = "asd-lora-tooltip";
+                    globalTooltip.style.cssText = `
+                        position: fixed; background: rgba(20, 20, 20, 0.95); color: #fff; 
+                        border: 1px solid #555; padding: 10px; border-radius: 6px; 
+                        z-index: 999999; display: none; pointer-events: none; 
+                        font-family: monospace; font-size: 13px; line-height: 1.4;
+                        white-space: pre-wrap; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+                        backdrop-filter: blur(4px);
+                    `;
+                    document.body.appendChild(globalTooltip);
+                }
+
+                // INICIALIZACIÓN
                 fetchLoras().then(() => {
                     if (dataWidget && dataWidget.value) {
                         try {
                             const savedData = JSON.parse(dataWidget.value);
                             if (savedData.length > 0) {
                                 savedData.forEach(l => addRow(l));
-                            } else {
-                                addRow(); 
                             }
-                        } catch (e) { addRow(); }
-                    } else {
-                        addRow();
+                        } catch (e) {}
                     }
                 });
             };
