@@ -17,8 +17,8 @@ app.registerExtension({
                     dataWidget.draw = function() {}; 
                 }
 
-                // TAMAÑO BASE INICIAL (Con 0 LoRAs)
-                this.size = [420, 110];
+                // TAMAÑO BASE INICIAL
+                this.size = [420, 150];
                 let loraList = [];
 
                 const container = document.createElement("div");
@@ -87,7 +87,7 @@ app.registerExtension({
                 this.rowsContainer = document.createElement("div");
                 this.rowsContainer.style.display = "flex";
                 this.rowsContainer.style.flexDirection = "column";
-                this.rowsContainer.style.gap = "4px"; // Gap restaurado a 4px para que cuadre la matemática
+                this.rowsContainer.style.gap = "4px"; 
                 container.appendChild(this.rowsContainer);
 
                 const btnAdd = document.createElement("button");
@@ -97,7 +97,46 @@ app.registerExtension({
                 btnAdd.onmouseout = () => btnAdd.style.background = "rgba(255,255,255,0.05)";
                 container.appendChild(btnAdd);
 
+// --- 🛡️ BLINDAJE DEFINITIVO CONTRA REDIMENSIÓN MANUAL APLASTANTE 🛡️ ---
+                
+                const HTML_BASE_HEIGHT = 140; 
+                const ROW_HEIGHT = 38; 
+                const MIN_WIDTH = 320; // Anchura mínima absoluta y fija
 
+                // 1. computeSize SOLAMENTE debe devolver el TAMAÑO MÍNIMO ABSOLUTO que necesita el nodo
+                this.computeSize = function(out) {
+                    const numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
+                    const computedHeight = HTML_BASE_HEIGHT + (numRows * ROW_HEIGHT);
+                    
+                    // ¡AQUÍ ESTABA EL ERROR! Siempre debemos devolver la anchura mínima (420), NO la actual.
+                    return [MIN_WIDTH, computedHeight];
+                };
+
+                // 2. onResize se encarga de bloquear al usuario si intenta aplastarlo por debajo del mínimo
+                const originalOnResize = this.onResize;
+                this.onResize = function(size) {
+                    if (originalOnResize) originalOnResize.apply(this, arguments);
+                    
+                    const minSize = this.computeSize();
+                    
+                    // Si el usuario intenta aplastar la altura por debajo de lo necesario, lo bloqueamos
+                    if (size[1] < minSize[1]) {
+                        size[1] = minSize[1];
+                    }
+                    
+                    // Si el usuario intenta aplastar la anchura por debajo de 420px, lo bloqueamos
+                    if (size[0] < minSize[0]) {
+                        size[0] = minSize[0];
+                    }
+                };
+
+                const forceResize = () => {
+                    // Al añadir/quitar un LoRA, aplicamos la altura exacta que calculamos
+                    // Y MANTENEMOS la anchura que el usuario tuviera en ese momento.
+                    const minSize = this.computeSize();
+                    this.setSize([this.size[0], minSize[1]]);
+                    app.graph.setDirtyCanvas(true, true);
+                };
                 // --- GUARDAR Y ACTUALIZAR DATOS ---
                 const updateData = () => {
                     if (!dataWidget) return;
@@ -121,7 +160,6 @@ app.registerExtension({
                     }
 
                     dataWidget.value = JSON.stringify(data);
-                    app.graph.setDirtyCanvas(true, false);
                 };
 
                 inputToggleAll.addEventListener("change", (e) => {
@@ -152,9 +190,6 @@ app.registerExtension({
                         });
                     } catch (e) {}
                 }
-
-                // ALTO EXACTO QUE OCUPA CADA NUEVA FILA (Incluyendo padding y gap)
-                const ROW_HEIGHT = 38; 
 
                 const addRow = (data = {}) => {
                     const row = document.createElement("div");
@@ -311,9 +346,7 @@ app.registerExtension({
 
                     btnDelete.addEventListener("click", () => {
                         row.remove();
-                        // Al borrar, restamos los píxeles exactos y forzamos redibujado
-                        this.size[1] -= ROW_HEIGHT;
-                        app.graph.setDirtyCanvas(true, true);
+                        forceResize(); 
                         updateData();
                     });
 
@@ -324,10 +357,7 @@ app.registerExtension({
                     
                     this.rowsContainer.appendChild(row);
                     
-                    // Al añadir, sumamos los píxeles exactos y forzamos redibujado
-                    this.size[1] += ROW_HEIGHT;
-                    app.graph.setDirtyCanvas(true, true);
-                    
+                    forceResize();
                     updateData();
                 };
 
@@ -366,6 +396,8 @@ app.registerExtension({
                             }
                         } catch (e) {}
                     }
+                    
+                    forceResize(); 
                 });
             };
         }
