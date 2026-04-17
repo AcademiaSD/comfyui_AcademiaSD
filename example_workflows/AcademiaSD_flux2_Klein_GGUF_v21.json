@@ -1,7 +1,7 @@
 {
   "id": "0bbd7854-9110-4dcc-a276-5fcef0328bdf",
   "revision": 0,
-  "last_node_id": 134,
+  "last_node_id": 136,
   "last_link_id": 296,
   "nodes": [
     {
@@ -800,8 +800,8 @@
       "id": 86,
       "type": "ModelPatchTorchSettings",
       "pos": [
-        -180.6292159230722,
-        1188.6554253334943
+        -153.85185814046486,
+        1286.8390705363925
       ],
       "size": [
         247.443359375,
@@ -1442,7 +1442,7 @@
         {
           "name": "input1",
           "shape": 7,
-          "type": "MODEL",
+          "type": "*",
           "link": 268
         },
         {
@@ -1467,8 +1467,8 @@
       "outputs": [
         {
           "label": "MODEL",
-          "name": "MODEL",
-          "type": "MODEL",
+          "name": "selected_value",
+          "type": "*",
           "links": [
             286
           ]
@@ -1500,8 +1500,8 @@
       "id": 85,
       "type": "PathchSageAttentionKJ",
       "pos": [
-        -173.4676134285156,
-        1249.9460403308078
+        -146.69025564590817,
+        1348.129685533706
       ],
       "size": [
         210,
@@ -1547,46 +1547,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 118,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        -513.1799495320113,
-        1210.8375912924312
-      ],
-      "size": [
-        274.8266114308781,
-        58
-      ],
-      "flags": {},
-      "order": 9,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Sage Attention ON/OFF",
-      "properties": {
-        "matchColors": "",
-        "matchTitle": "Sage",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 46,
       "type": "LoadImage",
       "pos": [
@@ -1598,7 +1558,7 @@
         425.7544346369093
       ],
       "flags": {},
-      "order": 10,
+      "order": 9,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -1645,7 +1605,7 @@
         438.29829974921535
       ],
       "flags": {},
-      "order": 11,
+      "order": 10,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -1692,7 +1652,7 @@
         412.0702181507571
       ],
       "flags": {},
-      "order": 12,
+      "order": 11,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -1739,7 +1699,7 @@
         414.7728509067722
       ],
       "flags": {},
-      "order": 13,
+      "order": 12,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -1786,7 +1746,7 @@
         130
       ],
       "flags": {},
-      "order": 14,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2053,7 +2013,7 @@
         82
       ],
       "flags": {},
-      "order": 15,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2148,7 +2108,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 16,
+      "order": 15,
       "mode": 0,
       "inputs": [
         {
@@ -2195,6 +2155,46 @@
       "bgcolor": "#353"
     },
     {
+      "id": 118,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        -185.15731669506843,
+        1133.8526876674366
+      ],
+      "size": [
+        274.8266114308781,
+        58
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Sage Attention ON/OFF",
+      "properties": {
+        "matchColors": "",
+        "matchTitle": "Sage",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
       "id": 132,
       "type": "AcademiaSD_MultiLora",
       "pos": [
@@ -2202,8 +2202,8 @@
         964.0306805263903
       ],
       "size": [
-        280.08830558587556,
-        139.81836452028915
+        287.30507206955076,
+        146.86453938278305
       ],
       "flags": {
         "pinned": true
@@ -2731,8 +2731,8 @@
       "id": 7,
       "title": "Sage Attention",
       "bounding": [
-        -211.8731015251771,
-        1106.103811754442,
+        -185.09574374256977,
+        1204.28745695734,
         298.610902412551,
         160.1402454294996
       ],
@@ -2744,10 +2744,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.8962796178340079,
+      "scale": 1.1929481713370653,
       "offset": [
-        1490.0058424388094,
-        -305.5772794679232
+        1194.3300943634601,
+        -793.5229822823912
       ]
     },
     "frontendVersion": "1.42.11",
