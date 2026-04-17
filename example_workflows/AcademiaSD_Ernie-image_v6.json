@@ -1745,64 +1745,6 @@
       ]
     },
     {
-      "id": 360,
-      "type": "AcademiaSD_MultiLora",
-      "pos": [
-        -1010.957387183641,
-        599.5433473476395
-      ],
-      "size": [
-        405.51276667759123,
-        402.7424242918348
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 16,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 844
-        },
-        {
-          "name": "clip",
-          "shape": 7,
-          "type": "CLIP",
-          "link": 808
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            835
-          ]
-        },
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            837
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "1.6.0",
-        "Node name for S&R": "AcademiaSD_MultiLora"
-      },
-      "widgets_values": [
-        "Model Only (No CLIP)",
-        "[{\"enabled\":false,\"name\":\"Chroma\\\\Chroma2schnell_lora_rank_64-bf16.safetensors\",\"strength\":\"1.00\"}]",
-        ""
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 366,
       "type": "ConditioningZeroOut",
       "pos": [
@@ -2232,6 +2174,64 @@
       },
       "color": "#432",
       "bgcolor": "#653"
+    },
+    {
+      "id": 360,
+      "type": "AcademiaSD_MultiLora",
+      "pos": [
+        -1010.957387183641,
+        599.5433473476395
+      ],
+      "size": [
+        405.51276667759123,
+        140
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 844
+        },
+        {
+          "name": "clip",
+          "shape": 7,
+          "type": "CLIP",
+          "link": 808
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            835
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            837
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.0",
+        "Node name for S&R": "AcademiaSD_MultiLora"
+      },
+      "widgets_values": [
+        "Model Only (No CLIP)",
+        "[]",
+        ""
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
     }
   ],
   "links": [
@@ -2629,10 +2629,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7627768444385521,
+      "scale": 0.7627768444385489,
       "offset": [
-        1526.4578354156902,
-        315.03460449644655
+        1640.2762219761069,
+        380.6024200861891
       ]
     },
     "frontendVersion": "1.42.11",
