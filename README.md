@@ -112,6 +112,7 @@ Automates the creation of sidecar text files for model training datasets.
 
 [![Workflow Download](https://img.shields.io/badge/Workflow-Download_JSON-blue?style=for-the-badge&logo=comfyui)](https://github.com/AcademiaSD/comfyui_AcademiaSD/blob/main/example_workflows/Qwen3-vl_vision_academiasd_v01.json)
 
+![](./assets/bypasser.png)
 ---
 
 ## Bypass nodes by value
