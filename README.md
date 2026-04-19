@@ -62,6 +62,7 @@ Absolute control over resolution with mathematical precision.
 ## Academia SD VL Model Loader (Qwen3-vl) & captions nodes
 
 This set of nodes is designed to automate the process of image captioning and dataset preparation using Vision Language Models (VLM).
+![](./assets/captions_wf.png)
 
 ### 1. AcademiaSD VLModel (Down)Loader
 This node handles the acquisition and initialization of Vision Language Models directly from HuggingFace.
@@ -109,7 +110,7 @@ Automates the creation of sidecar text files for model training datasets.
 - **Outputs:**
   - `final_saved_text`: The complete string saved to the disk.
 
-![](./assets/captions_wf.png)
+
 
 ---
 
