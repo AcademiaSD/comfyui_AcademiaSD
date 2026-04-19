@@ -61,10 +61,55 @@ Absolute control over resolution with mathematical precision.
 
 ## Academia SD VL Model Loader (Qwen3-vl) & captions nodes
 
-![](./assets/captions_wf.png)
+This set of nodes is designed to automate the process of image captioning and dataset preparation using Vision Language Models (VLM).
 
-## Loop Tools
-Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
+### 1. AcademiaSD VLModel (Down)Loader
+This node handles the acquisition and initialization of Vision Language Models directly from HuggingFace.
+- **Inputs:**
+  - `model_repo`: The HuggingFace repository ID (e.g., `huihui-ai/Huihui-Qwen3-VL-2B-Instruct-ablite`).
+  - `low_vram`: Toggle to enable memory-efficient loading for GPUs with limited VRAM.
+- **Outputs:**
+  - `MODEL`: The loaded VLM model ready for inference.
+
+### 2. AcademiaSD Captioner
+The core engine for image interrogation. It uses the loaded model to analyze visual content based on a natural language prompt.
+- **Inputs:**
+  - `model`: Connection to the VLModel Loader.
+  - `image`: The image to be analyzed.
+  - `prompt`: Text instruction for the model (e.g., "Describe this image in detail").
+  - `max_tokens`: Limit for the generated text length.
+- **Outputs:**
+  - `caption`: A string containing the generated description of the image.
+
+### 3. Batch Image Loader (Dataset)
+A specialized loader for dataset management that iterates through local directories.
+- **Features:** It expects images to be named with consecutive numbering. You don't need to specify filenames, only the folder path and the current index.
+- **Inputs:**
+  - `folder_path`: Directory containing your dataset.
+  - `image_index`: The specific number of the image to load.
+- **Outputs:**
+  - `image`: The loaded image tensor.
+  - `image_path`: The full path string (essential for synchronization with the saver node).
+  - `filename_text`: The name of the file being processed.
+
+### 4. Counter (from file) & Reset Counter
+A state-management system to track progress during batch processing.
+- **Counter (from file):** Creates and updates a `loops.json` file in the ComfyUI `output` folder. It increments its value by 1 every time the workflow is executed. Perfect for driving the `image_index` of the Batch Loader.
+- **Reset Counter (to file):** Contains a `trigger_reset` button that immediately sets the value in `loops.json` back to 0.
+
+### 5. 💾 Save Dataset Caption (.txt)
+Automates the creation of sidecar text files for model training datasets.
+- **Features:** It uses the path from the Image Loader to ensure the `.txt` file is saved in the same location and with the same name as the image.
+- **Inputs:**
+  - `generated_caption`: The text from the Captioner.
+  - `image_path`: Reference from the Loader to determine the save destination.
+  - `extra_text`: Allows adding a "trigger word" or custom tags.
+  - `text_position`: Choose if the trigger word appears as a Prefix (Start) or Suffix (End).
+  - `separator`: Character used to separate the trigger word from the caption (e.g., a comma).
+- **Outputs:**
+  - `final_saved_text`: The complete string saved to the disk.
+
+![](./assets/captions_wf.png)
 
 ---
 
