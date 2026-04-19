@@ -115,7 +115,18 @@ Automates the creation of sidecar text files for model training datasets.
 ---
 
 ## Bypass nodes by value
-Instructions in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
+This node acts as a central control hub to manage the execution state (Active vs. Bypass) of up to 5 connected nodes. It is especially useful for modular workflows where you want to toggle stages on or off dynamically.
+
+- **How it works:**
+    - **Manual Control:** You can manually toggle each connected node between `ON` and `BYPASS` using the individual switches in the UI.
+    - **Sequential Control (`active_count`):** By connecting an integer to the `active_count` input, you can automate the bypass logic. For example, if `active_count` is set to 3, the first three connected nodes will be activated, and the rest will be bypassed automatically.
+- **Features:**
+    - **Dynamic Labels:** The switches in the node UI automatically rename themselves based on the title of the nodes connected to the inputs (`in1` to `in5`), making it easy to identify what you are controlling.
+- **Inputs:**
+    - `in1` to `in5`: Connect the nodes you wish to control here.
+    - `active_count`: (Optional) Integer input to determine the number of nodes to keep active sequentially.
+
+Instructions and workflow in the video https://www.youtube.com/watch?v=4Ya_NuEB0Rs
 
 ---
 
