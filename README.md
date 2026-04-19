@@ -110,7 +110,7 @@ Automates the creation of sidecar text files for model training datasets.
 - **Outputs:**
   - `final_saved_text`: The complete string saved to the disk.
 
-
+[![Workflow Download](https://img.shields.io/badge/Workflow-Download_JSON-blue?style=for-the-badge&logo=comfyui)](https://github.com/AcademiaSD/comfyui_AcademiaSD/blob/main/example_workflows/Qwen3-vl_vision_academiasd_v01.json)
 
 ---
 
