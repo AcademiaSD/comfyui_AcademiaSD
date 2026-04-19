@@ -1,0 +1,408 @@
+{
+  "id": "ca1a45bc-a49e-4437-87ed-d939b06b29f0",
+  "revision": 0,
+  "last_node_id": 10,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        -115.66405608032893,
+        -517.8217081032085
+      ],
+      "size": [
+        307.7541690451144,
+        324.75321116461373
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.19.1",
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 2,
+      "type": "AcademiaModelLoader",
+      "pos": [
+        236.3315885105795,
+        -520.4605377286374
+      ],
+      "size": [
+        330.00649034737114,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "ACADEMIA_MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "AcademiaModelLoader"
+      },
+      "widgets_values": [
+        "huihui-ai/Huihui-Qwen3-VL-2B-Instruct-abliterated",
+        "enable"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 1,
+      "type": "AcademiaVisionNode",
+      "pos": [
+        236.6233017428957,
+        -381.195544640678
+      ],
+      "size": [
+        329.3170636045864,
+        132
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "ACADEMIA_MODEL",
+          "link": 1
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "caption",
+          "type": "STRING",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "AcademiaVisionNode"
+      },
+      "widgets_values": [
+        "Describe this image in detail",
+        200
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 9,
+      "type": "AcademiaSD_SaveCaption",
+      "pos": [
+        605.5254565409632,
+        -522.5339038629028
+      ],
+      "size": [
+        300.521484375,
+        126
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "generated_caption",
+          "type": "STRING",
+          "link": 7
+        },
+        {
+          "name": "image_path",
+          "type": "STRING",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "final_saved_text",
+          "type": "STRING",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "AcademiaSD_SaveCaption"
+      },
+      "widgets_values": [
+        "trigger word",
+        "Start (Prefix)",
+        ", "
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 10,
+      "type": "easy showAnything",
+      "pos": [
+        599.2702845804797,
+        -335.83670786381816
+      ],
+      "size": [
+        360.5307615536897,
+        398.2634650158437
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "anything",
+          "shape": 7,
+          "type": "*",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-easy-use",
+        "ver": "1.3.6",
+        "Node name for S&R": "easy showAnything"
+      },
+      "widgets_values": [
+        "trigger word, This is a photograph of a charming stone house, set in a scenic, mountainous landscape. The image is bright and sunny, with lush greenery and a backdrop of dense, forested mountains. The house is a stone structure with a metal roof, and it is surrounded by various elements that contribute to the overall aesthetic.\n\nThe house is built from stone, with a sloped roof. The roof is made of a metal sheet, and a brick chimney is on the right side. The house has a window with a wooden frame, and a small window is on the side of the house. The house has a stone wall and a wooden log wall. The house is surrounded by flowers and greenery. The house is surrounded by a wooden fence. The house is in a grassy area, and the grass is green. The house is in a sunny and bright light. The house has a stone wall, and the stone is in a natural, irregular shape. The house has a stone wall,"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 6,
+      "type": "AcademiaSD_BatchLoader",
+      "pos": [
+        -107.93437428763285,
+        -136.32233939836448
+      ],
+      "size": [
+        320.3794921875,
+        166
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_index",
+          "type": "INT",
+          "widget": {
+            "name": "image_index"
+          },
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            4,
+            6
+          ]
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": null
+        },
+        {
+          "name": "image_path",
+          "type": "STRING",
+          "links": [
+            9
+          ]
+        },
+        {
+          "name": "filename_text",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "AcademiaSD_BatchLoader"
+      },
+      "widgets_values": [
+        "h:\\Trabajos\\test_captions\\",
+        0,
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 5,
+      "type": "LoopCounterToFile",
+      "pos": [
+        283.5707974894533,
+        -181.84215043701084
+      ],
+      "size": [
+        231.56982795148187,
+        26
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "loop_count",
+          "type": "INT",
+          "links": [
+            5
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "LoopCounterToFile"
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 7,
+      "type": "ResetCounterFile",
+      "pos": [
+        273.55021828920985,
+        -88.06945481909533
+      ],
+      "size": [
+        255.1922551293348,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "1.6.7",
+        "Node name for S&R": "ResetCounterFile"
+      },
+      "widgets_values": [
+        true
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      1,
+      0,
+      "ACADEMIA_MODEL"
+    ],
+    [
+      4,
+      6,
+      0,
+      1,
+      1,
+      "IMAGE"
+    ],
+    [
+      5,
+      5,
+      0,
+      6,
+      0,
+      "INT"
+    ],
+    [
+      6,
+      6,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      1,
+      0,
+      9,
+      0,
+      "STRING"
+    ],
+    [
+      8,
+      9,
+      0,
+      10,
+      0,
+      "STRING"
+    ],
+    [
+      9,
+      6,
+      2,
+      9,
+      1,
+      "STRING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1.0610764609500123,
+      "offset": [
+        461.8828831426004,
+        694.2753111186463
+      ]
+    },
+    "frontendVersion": "1.42.11",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
