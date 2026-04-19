@@ -112,11 +112,13 @@ Automates the creation of sidecar text files for model training datasets.
 
 [![Workflow Download](https://img.shields.io/badge/Workflow-Download_JSON-blue?style=for-the-badge&logo=comfyui)](https://github.com/AcademiaSD/comfyui_AcademiaSD/blob/main/example_workflows/Qwen3-vl_vision_academiasd_v01.json)
 
-![](./assets/bypasser.png)
+
 ---
 
 ## Bypass nodes by value
 This node acts as a central control hub to manage the execution state (Active vs. Bypass) of up to 5 connected nodes. It is especially useful for modular workflows where you want to toggle stages on or off dynamically.
+![](./assets/bypasser.png)
+
 
 - **How it works:**
     - **Manual Control:** You can manually toggle each connected node between `ON` and `BYPASS` using the individual switches in the UI.
