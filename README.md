@@ -134,6 +134,8 @@ Instructions and workflow in the video https://www.youtube.com/watch?v=4Ya_NuEB0
 ---
 
 ## Gemini Vision 1.1.2
+![](./example_workflows/Gemini_dataset_captions_AcademiaSD.jpg)
+
 Instructions in the video https://www.youtube.com/watch?v=7WJanKUaSEE
 Dataset captions included
 
