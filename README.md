@@ -58,6 +58,11 @@ Absolute control over resolution with mathematical precision.
 *   **Get Image Size:** Connect a `Load Image` node to the side cable, press the 📐 button, and the node will automatically adopt the exact resolution of the original image.
 
 ---
+
+## Academia SD VL Model Loader (Qwen3-vl) & captions nodes
+
+![](./assets/qwen3-vl.png)
+
 ## Loop Tools
 Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
 
