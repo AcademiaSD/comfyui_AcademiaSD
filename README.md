@@ -61,7 +61,7 @@ Absolute control over resolution with mathematical precision.
 
 ## Academia SD VL Model Loader (Qwen3-vl) & captions nodes
 
-![](./assets/caption_wf.png)
+![](./assets/captions_wf.png)
 
 ## Loop Tools
 Instructions in the video https://www.youtube.com/watch?v=vACeuxv5HIw
