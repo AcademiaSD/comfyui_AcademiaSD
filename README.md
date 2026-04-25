@@ -141,4 +141,13 @@ Dataset captions included
 
 ---
 
+## ⏱️ Academia SD Time Calculator
+![Academia SD Time Calculator](assets/Time_Calculator.png)
+
+A pocket-sized, real-time video duration calculator for animation workflows.
+*   **Instant Visual Feedback:** Displays the exact video duration in seconds on a sleek, green LED-style digital screen the moment you type or change a value, without needing to run the queue.
+*   **Workflow Integration:** Outputs the `FRAMES` (INT) and `FPS` (FLOAT) values so you can plug them directly into your Video Samplers or Video Combine nodes. Use it as your unified master control for video length!
+*   **Decimal FPS Support:** Fully supports standard animation and cinematic framerates like `23.9` or `29.97` FPS.
+*   **Ultra-Compact Design:** Meticulously designed to take up the absolute minimum space on your canvas (down to 180px width), making it the perfect, unobtrusive sidekick for your LTX-Video or Stable Video Diffusion setups.
+
 # Workflows included.
