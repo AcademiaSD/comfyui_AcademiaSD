@@ -161,7 +161,7 @@ An all-in-one, cable-free image injector designed specifically for LTX-Video Ima
 *   **Per-Frame Strength Control:** Precisely adjust the injection strength for each individual keyframe to guide the video generation.
 *   **In-Place Latent Injection:** Encodes and injects the images directly into the latent space and noise mask, perfectly conditioning the LTX-Video architecture without external spaghetti wiring.
 
-> **Acknowledgments:** The core latent injection and masking logic of this node is built upon the fantastic work from[Kijai's ComfyUI-LTXVideo](https://github.com/kijai/ComfyUI-LTXVideo) wrapper (specifically adapted from the `LTXVImgToVideoInplaceKJ` node).
+> **Acknowledgments:** The core latent injection and masking logic of this node is built upon the fantastic work from [Kijai's ComfyUI-LTXVideo](https://github.com/kijai/ComfyUI-LTXVideo) wrapper (specifically adapted from the `LTXVImgToVideoInplaceKJ` node).
 
 ---
 
