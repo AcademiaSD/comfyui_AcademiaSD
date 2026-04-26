@@ -152,4 +152,17 @@ A pocket-sized, real-time video duration calculator for animation workflows.
 
 ---
 
+## 🖼️ Academia SD LTXV Multi-Frames
+![Academia SD LTXV Multi-Frames](assets/LTXVMultiFrames.png)
+
+An all-in-one, cable-free image injector designed specifically for LTX-Video Image-to-Video workflows.
+*   **Drag & Drop Interface:** Upload and manage multiple reference images directly inside the node's UI. No need for messy `Load Image` nodes cluttering your workspace.
+*   **Smart Indexing:** Automatically sets the first frame to index `0` and newly added frames to `-1` (last frame by default), keeping your animation loops mathematically sound.
+*   **Per-Frame Strength Control:** Precisely adjust the injection strength for each individual keyframe to guide the video generation.
+*   **In-Place Latent Injection:** Encodes and injects the images directly into the latent space and noise mask, perfectly conditioning the LTX-Video architecture without external spaghetti wiring.
+
+> **Acknowledgments:** The core latent injection and masking logic of this node is built upon the fantastic work from[Kijai's ComfyUI-LTXVideo](https://github.com/kijai/ComfyUI-LTXVideo) wrapper (specifically adapted from the `LTXVImgToVideoInplaceKJ` node).
+
+---
+
 # Workflows included.
