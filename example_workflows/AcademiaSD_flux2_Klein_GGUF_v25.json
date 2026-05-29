@@ -1,7 +1,7 @@
 {
-  "id": "0bbd7854-9110-4dcc-a276-5fcef0328bdf",
+  "id": "66948588-ab79-45e3-acfb-55607ae5f7be",
   "revision": 0,
-  "last_node_id": 134,
+  "last_node_id": 136,
   "last_link_id": 293,
   "nodes": [
     {
@@ -18,7 +18,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 33,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
@@ -63,7 +63,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 29,
+      "order": 28,
       "mode": 4,
       "inputs": [
         {
@@ -287,7 +287,7 @@
         157.77690773192165
       ],
       "size": [
-        210,
+        216.4927734375,
         106
       ],
       "flags": {},
@@ -335,7 +335,7 @@
         587.7812399804736
       ],
       "size": [
-        210,
+        216.4927734375,
         106
       ],
       "flags": {},
@@ -383,7 +383,7 @@
         596.2404051295731
       ],
       "size": [
-        210,
+        216.4927734375,
         106
       ],
       "flags": {},
@@ -431,11 +431,11 @@
         158.9156305277288
       ],
       "size": [
-        210,
+        216.4927734375,
         106
       ],
       "flags": {},
-      "order": 22,
+      "order": 21,
       "mode": 4,
       "inputs": [
         {
@@ -773,7 +773,7 @@
         46
       ],
       "flags": {},
-      "order": 37,
+      "order": 36,
       "mode": 4,
       "inputs": [
         {
@@ -906,7 +906,7 @@
         58
       ],
       "flags": {},
-      "order": 34,
+      "order": 33,
       "mode": 0,
       "inputs": [
         {
@@ -992,55 +992,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 86,
-      "type": "ModelPatchTorchSettings",
-      "pos": [
-        -146.6074741521382,
-        1239.9771116127847
-      ],
-      "size": [
-        247.443359375,
-        62.146732330322266
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 36,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 201
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            261
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
-        "Node name for S&R": "ModelPatchTorchSettings",
-        "aux_id": "kijai/ComfyUI-KJNodes",
-        "ue_properties": {
-          "version": "7.5.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        true
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
       "id": 116,
       "type": "CFGGuider",
       "pos": [
@@ -1110,7 +1061,7 @@
         224.75167213024508
       ],
       "flags": {},
-      "order": 28,
+      "order": 27,
       "mode": 0,
       "inputs": [
         {
@@ -1214,7 +1165,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 35,
+      "order": 34,
       "mode": 0,
       "inputs": [
         {
@@ -1249,46 +1200,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 52,
-      "type": "UnetLoaderGGUF",
-      "pos": [
-        -520.8149736509214,
-        208.53726951578196
-      ],
-      "size": [
-        288.9713001285289,
-        58
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            268
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI-GGUF",
-        "ver": "cf0573351ac260d629d460d97f09b09ac17d3726",
-        "Node name for S&R": "UnetLoaderGGUF",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "version": "7.5.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "flux-2-klein-9b-Q8_0.gguf"
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 122,
       "type": "UNETLoader",
       "pos": [
@@ -1300,7 +1211,7 @@
         83.66958844644796
       ],
       "flags": {},
-      "order": 6,
+      "order": 5,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1336,7 +1247,7 @@
         108.07336613426537
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1378,7 +1289,7 @@
         106
       ],
       "flags": {},
-      "order": 8,
+      "order": 7,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1420,7 +1331,7 @@
         60.429901123046875
       ],
       "flags": {},
-      "order": 9,
+      "order": 8,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1467,7 +1378,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 10,
+      "order": 9,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1512,7 +1423,7 @@
       "flags": {
         "collapsed": false
       },
-      "order": 11,
+      "order": 10,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1542,80 +1453,6 @@
       ],
       "color": "#232",
       "bgcolor": "#353"
-    },
-    {
-      "id": 129,
-      "type": "ImpactSwitch",
-      "pos": [
-        87.23605379467011,
-        1066.0337279803211
-      ],
-      "size": [
-        270,
-        122
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 21,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "input1",
-          "shape": 7,
-          "type": "*",
-          "link": 273
-        },
-        {
-          "name": "select",
-          "type": "INT",
-          "widget": {
-            "name": "select"
-          },
-          "link": 285
-        },
-        {
-          "name": "input2",
-          "type": "CLIP",
-          "link": 274
-        },
-        {
-          "name": "input3",
-          "type": "CLIP",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "label": "CLIP",
-          "name": "selected_value",
-          "type": "*",
-          "links": [
-            275
-          ]
-        },
-        {
-          "name": "selected_label",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "selected_index",
-          "type": "INT",
-          "links": []
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-workflow-encrypt",
-        "ver": "1.0.0",
-        "Node name for S&R": "ImpactSwitch"
-      },
-      "widgets_values": [
-        1,
-        false
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
     },
     {
       "id": 97,
@@ -1699,7 +1536,7 @@
         130
       ],
       "flags": {},
-      "order": 12,
+      "order": 11,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1739,7 +1576,7 @@
         82
       ],
       "flags": {},
-      "order": 13,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -1782,7 +1619,7 @@
         222
       ],
       "flags": {},
-      "order": 23,
+      "order": 22,
       "mode": 0,
       "inputs": [
         {
@@ -1840,7 +1677,7 @@
         425.7544346369093
       ],
       "flags": {},
-      "order": 14,
+      "order": 13,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -1889,7 +1726,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 20,
+      "order": 23,
       "mode": 0,
       "inputs": [
         {
@@ -1961,7 +1798,7 @@
         140
       ],
       "flags": {},
-      "order": 27,
+      "order": 31,
       "mode": 0,
       "inputs": [
         {
@@ -2004,56 +1841,6 @@
       "bgcolor": "#535"
     },
     {
-      "id": 85,
-      "type": "PathchSageAttentionKJ",
-      "pos": [
-        -129.06886981023789,
-        1298.3028689394284
-      ],
-      "size": [
-        210,
-        74
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 32,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 293
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            201
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-kjnodes",
-        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
-        "Node name for S&R": "PathchSageAttentionKJ",
-        "aux_id": "kijai/ComfyUI-KJNodes",
-        "ue_properties": {
-          "version": "7.5.1",
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "auto",
-        false
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
       "id": 99,
       "type": "EmptyFlux2LatentImage",
       "pos": [
@@ -2067,7 +1854,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 31,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
@@ -2118,6 +1905,86 @@
       "bgcolor": "#3f5159"
     },
     {
+      "id": 118,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        -464.8082966350362,
+        1191.9662722186192
+      ],
+      "size": [
+        274.8266114308781,
+        58
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Sage Attention ON/OFF",
+      "properties": {
+        "matchColors": "",
+        "matchTitle": "Sage",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 52,
+      "type": "UnetLoaderGGUF",
+      "pos": [
+        -522.1626362284985,
+        193.71298116243378
+      ],
+      "size": [
+        288.9713001285289,
+        58
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            268
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-GGUF",
+        "ver": "cf0573351ac260d629d460d97f09b09ac17d3726",
+        "Node name for S&R": "UnetLoaderGGUF",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.5.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "flux-2-klein-9b-Q8_0.gguf"
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
       "id": 102,
       "type": "Flux2Scheduler",
       "pos": [
@@ -2131,7 +1998,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 30,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
@@ -2190,44 +2057,177 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 118,
-      "type": "Fast Groups Bypasser (rgthree)",
+      "id": 86,
+      "type": "ModelPatchTorchSettings",
       "pos": [
-        -464.8082966350362,
-        1191.9662722186192
+        -146.6074741521382,
+        1239.9771116127847
       ],
       "size": [
-        274.8266114308781,
-        58
+        247.443359375,
+        62.146732330322266
       ],
-      "flags": {},
-      "order": 15,
+      "flags": {
+        "collapsed": true
+      },
+      "order": 37,
       "mode": 0,
-      "inputs": [],
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 201
+        }
+      ],
       "outputs": [
         {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": null
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            261
+          ]
         }
       ],
-      "title": "Sage Attention ON/OFF",
       "properties": {
-        "matchColors": "",
-        "matchTitle": "Sage",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
+        "Node name for S&R": "ModelPatchTorchSettings",
+        "aux_id": "kijai/ComfyUI-KJNodes",
         "ue_properties": {
+          "version": "7.5.1",
           "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
+          "input_ue_unconnectable": {}
         }
       },
-      "color": "#432",
-      "bgcolor": "#653"
+      "widgets_values": [
+        true
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 85,
+      "type": "PathchSageAttentionKJ",
+      "pos": [
+        -129.06886981023789,
+        1298.3028689394284
+      ],
+      "size": [
+        210,
+        74
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 35,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 293
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            201
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "5dcda71011870278c35d92ff77a677ed2e538f2d",
+        "Node name for S&R": "PathchSageAttentionKJ",
+        "aux_id": "kijai/ComfyUI-KJNodes",
+        "ue_properties": {
+          "version": "7.5.1",
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "auto",
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 129,
+      "type": "ImpactSwitch",
+      "pos": [
+        67.63368902991215,
+        1069.5866565939334
+      ],
+      "size": [
+        270,
+        122
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input1",
+          "shape": 7,
+          "type": "*",
+          "link": 273
+        },
+        {
+          "name": "select",
+          "type": "INT",
+          "widget": {
+            "name": "select"
+          },
+          "link": 285
+        },
+        {
+          "name": "input2",
+          "type": "CLIP",
+          "link": 274
+        },
+        {
+          "name": "input3",
+          "type": "CLIP",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "label": "CLIP",
+          "name": "selected_value",
+          "type": "*",
+          "links": [
+            275
+          ]
+        },
+        {
+          "name": "selected_label",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "selected_index",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "8.28.3",
+        "Node name for S&R": "ImpactSwitch"
+      },
+      "widgets_values": [
+        1,
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
     },
     {
       "id": 132,
@@ -2237,8 +2237,8 @@
         1322.5817650175013
       ],
       "size": [
-        1522.3168042320895,
-        319.4615712712082
+        1575.6842423041426,
+        414.33701673263636
       ],
       "flags": {},
       "order": 16,
@@ -2802,13 +2802,13 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5574947419348313,
+      "scale": 0.6745686377411472,
       "offset": [
-        2400.3460066321018,
-        378.01340096028036
+        2368.0963939170188,
+        -380.54501228900364
       ]
     },
-    "frontendVersion": "1.43.18",
+    "frontendVersion": "1.44.19",
     "groupNodes": {},
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
