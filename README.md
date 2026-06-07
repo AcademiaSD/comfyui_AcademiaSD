@@ -141,6 +141,18 @@ Dataset captions included
 
 ---
 
+## 🧮 Academia SD Resolution Calc
+![Academia SD Resolution Calc](assets/AcademiaSD_resolution_calc.png)
+
+A modern resolution calculator tailored for Megapixel-based models (like SDXL and Flux).
+*   **Megapixel-Driven:** Instead of guessing widths and heights, set your target Megapixels (e.g., `1.0` for SDXL or `2.0` for Flux) and let the node do the complex math.
+*   **Extensive Ratio Library:** Comes pre-loaded with an exhaustive list of cinematic and standard aspect ratios (from `1:1 Perfect Square` up to `32:9 Extreme Ultrawide`).
+*   **Custom Ratio Override:** Enable the `custom_ratio` switch to type any exotic aspect ratio (e.g., `14:9`) on the fly.
+*   **Divisibility Safety:** Easily lock the output to be strictly divisible by `8`, `16`, `32`, or `64` to prevent tensor dimension errors during inference.
+*   **Real-time LED Screen:** Instantly preview the exact mathematically calculated `width` and `height` in a sleek green display as you change settings, without needing to queue a prompt. Outputs standard `INT` variables ready to connect to your Empty Latent nodes.
+  
+---
+
 ## ⏱️ Academia SD Time Calculator
 ![Academia SD Time Calculator](assets/Time_calculator.png)
 
