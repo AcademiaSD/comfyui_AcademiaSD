@@ -33,7 +33,6 @@ class AcademiaResolutionCalc:
     CATEGORY = "Academia SD"
 
     def calc_resolution(self, megapixel, aspect_ratio, divisible_by, custom_ratio, custom_aspect_ratio):
-        # 1. Determinar el ratio (Ancho / Alto)
         if custom_ratio:
             parts = custom_aspect_ratio.split(":")
             try:
@@ -47,19 +46,16 @@ class AcademiaResolutionCalc:
             w_r = float(parts[0])
             h_r = float(parts[1])
 
-        # Evitar divisiones por cero accidentales
         if w_r <= 0 or h_r <= 0:
             w_r, h_r = 1.0, 1.0
 
-        # 2. Convertir Megapíxeles a píxeles totales
-        target_area = megapixel * 1000000
+        # CORRECCIÓN: Matemáticas Binarias para IA (1024 x 1024 = 1048576)
+        target_area = megapixel * 1048576
         ratio = w_r / h_r
 
-        # 3. Calcular dimensiones exactas
         h_exact = math.sqrt(target_area / ratio)
         w_exact = h_exact * ratio
 
-        # 4. Ajustar al divisor seleccionado (Ej: Múltiplos de 16)
         div = int(divisible_by)
         w_final = max(div, int(round(w_exact / div) * div))
         h_final = max(div, int(round(h_exact / div) * div))
