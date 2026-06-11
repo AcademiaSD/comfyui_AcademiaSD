@@ -141,6 +141,18 @@ Dataset captions included
 
 ---
 
+## Academia SD Masked Noise
+![Academia SD Masked Noise](assets/AcademiaSD_MaskedNoise.png)
+
+Add cinematic film grain and organic noise exclusively to specific areas of your image using a mask.
+*   **True Additive Noise:** Unlike nodes that just fade your image into a static picture, this node uses additive mathematics. The `noise_intensity` slider softens or sharpens the grain structure without making it transparent, preserving the full opacity of the effect over your image.
+*   **Solid Base Generator:** Optionally apply a solid background color underneath the noise. Includes an interactive color picker with an eyedropper tool and an independent `solid_opacity` slider to give your noise masks volume and presence over complex backgrounds.
+*   **Dual Noise Generation:** Choose between chromatic digital grain (`Color`) or classic cinematic film grain (`Black & White`).
+*   **Mask Adjustments on the Fly:** Forget external masking nodes. Includes built-in sliders to shrink the mask away from edges (`shrink_pixels`) and apply professional Gaussian edge-blurring (`feather_pixels`) for seamless transitions.
+*   **Master Opacity & Mask Output:** Use the global `opacity` slider to fine-tune how strongly the final masked effect blends into your composition. It also outputs a secondary `PROCESSED_MASK` cable, allowing you to route the perfectly feathered and shrunk mask directly into your Inpainting or ControlNet pipelines.
+
+---
+
 ## 🧮 Academia SD Resolution Calc
 ![Academia SD Resolution Calc](assets/AcademiaSD_resolution_calc.png)
 
