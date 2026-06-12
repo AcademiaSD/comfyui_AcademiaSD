@@ -99,13 +99,16 @@ class AcademiaGeminiVision:
         ]
         return {
             "required": {
-                "instruction": ("STRING", {"multiline": True, "default": "Analyze the provided input and format the output as a detailed JSON."}),
+                "instruction": ("STRING", {"multiline": True, "default": "Analyze the provided input and format the output as a detailed JSON. If generating bounding boxes, ensure they match the provided resolution."}),
                 "api_key": ("STRING", {"default": ""}),
                 "model": (default_models, {"default": "gemini-3.5-flash"}),
             },
             "optional": {
                 "image": ("IMAGE", {"default": None}),
-                "external_prompt": ("STRING", {"forceInput": True, "default": ""}),
+                "external_prompt": ("STRING", {"forceInput": True}),
+                # --- NUEVOS CABLES OPCIONALES DE RESOLUCIÓN ---
+                "width": ("INT", {"forceInput": True}),
+                "height": ("INT", {"forceInput": True}),
             }
         }
 
@@ -114,7 +117,7 @@ class AcademiaGeminiVision:
     FUNCTION = "analyze"
     CATEGORY = "Academia SD"
 
-    def analyze(self, instruction, api_key, model, image=None, external_prompt=""):
+    def analyze(self, instruction, api_key, model, image=None, external_prompt=None, width=None, height=None):
         if not HAS_GENAI:
             error_msg = "Error: 'google-genai' library is not installed. Please run: pip install google-genai"
             print(f"[AcademiaSD] ❌ {error_msg}")
@@ -141,14 +144,26 @@ class AcademiaGeminiVision:
             
             contents = []
             
+            # 1. Procesar Imagen (Si se conectó)
             if image is not None:
                 i = 255. * image.cpu().numpy()
                 img = Image.fromarray(np.clip(i[0], 0, 255).astype(np.uint8))
                 contents.append(img)
             
+            # 2. Procesar Textos
             final_text = instruction
-            if external_prompt and external_prompt.strip() != "":
-                final_text += f"\n\n--- INPUT DATA ---\n{external_prompt}"
+            
+            # 3. INYECTAR LA RESOLUCIÓN AL PROMPT SI ESTÁN CONECTADAS
+            if width is not None and height is not None:
+                final_text += f"\n\n[RESOLUTION INFO]\nThe target image resolution is {width}px (Width) by {height}px (Height). If you generate bounding boxes (bbox), you MUST map the coordinates strictly to these dimensions."
+            elif width is not None:
+                final_text += f"\n\n[RESOLUTION INFO]\nThe target image width is {width}px. Please map your coordinates accordingly."
+            elif height is not None:
+                final_text += f"\n\n[RESOLUTION INFO]\nThe target image height is {height}px. Please map your coordinates accordingly."
+
+            # 4. Inyectar Prompt Externo si existe
+            if external_prompt and str(external_prompt).strip() != "":
+                final_text += f"\n\n--- EXTERNAL PROMPT / DATA ---\n{external_prompt}"
             
             if final_text.strip():
                 contents.append(final_text)
@@ -156,6 +171,7 @@ class AcademiaGeminiVision:
             if not contents:
                 return ("Error: Provide at least an image or a text instruction.",)
 
+            # Enviar a Gemini
             response = client.models.generate_content(
                 model=model,
                 contents=contents
