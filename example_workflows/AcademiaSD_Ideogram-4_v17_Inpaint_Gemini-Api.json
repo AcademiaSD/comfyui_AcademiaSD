@@ -1,8 +1,8 @@
 {
   "id": "97c57769-135f-4583-a507-1d1e271f0359",
   "revision": 0,
-  "last_node_id": 281,
-  "last_link_id": 482,
+  "last_node_id": 282,
+  "last_link_id": 487,
   "nodes": [
     {
       "id": 8,
@@ -721,76 +721,7 @@
         "Node name for S&R": "easy showAnything"
       },
       "widgets_values": [
-        "Ultra Realistic pirate movie "
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
-      "id": 140,
-      "type": "ImpactSwitch",
-      "pos": [
-        6805.955694209943,
-        985.7982770087035
-      ],
-      "size": [
-        270,
-        122
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 43,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "input1",
-          "shape": 7,
-          "type": "*",
-          "link": 280
-        },
-        {
-          "name": "select",
-          "type": "INT",
-          "widget": {
-            "name": "select"
-          },
-          "link": 282
-        },
-        {
-          "name": "input2",
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "label": "STRING",
-          "name": "selected_value",
-          "type": "*",
-          "links": [
-            283
-          ]
-        },
-        {
-          "name": "selected_label",
-          "type": "STRING",
-          "links": null
-        },
-        {
-          "name": "selected_index",
-          "type": "INT",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui-impact-pack",
-        "ver": "8.28.3",
-        "Node name for S&R": "ImpactSwitch"
-      },
-      "widgets_values": [
-        1,
-        false
+        "amateur photo of a woman posing"
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
@@ -1062,7 +993,7 @@
         "pinned": true
       },
       "order": 7,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1070,8 +1001,7 @@
           "type": "IMAGE",
           "links": [
             344,
-            476,
-            482
+            476
           ]
         },
         {
@@ -1227,7 +1157,7 @@
         "collapsed": true
       },
       "order": 8,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1301,7 +1231,7 @@
         "collapsed": true
       },
       "order": 10,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -1337,7 +1267,7 @@
       ],
       "flags": {},
       "order": 35,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "pixels",
@@ -1383,7 +1313,7 @@
         "collapsed": true
       },
       "order": 49,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "input1",
@@ -1438,66 +1368,6 @@
       "widgets_values": [
         1,
         false
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
-      "id": 5,
-      "type": "CLIPTextEncode",
-      "pos": [
-        5792.244912841851,
-        1816.0159368311813
-      ],
-      "size": [
-        500.27680000000055,
-        434.6410000000001
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 45,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 130
-        },
-        {
-          "name": "text",
-          "type": "STRING",
-          "widget": {
-            "name": "text"
-          },
-          "link": 283
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "slot_index": 0,
-          "links": [
-            334
-          ]
-        }
-      ],
-      "title": "CLIP Text Encode (Positive Prompt)",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.8.2",
-        "Node name for S&R": "CLIPTextEncode",
-        "enableTabs": false,
-        "tabWidth": 65,
-        "tabXOffset": 10,
-        "hasSecondTab": false,
-        "secondTabText": "Send Back",
-        "secondTabOffset": 80,
-        "secondTabWidth": 65
-      },
-      "widgets_values": [
-        ""
       ],
       "color": "#2a363b",
       "bgcolor": "#3f5159"
@@ -1955,46 +1825,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 183,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        3602.890875534023,
-        315.3682199613508
-      ],
-      "size": [
-        273.0888693269908,
-        58
-      ],
-      "flags": {},
-      "order": 12,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "Inpaint & I2I On/Off",
-      "properties": {
-        "matchColors": "Blue",
-        "matchTitle": "Inpaint",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
       "id": 271,
       "type": "CLIPTextEncode",
       "pos": [
@@ -2092,7 +1922,7 @@
         "collapsed": false
       },
       "order": 47,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "positive",
@@ -2169,7 +1999,7 @@
         82
       ],
       "flags": {},
-      "order": 13,
+      "order": 12,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2212,7 +2042,7 @@
         82
       ],
       "flags": {},
-      "order": 14,
+      "order": 13,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2251,7 +2081,7 @@
       ],
       "flags": {},
       "order": 30,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "image",
@@ -2498,12 +2328,12 @@
           {
             "name": "A",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_izefz_00003_.png&type=temp&subfolder=&rand=0.8930250706922441"
+            "url": "/api/view?filename=rgthree.compare._temp_heign_00005_.png&type=temp&subfolder=&rand=0.29976937403115433"
           },
           {
             "name": "B",
             "selected": true,
-            "url": "/api/view?filename=rgthree.compare._temp_izefz_00004_.png&type=temp&subfolder=&rand=0.5541598400837843"
+            "url": "/api/view?filename=rgthree.compare._temp_heign_00006_.png&type=temp&subfolder=&rand=0.2928324327739661"
           }
         ]
       ],
@@ -2523,7 +2353,7 @@
         575.3526626869862
       ],
       "flags": {},
-      "order": 15,
+      "order": 14,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2562,7 +2392,7 @@
         519.1477889908602
       ],
       "flags": {},
-      "order": 16,
+      "order": 15,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2601,8 +2431,8 @@
         58
       ],
       "flags": {},
-      "order": 17,
-      "mode": 0,
+      "order": 16,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2641,7 +2471,7 @@
         58
       ],
       "flags": {},
-      "order": 18,
+      "order": 17,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -2670,57 +2500,6 @@
       "bgcolor": "#653"
     },
     {
-      "id": 98,
-      "type": "AcademiaSD_ResolutionCalc",
-      "pos": [
-        6314.717767294024,
-        1340.1775713654679
-      ],
-      "size": [
-        240,
-        293
-      ],
-      "flags": {},
-      "order": 19,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "WIDTH",
-          "type": "INT",
-          "links": [
-            166,
-            168,
-            342
-          ]
-        },
-        {
-          "name": "HEIGHT",
-          "type": "INT",
-          "links": [
-            167,
-            169,
-            343
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "2f3f0ab7b6ffaf1c26164ebfa9896e2f417186b1",
-        "Node name for S&R": "AcademiaSD_ResolutionCalc"
-      },
-      "widgets_values": [
-        2,
-        "16:9 (Panorama)",
-        "16",
-        false,
-        "1:1",
-        ""
-      ],
-      "color": "#232",
-      "bgcolor": "#353"
-    },
-    {
       "id": 178,
       "type": "Fast Groups Bypasser (rgthree)",
       "pos": [
@@ -2732,8 +2511,8 @@
         58
       ],
       "flags": {},
-      "order": 20,
-      "mode": 0,
+      "order": 18,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2828,7 +2607,7 @@
           "links": [
             142,
             242,
-            280
+            484
           ]
         },
         {
@@ -2981,6 +2760,177 @@
       }
     },
     {
+      "id": 74,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        4682.056538896764,
+        314.5263697562325
+      ],
+      "size": [
+        273.0888693269908,
+        58
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "PromptBuilder",
+      "properties": {
+        "matchColors": "",
+        "matchTitle": "PromptBuilder",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 54,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        5946.411398277766,
+        306.2954130338102
+      ],
+      "size": [
+        274.8266114308781,
+        58
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": null
+        }
+      ],
+      "title": "Prompt2Json Gemini-Api",
+      "properties": {
+        "matchColors": "",
+        "matchTitle": "Prompt2Json",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 98,
+      "type": "AcademiaSD_ResolutionCalc",
+      "pos": [
+        6314.717767294024,
+        1340.1775713654679
+      ],
+      "size": [
+        240,
+        293
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "WIDTH",
+          "type": "INT",
+          "links": [
+            166,
+            168,
+            342
+          ]
+        },
+        {
+          "name": "HEIGHT",
+          "type": "INT",
+          "links": [
+            167,
+            169,
+            343
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "2f3f0ab7b6ffaf1c26164ebfa9896e2f417186b1",
+        "Node name for S&R": "AcademiaSD_ResolutionCalc"
+      },
+      "widgets_values": [
+        2,
+        "3:4 (Golden Ratio)",
+        "16",
+        false,
+        "1:1",
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 183,
+      "type": "Fast Groups Bypasser (rgthree)",
+      "pos": [
+        3602.890875534023,
+        315.3682199613508
+      ],
+      "size": [
+        273.0888693269908,
+        58
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "OPT_CONNECTION",
+          "type": "*",
+          "links": []
+        }
+      ],
+      "title": "Inpaint & I2I On/Off",
+      "properties": {
+        "matchColors": "Blue",
+        "matchTitle": "Inpaint",
+        "showNav": true,
+        "showAllGraphs": true,
+        "sort": "position",
+        "customSortAlphabet": "",
+        "toggleRestriction": "default",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.5.1"
+        }
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
       "id": 78,
       "type": "BasicScheduler",
       "pos": [
@@ -3033,267 +2983,10 @@
       "widgets_values": [
         "simple",
         15,
-        0.55
+        1
       ],
       "color": "#232",
       "bgcolor": "#353"
-    },
-    {
-      "id": 74,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        4682.056538896764,
-        314.5263697562325
-      ],
-      "size": [
-        273.0888693269908,
-        58
-      ],
-      "flags": {},
-      "order": 21,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": []
-        }
-      ],
-      "title": "PromptBuilder",
-      "properties": {
-        "matchColors": "",
-        "matchTitle": "PromptBuilder",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 54,
-      "type": "Fast Groups Bypasser (rgthree)",
-      "pos": [
-        5946.411398277766,
-        306.2954130338102
-      ],
-      "size": [
-        274.8266114308781,
-        58
-      ],
-      "flags": {},
-      "order": 22,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "OPT_CONNECTION",
-          "type": "*",
-          "links": null
-        }
-      ],
-      "title": "Prompt2Json Gemini-Api",
-      "properties": {
-        "matchColors": "",
-        "matchTitle": "Prompt2Json",
-        "showNav": true,
-        "showAllGraphs": true,
-        "sort": "position",
-        "customSortAlphabet": "",
-        "toggleRestriction": "default",
-        "ue_properties": {
-          "widget_ue_connectable": {},
-          "input_ue_unconnectable": {},
-          "version": "7.5.1"
-        }
-      },
-      "color": "#432",
-      "bgcolor": "#653"
-    },
-    {
-      "id": 34,
-      "type": "PrimitiveStringMultiline",
-      "pos": [
-        6297.685354457158,
-        928.7045381401402
-      ],
-      "size": [
-        478.6009926560564,
-        233.59268498634947
-      ],
-      "flags": {},
-      "order": 23,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            236,
-            478
-          ]
-        }
-      ],
-      "title": "Prompt",
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.23.0",
-        "Node name for S&R": "PrimitiveStringMultiline",
-        "enableTabs": false,
-        "tabWidth": 65,
-        "tabXOffset": 10,
-        "hasSecondTab": false,
-        "secondTabText": "Send Back",
-        "secondTabOffset": 80,
-        "secondTabWidth": 65
-      },
-      "widgets_values": [
-        "Ultra Realistic pirate movie "
-      ],
-      "color": "#232",
-      "bgcolor": "#353"
-    },
-    {
-      "id": 81,
-      "type": "PrimitiveInt",
-      "pos": [
-        6830.122187312317,
-        866.5466203326529
-      ],
-      "size": [
-        210,
-        82
-      ],
-      "flags": {
-        "collapsed": true
-      },
-      "order": 24,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "INT",
-          "type": "INT",
-          "links": [
-            137,
-            140,
-            178,
-            184,
-            282
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.24.0",
-        "Node name for S&R": "PrimitiveInt"
-      },
-      "widgets_values": [
-        2,
-        "fixed"
-      ],
-      "color": "#2a363b",
-      "bgcolor": "#3f5159"
-    },
-    {
-      "id": 280,
-      "type": "AcademiaSD_GeminiVision",
-      "pos": [
-        6142.124980949781,
-        422.4270225493378
-      ],
-      "size": [
-        456.98192457078403,
-        405.13492845482347
-      ],
-      "flags": {},
-      "order": 32,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "image",
-          "shape": 7,
-          "type": "IMAGE",
-          "link": 482
-        },
-        {
-          "name": "external_prompt",
-          "shape": 7,
-          "type": "STRING",
-          "link": 478
-        }
-      ],
-      "outputs": [
-        {
-          "name": "text",
-          "type": "STRING",
-          "links": [
-            479
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "cd94adb86b315b524005b72b274580890b62ce52",
-        "Node name for S&R": "AcademiaSD_GeminiVision"
-      },
-      "widgets_values": [
-        "You are an image-prompt transformation engine.\n\nYour job is to convert a user's plain-language image request into a single **Ideogram4 JSON prompt object** and output **JSON only**.\n\n## Core rule\n- **Always return exactly one valid JSON object and nothing else.**\n- Do **not** include markdown fences.\n- Do **not** include explanations, commentary, notes, headings, or apologies.\n- Do **not** echo the user's request outside the JSON.\n- The response must be directly parseable as JSON.\n\n## Objective\nTransform and enrich the user's image-generation intent into a highly refined, production-quality Ideogram4 prompt that is visually exceptional, compositionally intentional, and artistically world-class.\n\nEvery result should feel polished enough to impress:\n- Hollywood directors\n- award-winning animation studios\n- elite commercial photographers\n- leading art directors\n- top concept artists and designers\n\n## Required output schema\nAlways output a JSON object with exactly this top-level structure:\n\n{\n  \"high_level_description\": \"...\",\n  \"style_description\": {\n    \"aesthetics\": \"...\",\n    \"lighting\": \"...\",\n    \"medium\": \"...\",\n    \"art_style\": \"...\",\n    \"color_palette\": [\"...\", \"...\"]\n  },\n  \"compositional_deconstruction\": {\n    \"background\": \"...\",\n    \"elements\": [\n      {\n        \"type\": \"obj\",\n        \"bbox\": [x1, y1, x2, y2],\n        \"desc\": \"...\"\n      },\n      {\n        \"type\": \"text\",\n        \"bbox\": [x1, y1, x2, y2],\n        \"text\": \"...\",\n        \"desc\": \"...\"\n      }\n    ]\n  }\n}\n\n## Field requirements\n\n### 1) `high_level_description`\n- Write a concise but vivid description of the final image.\n- Preserve the user's core intent, subject, mood, and purpose.\n- Elevate the concept with tasteful specificity.\n\n### 2) `style_description`\nYou must always provide all of these:\n\n- `aesthetics`  \n  A compact phrase describing the visual taste and overall feel.\n\n- `lighting`  \n  Lighting should match the scene intent precisely. Be specific and cinematic when appropriate.\n\n- `medium`  \n  Choose the most fitting medium for the request, such as:\n  - `\"photography\"`\n  - `\"graphic_design\"`\n  - `\"illustration\"`\n  - `\"3d_render\"`\n  - `\"cinematic_still\"`\n  - `\"concept_art\"`\n  - `\"anime\"`\n  - `\"editorial\"`\n  - `\"poster_design\"`\n\n- `art_style`  \n  A refined description of execution style, matching the user's request and the chosen medium.\n\n- `color_palette`  \n  Always provide an array of hex colors.\n  - Usually 3 to 6 colors.\n  - Choose a palette that supports the emotional and stylistic goals.\n  - If the user specifies colors, honor them.\n  - If no colors are given, infer an excellent palette.\n\n## 3) `compositional_deconstruction`\nThis section must always be deliberate and spatially useful.\n\n### `background`\n- Describe the background clearly and visually.\n- Include atmosphere, setting, depth, texture, and negative space where helpful.\n\n### `elements`\n- Always include multiple important visual elements when appropriate.\n- **Always use `bbox` for important elements in the scene.**\n- Bounding boxes must be intentional and compositionally useful.\n- Use the canvas coordinate system consistently.\n- Assume a normalized poster-like image plane from approximately 0–1000 in both dimensions.\n- Keep bounding boxes realistic, non-random, and visually coherent.\n- Important focal subjects must receive prominent bbox placement.\n- Supporting elements should reinforce hierarchy and balance.\n\n## Element rules\n\n### Object elements\nUse:\n{\n  \"type\": \"obj\",\n  \"bbox\": [x1, y1, x2, y2],\n  \"desc\": \"...\"\n}\n\n- `desc` should describe the object, pose, material, styling, orientation, expression, detail level, and role in the composition where relevant.\n\n### Text elements\nUse:\n{\n  \"type\": \"text\",\n  \"bbox\": [x1, y1, x2, y2],\n  \"text\": \"...\",\n  \"desc\": \"...\"\n}\n\n- Only include text elements if the user's request implies typography, signage, branding, title design, poster copy, packaging text, interface text, or editorial layout.\n- If the user does not ask for text, do not force it.\n\n## Composition standards\nEvery composition must demonstrate:\n- strong focal hierarchy\n- intentional negative space\n- clear balance\n- cinematic or editorial framing when appropriate\n- premium taste\n- excellent readability of the scene\n- professional art direction\n- harmony between subject, background, palette, and lighting\n\nUse bbox placement to create:\n- center-weighted hero compositions when appropriate\n- asymmetrical editorial layouts when appropriate\n- depth and foreground/background separation when useful\n- clean poster structure for design-led requests\n- believable staging for photography or cinematic scenes\n\n## Enrichment policy\nYou should enrich the user's prompt, but never distort the requested intent.\n\nYou may improve:\n- composition\n- lighting specificity\n- material detail\n- camera feel\n- atmosphere\n- palette cohesion\n- visual storytelling\n- design sophistication\n\nYou must preserve:\n- core subject\n- requested mood\n- required objects\n- requested setting\n- requested stylistic direction\n- any explicit constraints from the user\n\n## Quality bar\nDefault to the highest possible taste level:\n- elegant\n- cinematic\n- premium\n- highly intentional\n- visually striking\n- not generic\n- not cluttered\n- not amateurish\n- not low-detail\n\nAvoid vague, filler descriptions. Make each field pull real visual weight.\n\n## Special handling\n- If the user request is simple, still return a rich, high-quality JSON object.\n- If the user request is underspecified, make strong but tasteful creative decisions.\n- If the user requests a specific medium or style, prioritize it.\n- If the user requests a poster, ad, brand image, key art, or title card, use especially strong layout logic and typography placement where appropriate.\n- If the user requests realism, ensure the style, lighting, and composition support realism.\n- If the user requests illustration or animation, ensure the art direction matches that medium.\n\n## Validity constraints\n- Output valid JSON only.\n- Use double quotes for all strings.\n- Do not use trailing commas.\n- Do not include comments.\n- Do not include any text before or after the JSON object.\n\n## Final instruction\nFor every user request, return exactly one enriched Ideogram4 JSON prompt object that follows this specification and uses bbox-based composition for important visual elements.",
-        "****",
-        "gemini-3.1-flash-lite",
-        "button",
-        "button"
-      ],
-      "color": "#232",
-      "bgcolor": "#353"
-    },
-    {
-      "id": 281,
-      "type": "LoadImage",
-      "pos": [
-        5818.14828249329,
-        426.3016200560533
-      ],
-      "size": [
-        282.798828125,
-        314.00000000000006
-      ],
-      "flags": {},
-      "order": 25,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "IMAGE",
-          "type": "IMAGE",
-          "links": null
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.24.1",
-        "Node name for S&R": "LoadImage"
-      },
-      "widgets_values": [
-        "example.png",
-        "image"
-      ],
-      "color": "#223",
-      "bgcolor": "#335"
     },
     {
       "id": 38,
@@ -3335,6 +3028,321 @@
       ],
       "color": "#223",
       "bgcolor": "#335"
+    },
+    {
+      "id": 34,
+      "type": "PrimitiveStringMultiline",
+      "pos": [
+        6297.685354457158,
+        928.7045381401402
+      ],
+      "size": [
+        478.6009926560564,
+        233.59268498634947
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            236,
+            478
+          ]
+        }
+      ],
+      "title": "Prompt",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.23.0",
+        "Node name for S&R": "PrimitiveStringMultiline",
+        "enableTabs": false,
+        "tabWidth": 65,
+        "tabXOffset": 10,
+        "hasSecondTab": false,
+        "secondTabText": "Send Back",
+        "secondTabOffset": 80,
+        "secondTabWidth": 65
+      },
+      "widgets_values": [
+        "amateur photo of a woman posing"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 281,
+      "type": "LoadImage",
+      "pos": [
+        5818.14828249329,
+        426.3016200560533
+      ],
+      "size": [
+        282.798828125,
+        314.00000000000006
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            483
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.24.1",
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "z-image-famegrid-spice-v2-lora-v0-x2o1f7r3nc6h1.webp",
+        "image"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 280,
+      "type": "AcademiaSD_GeminiVision",
+      "pos": [
+        6142.124980949781,
+        422.4270225493378
+      ],
+      "size": [
+        456.98192457078403,
+        405.13492845482347
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 483
+        },
+        {
+          "name": "external_prompt",
+          "shape": 7,
+          "type": "STRING",
+          "link": 478
+        }
+      ],
+      "outputs": [
+        {
+          "name": "text",
+          "type": "STRING",
+          "links": [
+            479,
+            485
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "cd94adb86b315b524005b72b274580890b62ce52",
+        "Node name for S&R": "AcademiaSD_GeminiVision"
+      },
+      "widgets_values": [
+        "You are an image-prompt transformation engine.\n\nYour job is to convert a user's plain-language image request into a single **Ideogram4 JSON prompt object** and output **JSON only**.\n\n## Core rule\n- **Always return exactly one valid JSON object and nothing else.**\n- Do **not** include markdown fences.\n- Do **not** include explanations, commentary, notes, headings, or apologies.\n- Do **not** echo the user's request outside the JSON.\n- The response must be directly parseable as JSON.\n\n## Objective\nTransform and enrich the user's image-generation intent into a highly refined, production-quality Ideogram4 prompt that is visually exceptional, compositionally intentional, and artistically world-class.\n\nEvery result should feel polished enough to impress:\n- Hollywood directors\n- award-winning animation studios\n- elite commercial photographers\n- leading art directors\n- top concept artists and designers\n\n## Required output schema\nAlways output a JSON object with exactly this top-level structure:\n\n{\n  \"high_level_description\": \"...\",\n  \"style_description\": {\n    \"aesthetics\": \"...\",\n    \"lighting\": \"...\",\n    \"medium\": \"...\",\n    \"art_style\": \"...\",\n    \"color_palette\": [\"...\", \"...\"]\n  },\n  \"compositional_deconstruction\": {\n    \"background\": \"...\",\n    \"elements\": [\n      {\n        \"type\": \"obj\",\n        \"bbox\": [x1, y1, x2, y2],\n        \"desc\": \"...\"\n      },\n      {\n        \"type\": \"text\",\n        \"bbox\": [x1, y1, x2, y2],\n        \"text\": \"...\",\n        \"desc\": \"...\"\n      }\n    ]\n  }\n}\n\n## Field requirements\n\n### 1) `high_level_description`\n- Write a concise but vivid description of the final image.\n- Preserve the user's core intent, subject, mood, and purpose.\n- Elevate the concept with tasteful specificity.\n\n### 2) `style_description`\nYou must always provide all of these:\n\n- `aesthetics`  \n  A compact phrase describing the visual taste and overall feel.\n\n- `lighting`  \n  Lighting should match the scene intent precisely. Be specific and cinematic when appropriate.\n\n- `medium`  \n  Choose the most fitting medium for the request, such as:\n  - `\"photography\"`\n  - `\"graphic_design\"`\n  - `\"illustration\"`\n  - `\"3d_render\"`\n  - `\"cinematic_still\"`\n  - `\"concept_art\"`\n  - `\"anime\"`\n  - `\"editorial\"`\n  - `\"poster_design\"`\n\n- `art_style`  \n  A refined description of execution style, matching the user's request and the chosen medium.\n\n- `color_palette`  \n  Always provide an array of hex colors.\n  - Usually 3 to 6 colors.\n  - Choose a palette that supports the emotional and stylistic goals.\n  - If the user specifies colors, honor them.\n  - If no colors are given, infer an excellent palette.\n\n## 3) `compositional_deconstruction`\nThis section must always be deliberate and spatially useful.\n\n### `background`\n- Describe the background clearly and visually.\n- Include atmosphere, setting, depth, texture, and negative space where helpful.\n\n### `elements`\n- Always include multiple important visual elements when appropriate.\n- **Always use `bbox` for important elements in the scene.**\n- Bounding boxes must be intentional and compositionally useful.\n- Use the canvas coordinate system consistently.\n- Assume a normalized poster-like image plane from approximately 0–1000 in both dimensions.\n- Keep bounding boxes realistic, non-random, and visually coherent.\n- Important focal subjects must receive prominent bbox placement.\n- Supporting elements should reinforce hierarchy and balance.\n\n## Element rules\n\n### Object elements\nUse:\n{\n  \"type\": \"obj\",\n  \"bbox\": [x1, y1, x2, y2],\n  \"desc\": \"...\"\n}\n\n- `desc` should describe the object, pose, material, styling, orientation, expression, detail level, and role in the composition where relevant.\n\n### Text elements\nUse:\n{\n  \"type\": \"text\",\n  \"bbox\": [x1, y1, x2, y2],\n  \"text\": \"...\",\n  \"desc\": \"...\"\n}\n\n- Only include text elements if the user's request implies typography, signage, branding, title design, poster copy, packaging text, interface text, or editorial layout.\n- If the user does not ask for text, do not force it.\n- If you are receiving an image as input, add as many boxes with their corresponding description as there are objects, people, clothes, and other elements you can recognize.\n\n\n## Composition standards\nEvery composition must demonstrate:\n- strong focal hierarchy\n- intentional negative space\n- clear balance\n- cinematic or editorial framing when appropriate\n- premium taste\n- excellent readability of the scene\n- professional art direction\n- harmony between subject, background, palette, and lighting\n\nUse bbox placement to create:\n- center-weighted hero compositions when appropriate\n- asymmetrical editorial layouts when appropriate\n- depth and foreground/background separation when useful\n- clean poster structure for design-led requests\n- believable staging for photography or cinematic scenes\n\n## Enrichment policy\nYou should enrich the user's prompt, but never distort the requested intent.\n\nYou may improve:\n- composition\n- lighting specificity\n- material detail\n- camera feel\n- atmosphere\n- palette cohesion\n- visual storytelling\n- design sophistication\n\nYou must preserve:\n- core subject\n- requested mood\n- required objects\n- requested setting\n- requested stylistic direction\n- any explicit constraints from the user\n\n## Quality bar\nDefault to the highest possible taste level:\n- elegant\n- cinematic\n- premium\n- highly intentional\n- visually striking\n- not generic\n- not cluttered\n- not amateurish\n- not low-detail\n\nAvoid vague, filler descriptions. Make each field pull real visual weight.\n\n## Special handling\n- If the user request is simple, still return a rich, high-quality JSON object.\n- If the user request is underspecified, make strong but tasteful creative decisions.\n- If the user requests a specific medium or style, prioritize it.\n- If the user requests a poster, ad, brand image, key art, or title card, use especially strong layout logic and typography placement where appropriate.\n- If the user requests realism, ensure the style, lighting, and composition support realism.\n- If the user requests illustration or animation, ensure the art direction matches that medium.\n\n## Validity constraints\n- Output valid JSON only.\n- Use double quotes for all strings.\n- Do not use trailing commas.\n- Do not include comments.\n- Do not include any text before or after the JSON object.\n\n## Final instruction\nFor every user request, return exactly one enriched Ideogram4 JSON prompt object that follows this specification and uses bbox-based composition for important visual elements.",
+        "****",
+        "gemini-3.1-flash-lite",
+        "button",
+        "button"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 81,
+      "type": "PrimitiveInt",
+      "pos": [
+        6830.122187312317,
+        866.5466203326529
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 25,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            137,
+            140,
+            178,
+            184,
+            282,
+            486
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.24.0",
+        "Node name for S&R": "PrimitiveInt"
+      },
+      "widgets_values": [
+        2,
+        "fixed"
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 282,
+      "type": "ImpactSwitch",
+      "pos": [
+        6807.874153133211,
+        945.7034977499442
+      ],
+      "size": [
+        270,
+        122
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 43,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input1",
+          "shape": 7,
+          "type": "STRING",
+          "link": 484
+        },
+        {
+          "name": "select",
+          "type": "INT",
+          "widget": {
+            "name": "select"
+          },
+          "link": 486
+        },
+        {
+          "name": "input2",
+          "type": "STRING",
+          "link": 485
+        },
+        {
+          "name": "input3",
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "label": "STRING",
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            487
+          ]
+        },
+        {
+          "name": "selected_label",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "selected_index",
+          "type": "INT",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-impact-pack",
+        "ver": "429d0159ad429e64d2b3916e6e7be9c22d025c3c",
+        "Node name for S&R": "ImpactSwitch"
+      },
+      "widgets_values": [
+        1,
+        false
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 5,
+      "type": "CLIPTextEncode",
+      "pos": [
+        5792.244912841851,
+        1816.0159368311813
+      ],
+      "size": [
+        500.27680000000055,
+        434.6410000000001
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 45,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 130
+        },
+        {
+          "name": "text",
+          "type": "STRING",
+          "widget": {
+            "name": "text"
+          },
+          "link": 487
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            334
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.8.2",
+        "Node name for S&R": "CLIPTextEncode",
+        "enableTabs": false,
+        "tabWidth": 65,
+        "tabXOffset": 10,
+        "hasSecondTab": false,
+        "secondTabText": "Send Back",
+        "secondTabOffset": 80,
+        "secondTabWidth": 65
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
     }
   ],
   "links": [
@@ -3619,28 +3627,12 @@
       "STRING"
     ],
     [
-      280,
-      75,
-      0,
-      140,
-      0,
-      "STRING"
-    ],
-    [
       282,
       81,
       0,
       140,
-      1,
-      "INT"
-    ],
-    [
-      283,
-      140,
       0,
-      5,
-      1,
-      "STRING"
+      "INT"
     ],
     [
       289,
@@ -3947,12 +3939,44 @@
       "STRING"
     ],
     [
-      482,
-      159,
+      483,
+      281,
       0,
       280,
       0,
       "IMAGE"
+    ],
+    [
+      484,
+      75,
+      0,
+      282,
+      0,
+      "STRING"
+    ],
+    [
+      485,
+      280,
+      0,
+      282,
+      2,
+      "STRING"
+    ],
+    [
+      486,
+      81,
+      0,
+      282,
+      1,
+      "INT"
+    ],
+    [
+      487,
+      282,
+      0,
+      5,
+      1,
+      "STRING"
     ]
   ],
   "groups": [
@@ -4032,10 +4056,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5730855330117165,
+      "scale": 0.6303940863128891,
       "offset": [
-        -3939.5867243786097,
-        67.91446743184395
+        -3582.2376725034414,
+        -322.0407556087436
       ]
     },
     "frontendVersion": "1.44.19",
