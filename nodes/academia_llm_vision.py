@@ -1,6 +1,9 @@
 import torch
 from PIL import Image
 import numpy as np
+import json
+import re
+
 
 class AcademiaSD_LLM_Vision:
     @classmethod
@@ -25,63 +28,89 @@ class AcademiaSD_LLM_Vision:
     CATEGORY = "Academia SD"
 
     def generate_caption(self, model, instruction, max_tokens, image=None, external_prompt=None, width=None, height=None):
+        import json
+        import re
+        import torch
+        import numpy as np
+        from PIL import Image
+
         loaded_model = model["model"]
         processor = model["processor"]
 
-        # 1. Construcción del Prompt
-        final_text = instruction
-        if width is not None: final_text += f"\n[Width]: {width}px"
-        if height is not None: final_text += f"\n[Height]: {height}px"
-        if external_prompt and external_prompt.strip(): 
-            final_text += f"\n\nAdditional Context: {external_prompt}"
-
-        # 2. Preparación de Imagen
+        # 1. Preparación del Prompt
+        final_text = f"{instruction}\n\nContext: {external_prompt}" if external_prompt else instruction
+        
+        # 2. Procesamiento de imagen
         img = None
         if image is not None:
-            # Convertir tensor a PIL
             i = 255. * image[0].cpu().numpy()
             img = Image.fromarray(np.clip(i, 0, 255).astype(np.uint8))
 
-        # 3. CONSTRUCCIÓN DE CONVERSACIÓN
-        # Si hay imagen, usamos el formato de visión, si no, texto puro
-        try:
-            if img:
-                conversation = [
-                    {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": final_text}]}
-                ]
-            else:
-                conversation = [
-                    {"role": "user", "content": [{"type": "text", "text": final_text}]}
-                ]
-            
-            text_prompt = processor.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False)
-        except Exception:
-            text_prompt = f"<image>\n{final_text}" if img else final_text
+        conversation = [
+            {"role": "user", "content": [{"type": "image"}, {"type": "text", "text": final_text}]} if img 
+            else {"role": "user", "content": [{"type": "text", "text": final_text}]}
+        ]
+        text_prompt = processor.apply_chat_template(conversation, add_generation_prompt=True, tokenize=False)
+        inputs = processor(text=text_prompt, images=[img] if img else None, return_tensors="pt").to(loaded_model.device)
 
-        # 4. PROCESADO
-        inputs = {}
-        if img:
-            inputs = processor(text=text_prompt, images=[img], return_tensors="pt").to(loaded_model.device)
-        else:
-            inputs = processor(text=text_prompt, return_tensors="pt").to(loaded_model.device)
-
-        # 5. GENERACIÓN
+        # 3. Generación
         with torch.no_grad():
             gen_kwargs = {
-                "max_new_tokens": max_tokens,
-                "do_sample": True,
-                "temperature": 0.6,
+                "max_new_tokens": max_tokens, 
+                "do_sample": True, 
+                "temperature": 0.2, 
                 "pad_token_id": processor.tokenizer.pad_token_id if hasattr(processor, "tokenizer") else None
             }
-            
             generated_ids = loaded_model.generate(**inputs, **gen_kwargs)
-            
             input_length = inputs["input_ids"].shape[1]
             generated_ids = generated_ids[:, input_length:]
-            
-            caption = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+            raw_output = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+        # 4. Post-procesamiento (Escalado y Conversión a XYXY)
+        return_value = raw_output 
         
-        return (caption,)
+        try:
+            # Limpieza para extraer solo el JSON
+            cleaned_json = re.sub(r"```json|```", "", raw_output).strip()
+            start = cleaned_json.find('{')
+            end = cleaned_json.rfind('}') + 1
+            
+            if start != -1 and end != -1:
+                data = json.loads(cleaned_json[start:end])
+                
+                # Definir dimensiones de destino (usar 1000 si no hay info)
+                w = width if width is not None and width > 0 else 1000
+                h = height if height is not None and height > 0 else 1000
+                
+                # Buscamos la clave específica
+                if "compositional_deconstruction" in data and "elements" in data["compositional_deconstruction"]:
+                    elements = data["compositional_deconstruction"]["elements"]
+                    
+                    # Iteramos sobre los elementos para modificar el JSON original
+                    for el in elements:
+                        if "bbox" in el and len(el["bbox"]) == 4:
+                            ymin, xmin, ymax, xmax = el["bbox"]
+                            
+                            # Escalado matemático a píxeles
+                            # El modelo da [ymin, xmin, ymax, xmax]
+                            # Convertimos a [x1, y1, x2, y2] que es el estándar universal
+                            x1 = int((xmin / 1000) * w)
+                            y1 = int((ymin / 1000) * h)
+                            x2 = int((xmax / 1000) * w)
+                            y2 = int((ymax / 1000) * h)
+                            
+                            # Actualizamos el elemento
+                            el["bbox"] = [x1, y1, x2, y2]
+                
+                # Re-serializamos el objeto modificado
+                return_value = json.dumps(data)
+                print(f"[AcademiaSD] ✅ JSON procesado correctamente a {w}x{h}")
+                
+        except Exception as e:
+            print(f"[AcademiaSD] ❌ Error durante el escalado: {e}")
+            # Devolvemos el original en caso de error para no romper nada
+        
+        return (str(return_value),)
 
 NODE_CLASS_MAPPINGS = {
     "AcademiaSD_LLM_Vision": AcademiaSD_LLM_Vision
