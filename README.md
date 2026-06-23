@@ -8,7 +8,6 @@ ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www
 ---
 
 
-
 ## ⬇️ Academia SD Automatic Downloader v0.99
 ![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
 
@@ -17,6 +16,35 @@ A smart download manager integrated directly into the ComfyUI canvas.
 *   **Automatic HF Detection:** When pasting a HuggingFace repo link, it automatically displays a dropdown list to choose the exact version (e.g., quantized `.gguf` files).
 *   **Cache & Security:** Non-blocking UI. It manages Civitai and HuggingFace tokens to download NSFW or private models, and displays real-time MB/GB weight with progress bars.
 *   **Smart Path Management:** Detects your secondary paths in `extra_model_paths.yaml` (e.g., Automatic1111) to avoid downloading the same model twice.
+
+---
+
+## Academia SD Automatic Downloader for ComfyUI ⬇️ v1.02
+![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
+
+A highly integrated download manager designed for ComfyUI. Download checkpoints, LoRAs, VAEs, and other models directly inside your workspace without leaving the canvas.
+
+This tool scans your ComfyUI directories (including secondary paths defined in `extra_model_paths.yaml`) to verify existing models, manages downloads in non-blocking background threads, and handles authorization tokens for private or gated models on Civitai and HuggingFace.
+
+## Key Features
+
+*   **⚡ Non-Blocking Background Downloads:** Downloading large models does not freeze ComfyUI. The application runs downloads in secondary threads.
+*   **🔄 Dual Platform Support:** Paste direct download URLs from **Civitai** or **HuggingFace**.
+*   **📦 Automatic HuggingFace Repository Parsing:** When pasting a HuggingFace repository link, it automatically fetches and displays a dropdown list of available model files (e.g., `.safetensors`, `.gguf`, `.ckpt`).
+*   **💾 Local Duplicate Detection:** Automatically checks if the file already exists in your local folders or shared directories (e.g., Automatic1111/Forge) using ComfyUI’s path resolution system.
+*   **🔒 Gated & Private Model Support:** Securely save your Civitai API Keys and HuggingFace Tokens to download restricted, NSFW, or private files.
+*   **📁 Custom Subfolders:** Define subfolder paths dynamically (e.g., download a LoRA directly into `loras/style/anime/`).
+*   **📑 Presets Management:** Save your favorite model lists, export them as JSON, or import shared lists from other users.
+*   **🧬 Visual Drag & Drop Reordering:** Organize your download queue by dragging and dropping items within the node.
+
+## Status Indicators (LEDs)
+
+Each model row features a real-time status light:
+*   🟢 **Green:** Model is already downloaded and present in your folders.
+*   🟡 **Yellow:** Download in progress (displays a real-time progress percentage).
+*   🔴 **Red:** Model is not found locally. Ready to download.
+*   🟣 **Magenta:** API Token required to access this file.
+*   🟠 **Orange:** Actively communicating with the server / Checking status.
 
 ---
 
