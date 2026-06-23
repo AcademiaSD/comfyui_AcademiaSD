@@ -36,7 +36,43 @@ Each model row features a real-time status light:
 
 ---
 
-## 💊 Academia SD Multi-LoRA v0.8
+## Academia SD Advanced Seed Generator for ComfyUI 🎲
+![Academia SD Advanced Seed Generator](assets/academia_seed.png)
+
+An ultra-compact, high-performance seed generator node built specifically for ComfyUI. Designed to replace the native, pixel-perfect HTML interface that minimizes canvas clutter while introducing advanced seed history management.
+
+
+# Key Features
+
+*   **📐 Extreme Space Compression:** Measures only `230px` in width with a dynamically adjusting height. It sits snug right below the title bar, aligning your primary input rows directly with the `seed` output connector to eliminate wasted empty space.
+*   **⏪ Pure Non-Destructive Undo:** Safely backtrack through your seed history queue (up to the last 10 seeds) without shifting index arrays in real time. Perfect for recovering that one specific generation you accidentally skipped.
+*   **📋 Interactive History Tray:** Displays a visual panel list containing your last 10 seeds. Hovering and clicking any seed instantly loads it back into active status and locks the mode to "Fixed".
+*   **🎲 Fast "Roll" Action:** Instantly roll a new random seed on-the-fly directly inside the node widget without needing to queue a new generation prompt.
+*   **🔒 Standard & Advanced Generation Modes:**
+    *   `🔒 Fix`: Locks the active seed.
+    *   `🎲 Rand`: Automatically rolls a new seed on every queue execution.
+    *   `➕ Increment`: Increments the active seed value by `+1` on every generation.
+    *   `➖ Decrement`: Decrements the active seed value by `-1` on every generation.
+*   **🧹 Built-in Interface Cleanup:** Robust frontend cleaning algorithms actively remove ComfyUI's native duplicates, hidden input sockets, or extra output connectors. Only one clean, highly-compatible output port (`seed`) remains visible.
+*   **💾 Session Serialization:** All seed history and configuration states are serialized natively. Your history persists even after saving, closing, or reloading your ComfyUI workflow JSON.
+
+# Interface Layout & Button Controls
+
+| Element | Description |
+| :--- | :--- |
+| **Seed Input** | A monospace text field displaying the active seed. Supports manual numerical entry (safe range up to `9007199254740991`). |
+| **🔒 Fix** | Locks the current seed so it remains unchanged during generation. |
+| **🎲 Rand** | Generates a new randomized seed automatically when queuing a prompt. |
+| **➕ / ➖** | Increments or decrements the current seed value automatically when queuing a prompt. |
+| **Roll** | Generates a new random seed instantly and locks the mode to `🔒 Fix`. |
+| **Undo (X)** | Steps backward through your local seed history sequentially. |
+| **Copy** | Copies the active seed value to your clipboard with temporary visual feedback. |
+| **History Panel** | An expandable bottom tray that opens automatically when history items exist. Click any row to reload a past seed. |
+
+
+---
+
+# 💊 Academia SD Multi-LoRA v0.8
 ![Academia SD Multi-LoRA](assets/AcademiaSD_MultiLora.png)
 
 Load multiple LoRAs in a hyper-compact space without cluttering your workflow with dozens of chained nodes.
