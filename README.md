@@ -7,18 +7,6 @@ ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www
 
 ---
 
-
-## ⬇️ Academia SD Automatic Downloader v0.99
-![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
-
-A smart download manager integrated directly into the ComfyUI canvas.
-*   **Multi-Link Support:** Paste links from Civitai or HuggingFace repositories.
-*   **Automatic HF Detection:** When pasting a HuggingFace repo link, it automatically displays a dropdown list to choose the exact version (e.g., quantized `.gguf` files).
-*   **Cache & Security:** Non-blocking UI. It manages Civitai and HuggingFace tokens to download NSFW or private models, and displays real-time MB/GB weight with progress bars.
-*   **Smart Path Management:** Detects your secondary paths in `extra_model_paths.yaml` (e.g., Automatic1111) to avoid downloading the same model twice.
-
----
-
 ## Academia SD Automatic Downloader for ComfyUI ⬇️ v1.02
 ![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
 
