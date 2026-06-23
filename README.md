@@ -37,7 +37,7 @@ Each model row features a real-time status light:
 ---
 
 ## Academia SD Advanced Seed Generator for ComfyUI 🎲
-![Academia SD Advanced Seed Generator](assets/academia_seed.png)
+![Academia SD Advanced Seed Generator](assets/academia_seed_.png)
 
 An ultra-compact, high-performance seed generator node built specifically for ComfyUI. Designed to replace the native, pixel-perfect HTML interface that minimizes canvas clutter while introducing advanced seed history management.
 
