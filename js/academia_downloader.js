@@ -103,26 +103,44 @@ app.registerExtension({
                 this.rowsContainer = container.querySelector("#asd-rows-container");
 
                 this.computeSize = function(out) {
-                    let baseH = 120; 
-                    let numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
-                    return [Math.max(this.size[0], MIN_WIDTH), baseH + (numRows * 42)];
-                };
+					let baseH = 120; 
+					let numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
+					let contentHeight = baseH + (numRows * 42);
+					
+					// Retornamos únicamente los mínimos absolutos requeridos por el contenido
+					const width = MIN_WIDTH;
+					const height = contentHeight;
+					
+					return [width, height];
+				};
 
-                const originalOnResize = this.onResize;
-                this.onResize = function(size) {
-                    if (originalOnResize) originalOnResize.apply(this, arguments);
-                    const minSize = this.computeSize();
-                    if (size[1] < minSize[1]) size[1] = minSize[1];
-                    if (size[0] < minSize[0]) size[0] = minSize[0];
-                };
+				const forceResize = () => {
+					setTimeout(() => {
+						const min = this.computeSize();
+						// Mantenemos el tamaño actual (this.size) a menos que el nuevo contenido 
+						// requiera más espacio del disponible, en cuyo caso forzamos el crecimiento.
+						const w = Math.max(this.size[0], min[0]);
+						const h = Math.max(this.size[1], min[1]);
+						this.setSize([w, h]);
+						app.graph.setDirtyCanvas(true, true);
+					}, 10);
+				};
 
-                const forceResize = () => {
-                    setTimeout(() => {
-                        const min = this.computeSize();
-                        this.setSize([Math.max(this.size[0], MIN_WIDTH), min[1]]);
-                        app.graph.setDirtyCanvas(true, true);
-                    }, 10);
-                };
+				const originalOnResize = this.onResize;
+				this.onResize = function(size) {
+					if (originalOnResize) originalOnResize.apply(this, arguments);
+					
+					let numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
+					let contentHeight = 120 + (numRows * 42);
+					
+					// Evitamos que el usuario encoja el nodo por debajo de los límites del contenido
+					if (size[0] < MIN_WIDTH) {
+						size[0] = MIN_WIDTH;
+					}
+					if (size[1] < contentHeight) {
+						size[1] = contentHeight;
+					}
+				};
 
                 const getRowPayload = (row) => {
                     const urlInput = row.querySelector(".url-input").value;
