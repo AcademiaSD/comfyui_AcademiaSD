@@ -21,7 +21,7 @@ app.registerExtension({
                 if (onNodeCreated) onNodeCreated.apply(this, arguments);
 
                 const MIN_WIDTH = 230; 
-                this.size = [230, 80];
+                this.size = [230, 78]; // Ajustado al tamaño base inicial correcto
                 const _this = this;
 
                 if (!this.properties) this.properties = {};
@@ -29,15 +29,52 @@ app.registerExtension({
                 
                 let historyIndex = 0;
 
-                const seedWidget = this.widgets.find(w => w.name === "seed_val");
-                const modeWidget = this.widgets.find(w => w.name === "mode");
-
                 // --- SISTEMA DE CONTROL DE INTERFAZ FORZADO ---
                 
+                // Ocultamos los widgets y re-inyectamos dinámicamente serializeValue para evitar que se pierda
                 this.hideWidgets = function() {
                     if (_this.widgets) {
                         _this.widgets.forEach(w => {
-                            if (w.name === "seed_val" || w.name === "mode" || w.name === "control_after_generate") {
+                            if (w.name === "seed_val") {
+                                w.type = "hidden";
+                                w.draw = () => {};
+                                w.computeSize = () => [0, 0];
+                                
+                                // Inyección dinámica para asegurar persistencia tras cargas de workflow
+                                w.serializeValue = function() {
+                                    const activeModeWidget = _this.widgets.find(widget => widget.name === "mode");
+                                    if (!activeModeWidget) return w.value;
+                                    
+                                    const mode = activeModeWidget.value;
+                                    const currentSeed = w.value;
+                                    let activeSeed = currentSeed;
+
+                                    _this.properties.seed_history = _this.properties.seed_history || [];
+
+                                    if (mode !== "fixed") {
+                                        if (mode === "randomize") {
+                                            activeSeed = generateRandomSeed();
+                                        } else if (mode === "increment") {
+                                            activeSeed = (currentSeed + 1) % 9007199254740991;
+                                        } else if (mode === "decrement") {
+                                            activeSeed = (currentSeed - 1 + 9007199254740991) % 9007199254740991;
+                                        }
+
+                                        w.value = activeSeed;
+                                        const seedInput = container.querySelector(".asn-input");
+                                        if (seedInput) seedInput.value = activeSeed;
+                                    }
+
+                                    addToHistory(activeSeed);
+
+                                    historyIndex = 0;
+                                    updateHistoryUI();
+                                    forceResize();
+                                    
+                                    return activeSeed;
+                                };
+                            }
+                            if (w.name === "mode" || w.name === "control_after_generate") {
                                 w.type = "hidden";
                                 w.draw = () => {};
                                 w.computeSize = () => [0, 0];
@@ -75,7 +112,7 @@ app.registerExtension({
                     padding: 3px; background: #222; border-radius: 4px;
                     font-family: sans-serif; font-size: 10px; display: flex;
                     flex-direction: column; gap: 3px; width: 100%; height: 100%;
-                    box-sizing: border-box; color: #fff; margin-top: -16px; /* Desplazamiento hacia arriba */
+                    box-sizing: border-box; color: #fff; margin-top: -16px;
                 `;
 
                 container.innerHTML = `
@@ -124,7 +161,7 @@ app.registerExtension({
                 const historyPanel = container.querySelector(".asn-history-panel");
 
                 this.computeSize = function(out) {
-                    let baseH = 58; // Altura base ultra reducida gracias al desplazamiento
+                    let baseH = 78; // Corregido definitivamente de 58 a 78 para albergar los botones base
                     let historyLength = (this.properties.seed_history || []).length;
                     let historyHeight = historyLength > 0 ? Math.min(historyLength * 16 + 6, 75) : 0;
                     return [MIN_WIDTH, baseH + historyHeight];
@@ -151,20 +188,25 @@ app.registerExtension({
                 };
 
                 const addToHistory = (seed) => {
-                    if (!this.properties.seed_history) this.properties.seed_history = [];
+                    if (!_this.properties.seed_history) _this.properties.seed_history = [];
+                    
                     const s = parseInt(seed);
                     if (isNaN(s)) return;
 
-                    if (this.properties.seed_history[0] === s) return;
+                    const existingIndex = _this.properties.seed_history.indexOf(s);
+                    if (existingIndex !== -1) {
+                        _this.properties.seed_history.splice(existingIndex, 1);
+                    }
 
-                    this.properties.seed_history.unshift(s);
-                    if (this.properties.seed_history.length > 10) {
-                        this.properties.seed_history.pop();
+                    _this.properties.seed_history.unshift(s);
+
+                    if (_this.properties.seed_history.length > 10) {
+                        _this.properties.seed_history.pop();
                     }
                 };
 
                 const updateHistoryUI = () => {
-                    const history = this.properties.seed_history || [];
+                    const history = _this.properties.seed_history || [];
                     recoverBtn.innerText = `Undo (${history.length})`;
                     historyPanel.innerHTML = "";
 
@@ -182,11 +224,17 @@ app.registerExtension({
                                 <span style="color: #4a6ee0; font-weight: bold; font-size: 8px;">Load</span>
                             `;
                             item.addEventListener("click", () => {
-                                addToHistory(seedWidget.value);
-                                seedWidget.value = s;
-                                seedInput.value = s;
-                                modeWidget.value = "fixed";
-                                updateModeButtons("fixed");
+                                const seedValWidget = _this.widgets.find(w => w.name === "seed_val");
+                                const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                                if (seedValWidget) {
+                                    addToHistory(seedValWidget.value);
+                                    seedValWidget.value = s;
+                                    seedInput.value = s;
+                                }
+                                if (modeValWidget) {
+                                    modeValWidget.value = "fixed";
+                                    updateModeButtons("fixed");
+                                }
                                 historyIndex = (idx + 1) % history.length;
                                 updateHistoryUI();
                                 forceResize();
@@ -221,19 +269,32 @@ app.registerExtension({
                     }
                 };
 
-                btnFixed.addEventListener("click", () => { modeWidget.value = "fixed"; updateModeButtons("fixed"); });
-                btnRandom.addEventListener("click", () => { modeWidget.value = "randomize"; updateModeButtons("randomize"); });
-                btnInc.addEventListener("click", () => { modeWidget.value = "increment"; updateModeButtons("increment"); });
-                btnDec.addEventListener("click", () => { modeWidget.value = "decrement"; updateModeButtons("decrement"); });
+                btnFixed.addEventListener("click", () => {
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (modeValWidget) { modeValWidget.value = "fixed"; updateModeButtons("fixed"); }
+                });
+                btnRandom.addEventListener("click", () => {
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (modeValWidget) { modeValWidget.value = "randomize"; updateModeButtons("randomize"); }
+                });
+                btnInc.addEventListener("click", () => {
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (modeValWidget) { modeValWidget.value = "increment"; updateModeButtons("increment"); }
+                });
+                btnDec.addEventListener("click", () => {
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (modeValWidget) { modeValWidget.value = "decrement"; updateModeButtons("decrement"); }
+                });
 
                 seedInput.addEventListener("change", (e) => {
                     let val = parseInt(e.target.value);
                     if (isNaN(val) || val < 0) val = 0;
                     if (val > 9007199254740991) val = 9007199254740991;
                     
-                    if (seedWidget && seedWidget.value !== val) {
-                        addToHistory(seedWidget.value);
-                        seedWidget.value = val;
+                    const seedValWidget = _this.widgets.find(w => w.name === "seed_val");
+                    if (seedValWidget && seedValWidget.value !== val) {
+                        addToHistory(seedValWidget.value);
+                        seedValWidget.value = val;
                         seedInput.value = val;
                         historyIndex = 0;
                         updateHistoryUI();
@@ -242,26 +303,39 @@ app.registerExtension({
                 });
 
                 rollBtn.addEventListener("click", () => {
-                    addToHistory(seedWidget.value);
-                    const newSeed = generateRandomSeed();
-                    seedWidget.value = newSeed;
-                    seedInput.value = newSeed;
-                    modeWidget.value = "fixed";
-                    updateModeButtons("fixed");
-                    historyIndex = 0;
-                    updateHistoryUI();
-                    forceResize();
+                    const seedValWidget = _this.widgets.find(w => w.name === "seed_val");
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (seedValWidget) {
+                        addToHistory(seedValWidget.value);
+                        const newSeed = generateRandomSeed();
+                        seedValWidget.value = newSeed;
+                        seedInput.value = newSeed;
+                        if (modeValWidget) {
+                            modeValWidget.value = "fixed";
+                            updateModeButtons("fixed");
+                        }
+                        historyIndex = 0;
+                        updateHistoryUI();
+                        forceResize();
+                    }
                 });
 
                 recoverBtn.addEventListener("click", () => {
-                    const history = this.properties.seed_history || [];
+                    const history = _this.properties.seed_history || [];
                     if (history.length === 0) return;
 
                     const restoredSeed = history[historyIndex];
-                    seedWidget.value = restoredSeed;
-                    seedInput.value = restoredSeed;
-                    modeWidget.value = "fixed";
-                    updateModeButtons("fixed");
+                    const seedValWidget = _this.widgets.find(w => w.name === "seed_val");
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+
+                    if (seedValWidget) {
+                        seedValWidget.value = restoredSeed;
+                        seedInput.value = restoredSeed;
+                    }
+                    if (modeValWidget) {
+                        modeValWidget.value = "fixed";
+                        updateModeButtons("fixed");
+                    }
 
                     historyIndex = (historyIndex + 1) % history.length;
                     recoverBtn.innerText = `Undo (${history.length})`;
@@ -281,38 +355,9 @@ app.registerExtension({
                     }).catch(()=>{});
                 });
 
-                if (seedWidget) {
-                    seedWidget.serializeValue = function() {
-                        const mode = modeWidget.value;
-                        const currentSeed = seedWidget.value;
-
-                        if (mode !== "fixed") {
-                            _this.properties.seed_history = _this.properties.seed_history || [];
-                            if (!_this.properties.seed_history.includes(currentSeed)) {
-                                addToHistory(currentSeed);
-                            }
-
-                            if (mode === "randomize") {
-                                seedWidget.value = generateRandomSeed();
-                            } else if (mode === "increment") {
-                                seedWidget.value = (currentSeed + 1) % 9007199254740991;
-                            } else if (mode === "decrement") {
-                                seedWidget.value = (currentSeed - 1 + 9007199254740991) % 9007199254740991;
-                            }
-
-                            seedInput.value = seedWidget.value;
-                            historyIndex = 0;
-                            updateHistoryUI();
-                            forceResize();
-                        }
-                        return seedWidget.value;
-                    };
-                }
-
                 container.addEventListener("mousedown", (e) => e.stopPropagation());
                 const domWidget = this.addDOMWidget("UI", "HTML", container);
                 
-                // Reducción proporcional del límite del widget DOM para coordinarse con el nuevo tamaño del nodo
                 domWidget.computeSize = function() {
                     return [_this.size[0], _this.size[1] - 14];
                 };
@@ -325,8 +370,10 @@ app.registerExtension({
                     _this.hideWidgets();
                     _this.cleanOutputs();
                     _this.cleanInputs();
-                    if (seedWidget) seedInput.value = seedWidget.value;
-                    if (modeWidget) updateModeButtons(modeWidget.value);
+                    const seedValWidget = _this.widgets.find(w => w.name === "seed_val");
+                    const modeValWidget = _this.widgets.find(w => w.name === "mode");
+                    if (seedValWidget) seedInput.value = seedValWidget.value;
+                    if (modeValWidget) updateModeButtons(modeValWidget.value);
                     updateHistoryUI();
                     forceResize();
                 }, 100);
