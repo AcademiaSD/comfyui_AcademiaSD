@@ -342,8 +342,20 @@ app.registerExtension({
                     
                     const handle = row.querySelector(".asd-drag-handle");
                     handle.addEventListener("mousedown", () => { row.draggable = true; });
-                    row.addEventListener("dragend", () => { row.draggable = false; draggedRow = null; row.classList.remove('drag-over-top', 'drag-over-bottom'); });
-                    row.addEventListener('dragstart', (e) => { draggedRow = row; e.dataTransfer.effectAllowed = 'move'; setTimeout(() => row.style.opacity = '0.4', 0); });
+                    
+                    row.addEventListener("dragend", () => { 
+                        row.draggable = false; 
+                        draggedRow = null; 
+                        row.classList.remove('drag-over-top', 'drag-over-bottom'); 
+                        row.style.opacity = ''; // Restauramos la opacidad original tras soltar
+                    });
+                    
+                    row.addEventListener('dragstart', (e) => { 
+                        draggedRow = row; 
+                        e.dataTransfer.effectAllowed = 'move'; 
+                        setTimeout(() => row.style.opacity = '0.4', 0); 
+                    });
+                    
                     row.addEventListener('dragover', (e) => {
                         e.preventDefault();
                         const rect = row.getBoundingClientRect();
