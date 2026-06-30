@@ -3026,7 +3026,7 @@
       "bgcolor": "#535",
       "academia_models": [
         {
-          "enabled": false,
+          "enabled": true,
           "url": "https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models",
           "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_raw_bf16.safetensors",
           "filename": "krea2_raw_bf16.safetensors",
@@ -3040,11 +3040,11 @@
           "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_raw_fp8_scaled.safetensors",
           "filename": "krea2_raw_fp8_scaled.safetensors",
           "filesize": "12.24 GB",
-          "folder": "loras",
+          "folder": "diffusion_models",
           "subfolder": ""
         },
         {
-          "enabled": false,
+          "enabled": true,
           "url": "https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models",
           "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_bf16.safetensors",
           "filename": "krea2_turbo_bf16.safetensors",
@@ -3714,10 +3714,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.8390545288824394,
+      "scale": 0.6934334949441648,
       "offset": [
-        281.373456297449,
-        -431.6471582238438
+        45.51387892088519,
+        -153.19877284078962
       ]
     },
     "frontendVersion": "1.45.19",
