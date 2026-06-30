@@ -3082,9 +3082,9 @@
         {
           "enabled": true,
           "url": "https://huggingface.co/Comfy-Org/Qwen3-VL/tree/main/text_encoders",
-          "selected_url": "https://huggingface.co/Comfy-Org/Qwen3-VL/resolve/main/text_encoders/qwen3vl_8b_fp8_scaled.safetensors",
-          "filename": "qwen3vl_8b_fp8_scaled.safetensors",
-          "filesize": "9.86 GB",
+          "selected_url": "https://huggingface.co/Comfy-Org/Qwen3-VL/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+          "filename": "qwen3vl_4b_fp8_scaled.safetensors",
+          "filesize": "4.88 GB",
           "folder": "text_encoders",
           "subfolder": ""
         },
