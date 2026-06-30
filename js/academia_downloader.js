@@ -37,6 +37,16 @@ app.registerExtension({
                 if (onConfigure) onConfigure.apply(this, arguments);
                 if (o.academia_models) {
                     this.restored_models = o.academia_models;
+                    
+                    // SEGURIDAD ASÍNCRONA: Si las carpetas locales ya han sido cargadas por el servidor,
+                    // reconstruimos las filas de inmediato para evitar que el canvas cargue antes del backend.
+                    if (this.folders_loaded && this.rowsContainer && this.rowsContainer.children.length === 0) {
+                        this.rowsContainer.innerHTML = "";
+                        this.restored_models.forEach(m => this.addRow(m, true));
+                        setTimeout(() => { 
+                            Array.from(this.rowsContainer.children).forEach((r, idx) => setTimeout(() => this.checkRowStatus(r), idx * 200)); 
+                        }, 500);
+                    }
                 }
             };
 
@@ -49,6 +59,9 @@ app.registerExtension({
                 let folders = [];
                 let currentPreset = "default";
                 const _this = this;
+
+                // Registramos que las carpetas aún no han cargado
+                this.folders_loaded = false;
 
                 const container = document.createElement("div");
                 container.style.cssText = `
@@ -79,6 +92,11 @@ app.registerExtension({
                         .asd-btn { cursor: pointer; padding: 5px 8px; color: white; border: 1px solid #555; border-radius: 4px; font-weight: bold; background: #333; transition: 0.2s; }
                         .asd-btn:hover { background: #444; }
                         .asd-input { padding: 4px; border-radius: 3px; border: none; outline: none; background: #111; color: white; }
+						.asd-btn:disabled { 
+							cursor: default; 
+							color: #ffffff !important; /* Fuerza a que el texto "Completed" siga siendo blanco nítido */
+							opacity: 1 !important;     /* Evita que el navegador opaque el botón */
+						}
                     </style>
                     <div style="display: flex; gap: 8px;">
                         <button id="asd-btn-add" class="asd-btn" style="flex: 1;">➕ Add Model</button>
@@ -107,7 +125,6 @@ app.registerExtension({
 					let numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
 					let contentHeight = baseH + (numRows * 42);
 					
-					// Retornamos únicamente los mínimos absolutos requeridos por el contenido
 					const width = MIN_WIDTH;
 					const height = contentHeight;
 					
@@ -117,8 +134,6 @@ app.registerExtension({
 				const forceResize = () => {
 					setTimeout(() => {
 						const min = this.computeSize();
-						// Mantenemos el tamaño actual (this.size) a menos que el nuevo contenido 
-						// requiera más espacio del disponible, en cuyo caso forzamos el crecimiento.
 						const w = Math.max(this.size[0], min[0]);
 						const h = Math.max(this.size[1], min[1]);
 						this.setSize([w, h]);
@@ -133,7 +148,6 @@ app.registerExtension({
 					let numRows = this.rowsContainer ? this.rowsContainer.children.length : 0;
 					let contentHeight = 120 + (numRows * 42);
 					
-					// Evitamos que el usuario encoja el nodo por debajo de los límites del contenido
 					if (size[0] < MIN_WIDTH) {
 						size[0] = MIN_WIDTH;
 					}
@@ -231,29 +245,44 @@ app.registerExtension({
                 let draggedRow = null;
 
                 const addRow = (data = {}, isRestoring = false) => {
-                    const isEnabled = data.enabled !== undefined ? data.enabled : true;
-                    const isRealName = data.filename && data.filename !== "Direct Link" && data.filename !== "Pending...";
-                    const showSelect = data.selected_url && data.selected_url.includes("huggingface.co/");
+                    // RETROCOMPATIBILIDAD ROBUSTA: Detecta variables antiguas de versiones anteriores de la extensión
+                    const isEnabled = data.enabled !== undefined ? data.enabled : (data.active !== undefined ? data.active : true);
+                    const savedUrl = data.url || data.selected_url || "";
+                    const savedSelectedUrl = data.selected_url || data.url || "";
+                    const savedFilename = data.filename || data.file || data.name || "Direct Link";
+                    const savedFilesize = data.filesize || data.size || "-- MB";
+                    const savedFolder = data.folder || data.dir || "";
+                    const savedSubfolder = data.subfolder || data.sub_folder || "";
+
+                    const isRealName = savedFilename && savedFilename !== "Direct Link" && savedFilename !== "Pending...";
+                    const showSelect = savedSelectedUrl && savedSelectedUrl.includes("huggingface.co/");
                     
                     const row = document.createElement("div");
                     row.className = `asd-dl-row ${isEnabled ? '' : 'disabled'}`;
                     
+                    // SEGURIDAD DE PORTABILIDAD: Si la carpeta guardada en el workflow no está en el listado
+                    // local de este ordenador, la inyectamos como opción temporal para que NUNCA se resetee el valor original.
+                    let folderOptions = [...folders];
+                    if (savedFolder && !folderOptions.includes(savedFolder)) {
+                        folderOptions.push(savedFolder);
+                    }
+
                     row.innerHTML = `
                         <div class="asd-drag-handle" draggable="true" title="Drag to reorder">⠿</div>
                         <label class="asd-switch">
                             <input type="checkbox" class="model-toggle" ${isEnabled ? 'checked' : ''}>
                             <span class="asd-slider"></span>
                         </label>
-                        <input type="text" class="url-input asd-input" placeholder="URL (Civitai, HF...)" value="${data.url || ''}" style="flex: 2;">
+                        <input type="text" class="url-input asd-input" placeholder="URL (Civitai, HF...)" value="${savedUrl}" style="flex: 2;">
                         <div style="flex: 2; position: relative;">
                             <select class="file-select asd-input" style="width: 100%; display: ${showSelect ? 'block' : 'none'}; background: #2a2a2a;"></select>
-                            <input type="text" class="filename-input asd-input" value="${data.filename || 'Direct Link'}" style="width: 100%; display: ${showSelect ? 'none' : 'block'}; text-align: center; color: ${isRealName ? '#ddd' : '#888'};">
+                            <input type="text" class="filename-input asd-input" value="${savedFilename}" style="width: 100%; display: ${showSelect ? 'none' : 'block'}; text-align: center; color: ${isRealName ? '#ddd' : '#888'};">
                         </div>
-                        <div class="size-label" style="flex: 0.5; text-align: center; color: #aaa; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${data.filesize || '-- MB'}</div>
+                        <div class="size-label" style="flex: 0.5; text-align: center; color: #aaa; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${savedFilesize}</div>
                         <select class="folder-select asd-input" style="flex: 1.2;">
-                            ${folders.map(f => `<option value="${f}" ${data.folder === f ? 'selected' : ''}>${f}</option>`).join('')}
+                            ${folderOptions.map(f => `<option value="${f}" ${savedFolder === f ? 'selected' : ''}>${f}</option>`).join('')}
                         </select>
-                        <input type="text" class="subfolder-input asd-input" placeholder="Subfolder" value="${data.subfolder || ''}" style="flex: 1;">
+                        <input type="text" class="subfolder-input asd-input" placeholder="Subfolder" value="${savedSubfolder}" style="flex: 1;">
                         <button class="asd-btn asd-dl-btn" style="background: #225588;">Download</button>
                         <div class="asd-led" style="width: 14px; height: 14px; border-radius: 50%; background-color: red; box-shadow: 0 0 6px red; flex-shrink: 0;" title="Not downloaded"></div>
                         <button class="asd-del-btn" style="background: transparent; border: none; color: #888; cursor: pointer; padding: 0px 4px; font-size: 14px;">❌</button>
@@ -263,9 +292,9 @@ app.registerExtension({
                     if (showSelect) {
                         const sel = row.querySelector(".file-select");
                         const opt = document.createElement("option");
-                        opt.value = data.selected_url; opt.innerText = data.filename;
+                        opt.value = savedSelectedUrl; opt.innerText = savedFilename;
                         sel.appendChild(opt);
-                    } else if (!data.folder && folders.includes("loras")) {
+                    } else if (!savedFolder && folderOptions.includes("loras")) {
                         row.querySelector(".folder-select").value = "loras";
                     }
 
@@ -347,7 +376,7 @@ app.registerExtension({
                         row.draggable = false; 
                         draggedRow = null; 
                         row.classList.remove('drag-over-top', 'drag-over-bottom'); 
-                        row.style.opacity = ''; // Restauramos la opacidad original tras soltar
+                        row.style.opacity = ''; 
                     });
                     
                     row.addEventListener('dragstart', (e) => { 
@@ -386,6 +415,10 @@ app.registerExtension({
                         setTimeout(() => handleUrlFetch(isRestoring), isRestoring ? 300 + Math.random() * 800 : 100); 
                     }
                 };
+
+                // Exponemos las funciones al nodo para resolver hilos de ejecución asíncronos en onConfigure
+                this.addRow = addRow;
+                this.checkRowStatus = checkRowStatus;
 
                 container.querySelector("#asd-btn-add").addEventListener("click", () => addRow());
                 
@@ -541,6 +574,7 @@ app.registerExtension({
                     try {
                         const res = await fetch("/academia/folders");
                         folders = await res.json();
+                        _this.folders_loaded = true; // Indicamos que el volcado del backend finalizó con éxito
                     } catch (e) {}
                 }
 
@@ -555,10 +589,17 @@ app.registerExtension({
 
                 refreshPresetsList().then(() => {
                     fetchFolders().then(() => {
+                        // Sincronización robusta: si hay modelos restaurados por onConfigure, los pintamos.
+                        // Si no, o si no hay modelos previos, cargamos una fila por defecto.
                         if (this.restored_models && this.restored_models.length > 0) {
+                            this.rowsContainer.innerHTML = "";
                             this.restored_models.forEach(m => addRow(m, true));
                             setTimeout(() => { Array.from(this.rowsContainer.children).forEach((r, idx) => setTimeout(() => checkRowStatus(r), idx * 200)); }, 1000);
-                        } else { addRow(); }
+                        } else {
+                            if (this.rowsContainer.children.length === 0) {
+                                addRow();
+                            }
+                        }
                     });
                 });
             };
