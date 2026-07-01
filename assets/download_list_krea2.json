@@ -1,0 +1,83 @@
+[
+    {
+        "enabled": false,
+        "url": "https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models",
+        "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_raw_bf16.safetensors",
+        "filename": "krea2_raw_bf16.safetensors",
+        "filesize": "24.48 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": false,
+        "url": "https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models",
+        "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_raw_fp8_scaled.safetensors",
+        "filename": "krea2_raw_fp8_scaled.safetensors",
+        "filesize": "12.24 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": false,
+        "url": "https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models",
+        "selected_url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/main/diffusion_models/krea2_turbo_bf16.safetensors",
+        "filename": "krea2_turbo_bf16.safetensors",
+        "filesize": "24.48 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": true,
+        "url": "https://huggingface.co/AlperKTS/Krea2_FP8/tree/main",
+        "selected_url": "https://huggingface.co/AlperKTS/Krea2_FP8/resolve/main/krea2_turbo_fp8.safetensors",
+        "filename": "krea2_turbo_fp8.safetensors",
+        "filesize": "12.01 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": false,
+        "url": "https://huggingface.co/realrebelai/KREA-2_GGUFs/tree/main/BASE",
+        "selected_url": "https://huggingface.co/realrebelai/KREA-2_GGUFs/resolve/main/BASE/Krea-2-Base-Q5_K_M.gguf",
+        "filename": "Krea-2-Base-Q5_K_M.gguf",
+        "filesize": "8.26 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": true,
+        "url": "https://huggingface.co/realrebelai/KREA-2_GGUFs/tree/main/TURBO",
+        "selected_url": "https://huggingface.co/realrebelai/KREA-2_GGUFs/resolve/main/TURBO/Krea-2-Turbo-Q4_K_M.gguf",
+        "filename": "Krea-2-Turbo-Q4_K_M.gguf",
+        "filesize": "6.72 GB",
+        "folder": "diffusion_models",
+        "subfolder": ""
+    },
+    {
+        "enabled": true,
+        "url": "https://huggingface.co/Comfy-Org/Qwen3-VL/tree/main/text_encoders",
+        "selected_url": "https://huggingface.co/Comfy-Org/Qwen3-VL/resolve/main/text_encoders/qwen3vl_4b_fp8_scaled.safetensors",
+        "filename": "qwen3vl_4b_fp8_scaled.safetensors",
+        "filesize": "4.88 GB",
+        "folder": "text_encoders",
+        "subfolder": ""
+    },
+    {
+        "enabled": true,
+        "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/tree/main/split_files/vae",
+        "selected_url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+        "filename": "qwen_image_vae.safetensors",
+        "filesize": "242.05 MB",
+        "folder": "vae",
+        "subfolder": ""
+    },
+    {
+        "enabled": true,
+        "url": "https://huggingface.co/ffxvs/upscaler/tree/main",
+        "selected_url": "https://huggingface.co/ffxvs/upscaler/resolve/main/ESRGAN_4x.pth",
+        "filename": "ESRGAN_4x.pth",
+        "filesize": "63.83 MB",
+        "folder": "upscale_models",
+        "subfolder": ""
+    }
+]
