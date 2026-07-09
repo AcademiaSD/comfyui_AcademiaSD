@@ -12,6 +12,7 @@ import folder_paths
 # Intentamos importar el NUEVO SDK de Google
 try:
     from google import genai
+    from google.genai import types # Importación necesaria para temperatura y tokens
     HAS_GENAI = True
 except ImportError:
     HAS_GENAI = False
@@ -67,7 +68,7 @@ async def fetch_gemini_models(request):
         
     try:
         def get_models():
-            client = genai.Client(api_key=api_key)
+            client = genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
             models_list = []
             for m in client.models.list():
                 name = m.name
@@ -89,6 +90,7 @@ class AcademiaGeminiVision:
     @classmethod
     def INPUT_TYPES(s):
         default_models = [
+            "gemma-4-26b-a4b-it",
             "gemini-3.5-flash",
             "gemini-3.1-pro-preview",
             "gemini-3.1-flash-lite",
@@ -101,14 +103,17 @@ class AcademiaGeminiVision:
             "required": {
                 "instruction": ("STRING", {"multiline": True, "default": "Analyze the provided input and format the output as a detailed JSON. If generating bounding boxes, ensure they match the provided resolution."}),
                 "api_key": ("STRING", {"default": ""}),
-                "model": (default_models, {"default": "gemini-3.5-flash"}),
+                "model": (default_models, {"default": "gemma-4-26b-a4b-it"}), 
             },
             "optional": {
                 "image": ("IMAGE", {"default": None}),
                 "external_prompt": ("STRING", {"forceInput": True}),
-                # --- NUEVOS CABLES OPCIONALES DE RESOLUCIÓN ---
                 "width": ("INT", {"forceInput": True}),
                 "height": ("INT", {"forceInput": True}),
+                # --- NUEVOS PARÁMETROS CORREGIDOS ---
+                "sys_prompt": ("STRING", {"multiline": True, "default": ""}),
+                "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.1}),
+                "max_tokens": ("INT", {"default": 4096, "min": 1, "max": 131072, "step": 128}),
             }
         }
 
@@ -117,7 +122,7 @@ class AcademiaGeminiVision:
     FUNCTION = "analyze"
     CATEGORY = "Academia SD"
 
-    def analyze(self, instruction, api_key, model, image=None, external_prompt=None, width=None, height=None):
+    def analyze(self, instruction, api_key, model, image=None, external_prompt=None, width=None, height=None, sys_prompt="", temperature=0.7, max_tokens=4096):
         if not HAS_GENAI:
             error_msg = "Error: 'google-genai' library is not installed. Please run: pip install google-genai"
             print(f"[AcademiaSD] ❌ {error_msg}")
@@ -140,7 +145,7 @@ class AcademiaGeminiVision:
 
         try:
             print(f"[AcademiaSD] 👁️✨ Sending request to {model}...")
-            client = genai.Client(api_key=api_key.strip())
+            client = genai.Client(api_key=api_key.strip(), http_options={'api_version': 'v1beta'})
             
             contents = []
             
@@ -171,10 +176,22 @@ class AcademiaGeminiVision:
             if not contents:
                 return ("Error: Provide at least an image or a text instruction.",)
 
-            # Enviar a Gemini
+            # 5. Configurar los nuevos parámetros (Temperature, Max Tokens, System Prompt)
+            config_args = {
+                "temperature": temperature,
+                "max_output_tokens": max_tokens,
+            }
+            # Evitamos enviar sys_prompt vacío si el usuario no escribió nada
+            if sys_prompt and str(sys_prompt).strip() != "":
+                config_args["system_instruction"] = str(sys_prompt).strip()
+            
+            config = types.GenerateContentConfig(**config_args)
+
+            # Enviar a Gemini con la nueva configuración
             response = client.models.generate_content(
                 model=model,
-                contents=contents
+                contents=contents,
+                config=config
             )
             
             print(f"[AcademiaSD] ✅ {model} successfully generated the content!")
