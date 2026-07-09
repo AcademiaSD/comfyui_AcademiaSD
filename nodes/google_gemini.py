@@ -67,7 +67,7 @@ async def fetch_gemini_models(request):
         
     try:
         def get_models():
-            client = genai.Client(api_key=api_key)
+            client = genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
             models_list = []
             for m in client.models.list():
                 name = m.name
@@ -88,7 +88,9 @@ class AcademiaGeminiVision:
 
     @classmethod
     def INPUT_TYPES(s):
+        # AQUI SE AGREGO EL NOMBRE EXACTO A LA LISTA PERMITIDA
         default_models = [
+            "gemma-4-26b-a4b-it",
             "gemini-3.5-flash",
             "gemini-3.1-pro-preview",
             "gemini-3.1-flash-lite",
@@ -101,7 +103,7 @@ class AcademiaGeminiVision:
             "required": {
                 "instruction": ("STRING", {"multiline": True, "default": "Analyze the provided input and format the output as a detailed JSON. If generating bounding boxes, ensure they match the provided resolution."}),
                 "api_key": ("STRING", {"default": ""}),
-                "model": (default_models, {"default": "gemini-3.5-flash"}),
+                "model": (default_models, {"default": "gemma-4-26b-a4b-it"}), # Se actualizó el modelo por defecto
             },
             "optional": {
                 "image": ("IMAGE", {"default": None}),
@@ -140,7 +142,7 @@ class AcademiaGeminiVision:
 
         try:
             print(f"[AcademiaSD] 👁️✨ Sending request to {model}...")
-            client = genai.Client(api_key=api_key.strip())
+            client = genai.Client(api_key=api_key.strip(), http_options={'api_version': 'v1beta'})
             
             contents = []
             
