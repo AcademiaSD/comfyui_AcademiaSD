@@ -35,6 +35,46 @@ Each model row features a real-time status light:
 *   🟠 **Orange:** Actively communicating with the server / Checking status.
 
 ---
+## Academia SD Advanced CLIP Text Encode (Positive & Negative) 🟢🔴
+![Academia SD Advanced Clip Text Encode](assets/AcademiaSD_Clip_text_encode.png)
+
+
+An ultra-sleek, highly responsive custom CLIP Text Encode implementation for ComfyUI. Designed to act as a direct, drop-in replacement for the native CLIP Text Encode node, it introduces a dynamic, collapsible utility tray for managing prompt history, favorites, and custom prompt lists—all while maintaining an incredibly small, pixel-perfect footprint on your canvas.
+
+
+# Key Features
+
+*   **📐 Fluid Responsive Layout (`flex: 1`):** The primary prompt text area utilizes a fully fluid layout. Stretch, widen, or scale the node manually in any direction; the editor box will dynamically expand to fill 100% of the available vertical space.
+*   **🧠 Independent State Sizing (Size Memory):** The node intelligently remembers your manually adjusted dimensions separately for *both* collapsed and expanded modes. Toggling between them fluidly snaps the node to your preferred width and height without resetting or forcing generic dimensions.
+*   **🧹 Zero-Overlap DOM Injection:** Completely isolates and overrides ComfyUI's native multiline `<textarea>` element at the DOM level (`display: none !important`). This guarantees no duplicate text render overlays, no layout breaks, and a clean interface from the millisecond the node is spawned.
+*   **⏪ Auto-Queueing Recent Prompts (Last 10):** Generates and keeps a real-time rolling list (FIFO) of your last 10 queued prompts. Duplicate entries are automatically cleaned up and pushed to the top.
+*   **❤️ Favorites Vault:** Save your absolute best prompts directly to a dedicated Favorites list by clicking the heart button. They are styled as independent cards with quick-action utilities to load or delete them.
+*   **📂 Multi-Preset Saving & Loading:** Create custom preset files (e.g., `landscapes.json`, `portraits.json`). Supports saving, creating copies (`Save As`), and deleting presets directly from the node.
+*   **⚡ Default File Auto-Loading:** 
+    *   The **Positive Node** automatically loads `default_positive_prompt.json` on startup.
+    *   The **Negative Node** automatically loads `default_negative_prompt.json` on startup.
+*   **📤 Import / Export JSON:** Easily import custom prompt libraries or backup your favorites lists to standard JSON files.
+
+
+# Interface Layout & Sizing Bounds
+
+*   **Collapsed (Compact) Mode (Height: `120px`):** Shows only the active prompt box and the control bar. Completely hides the lists to keep your canvas clear.
+*   **Expanded Mode (Height: `>= 275px`):** Reveals preset controls, tab selectors, scrollable card lists, and file utilities.
+*   **Minimum Width:** Locked at `420px` to maintain pristine, legible button alignments.
+
+
+# Folder Structure
+
+All prompt list files are stored locally within your custom node directory.
+```directory
+custom_nodes/comfyui_AcademiaSD/prompt_lists/
+├── default_positive_prompt.json
+├── default_negative_prompt.json
+└── [Your_Custom_Lists].json
+
+
+
+---
 
 ## Academia SD Advanced Seed Generator for ComfyUI 🎲
 ![Academia SD Advanced Seed Generator](assets/academia_seed.png)
