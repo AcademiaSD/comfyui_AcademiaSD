@@ -35,14 +35,14 @@ Each model row features a real-time status light:
 *   🟠 **Orange:** Actively communicating with the server / Checking status.
 
 ---
-## Academia SD Advanced CLIP Text Encode (Positive & Negative) 🟢🔴
+# Academia SD Advanced CLIP Text Encode (Positive & Negative) 🟢🔴
 ![Academia SD Advanced Clip Text Encode](assets/AcademiaSD_Clip_text_encode.png)
 
 
 An ultra-sleek, highly responsive custom CLIP Text Encode implementation for ComfyUI. Designed to act as a direct, drop-in replacement for the native CLIP Text Encode node, it introduces a dynamic, collapsible utility tray for managing prompt history, favorites, and custom prompt lists—all while maintaining an incredibly small, pixel-perfect footprint on your canvas.
 
 
-# Key Features
+## Key Features
 
 *   **📐 Fluid Responsive Layout (`flex: 1`):** The primary prompt text area utilizes a fully fluid layout. Stretch, widen, or scale the node manually in any direction; the editor box will dynamically expand to fill 100% of the available vertical space.
 *   **🧠 Independent State Sizing (Size Memory):** The node intelligently remembers your manually adjusted dimensions separately for *both* collapsed and expanded modes. Toggling between them fluidly snaps the node to your preferred width and height without resetting or forcing generic dimensions.
@@ -56,14 +56,14 @@ An ultra-sleek, highly responsive custom CLIP Text Encode implementation for Com
 *   **📤 Import / Export JSON:** Easily import custom prompt libraries or backup your favorites lists to standard JSON files.
 
 
-# Interface Layout & Sizing Bounds
+### Interface Layout & Sizing Bounds
 
 *   **Collapsed (Compact) Mode (Height: `120px`):** Shows only the active prompt box and the control bar. Completely hides the lists to keep your canvas clear.
 *   **Expanded Mode (Height: `>= 275px`):** Reveals preset controls, tab selectors, scrollable card lists, and file utilities.
 *   **Minimum Width:** Locked at `420px` to maintain pristine, legible button alignments.
 
 
-# Folder Structure
+### Folder Structure
 
 All prompt list files are stored locally within your custom node directory.
 custom_nodes/comfyui_AcademiaSD/prompt_lists/
@@ -71,13 +71,13 @@ custom_nodes/comfyui_AcademiaSD/prompt_lists/
 
 ---
 
-## Academia SD Advanced Seed Generator for ComfyUI 🎲
+# Academia SD Advanced Seed Generator for ComfyUI 🎲
 ![Academia SD Advanced Seed Generator](assets/academia_seed.png)
 
 An ultra-compact, high-performance seed generator node built specifically for ComfyUI. Designed to replace the native, pixel-perfect HTML interface that minimizes canvas clutter while introducing advanced seed history management.
 
 
-# Key Features
+## Key Features
 
 *   **📐 Extreme Space Compression:** Measures only `230px` in width with a dynamically adjusting height. It sits snug right below the title bar, aligning your primary input rows directly with the `seed` output connector to eliminate wasted empty space.
 *   **⏪ Pure Non-Destructive Undo:** Safely backtrack through your seed history queue (up to the last 10 seeds) without shifting index arrays in real time. Perfect for recovering that one specific generation you accidentally skipped.
@@ -91,7 +91,7 @@ An ultra-compact, high-performance seed generator node built specifically for Co
 *   **🧹 Built-in Interface Cleanup:** Robust frontend cleaning algorithms actively remove ComfyUI's native duplicates, hidden input sockets, or extra output connectors. Only one clean, highly-compatible output port (`seed`) remains visible.
 *   **💾 Session Serialization:** All seed history and configuration states are serialized natively. Your history persists even after saving, closing, or reloading your ComfyUI workflow JSON.
 
-# Interface Layout & Button Controls
+## Interface Layout & Button Controls
 
 | Element | Description |
 | :--- | :--- |
