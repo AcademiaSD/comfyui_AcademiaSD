@@ -66,6 +66,7 @@ An ultra-sleek, highly responsive custom CLIP Text Encode implementation for Com
 ### Folder Structure
 
 All prompt list files are stored locally within your custom node directory.
+
 custom_nodes/comfyui_AcademiaSD/prompt_lists/
 
 
