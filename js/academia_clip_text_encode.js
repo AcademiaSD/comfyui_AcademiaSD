@@ -214,13 +214,13 @@ function registerPromptNode(nodeName, defaultFileName) {
                         });
                     }
 
+                    // CORRECCIÓN QUIRÚRGICA: Ajustar solo el container del nodo
+                    // Sin alterar nunca container.parentElement (para no romper la capa de clics global de ComfyUI)
                     const adjustContainerHeight = () => {
                         if (!container) return;
                         const targetH = Math.max(90, _this.size[1] - 40);
                         container.style.height = targetH + "px";
-                        if (container.parentElement) {
-                            container.parentElement.style.height = targetH + "px";
-                        }
+                        container.style.maxHeight = targetH + "px";
                     };
 
                     this.computeSize = function(out) {
