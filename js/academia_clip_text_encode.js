@@ -1,5 +1,16 @@
 import { app } from "../../scripts/app.js";
 
+// Función de escape HTML para evitar que etiquetas como <video 1> o <image 1> rompan el DOM
+function escapeHTML(str) {
+    if (!str) return "";
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Función auxiliar para ocultar el widget nativo de forma limpia y definitiva
 function hideNativeTextWidget(node) {
     if (!node.widgets) return;
@@ -28,6 +39,7 @@ function registerPromptNode(nodeName, defaultFileName) {
                     o.asd_current_list = this.currentList;
                     o.asd_collapsed_height = this.collapsedHeight;
                     o.asd_expanded_height = this.expandedHeight;
+                    o.asd_tray_height = this.trayHeight;
                 };
 
                 const onConfigure = nodeType.prototype.onConfigure;
@@ -37,6 +49,7 @@ function registerPromptNode(nodeName, defaultFileName) {
                     if (o.asd_current_list !== undefined) this.currentList = o.asd_current_list;
                     if (o.asd_collapsed_height !== undefined) this.collapsedHeight = Math.max(140, o.asd_collapsed_height);
                     if (o.asd_expanded_height !== undefined) this.expandedHeight = Math.max(280, o.asd_expanded_height);
+                    if (o.asd_tray_height !== undefined) this.trayHeight = o.asd_tray_height;
                     
                     hideNativeTextWidget(this);
 
@@ -60,9 +73,20 @@ function registerPromptNode(nodeName, defaultFileName) {
                     
                     this.collapsedHeight = this.collapsedHeight || 140;
                     this.expandedHeight = this.expandedHeight || 280;
+                    this.trayHeight = this.trayHeight || 80;
                     
                     this.activeTab = "recents";
                     this.promptListData = { favorites: [], recents: [] };
+
+                    const ensureDataStructure = () => {
+                        this.promptListData = this.promptListData || {};
+                        if (!Array.isArray(this.promptListData.favorites)) {
+                            this.promptListData.favorites = [];
+                        }
+                        if (!Array.isArray(this.promptListData.recents)) {
+                            this.promptListData.recents = [];
+                        }
+                    };
 
                     hideNativeTextWidget(this);
 
@@ -92,14 +116,29 @@ function registerPromptNode(nodeName, defaultFileName) {
                                 padding: 2px 4px; background: #111; color: #fff;
                                 border: 1px solid #444; border-radius: 2px; font-size: 10px;
                             }
+                            /* ESTILO DE TARJETA RIGUROSO */
                             .asd-p-card {
                                 display: flex; justify-content: space-between; align-items: center;
-                                padding: 3px 5px; background: #1a1a1a; border-radius: 2px;
+                                padding: 2px 5px; background: #1a1a1a; border-radius: 2px;
                                 border-left: 3px solid #4a6ee0; font-size: 10px; margin: 1px 0;
+                                height: 22px; min-height: 22px; max-height: 22px; box-sizing: border-box; flex-shrink: 0; overflow: hidden;
                             }
                             .asd-p-card-text {
                                 font-family: monospace; color: #ccc; white-space: nowrap;
-                                overflow: hidden; text-overflow: ellipsis; max-width: 230px;
+                                overflow: hidden; text-overflow: ellipsis; flex: 1;
+                                line-height: 18px; margin-right: 4px; pointer-events: none;
+                            }
+                            /* BARRA SEPARADORA ARRASTRABLE */
+                            .asd-p-splitter {
+                                height: 5px; background: #333; cursor: row-resize; border-radius: 2px;
+                                margin: 2px 0; flex-shrink: 0; transition: background 0.15s;
+                                display: flex; align-items: center; justify-content: center;
+                            }
+                            .asd-p-splitter:hover, .asd-p-splitter.dragging {
+                                background: #4a6ee0;
+                            }
+                            .asd-p-splitter::after {
+                                content: ""; width: 20px; height: 1px; background: #666;
                             }
                         </style>
                         <textarea class="asd-p-textarea" placeholder="Enter your prompt here..."></textarea>
@@ -120,7 +159,8 @@ function registerPromptNode(nodeName, defaultFileName) {
                                 <button class="asd-p-btn asd-tab-recents" style="flex: 1; border-bottom: none; border-radius: 2px 2px 0 0;">⏪ Recents</button>
                                 <button class="asd-p-btn asd-tab-favorites" style="flex: 1; border-bottom: none; border-radius: 2px 2px 0 0;">⭐ Favorites</button>
                             </div>
-                            <div class="asd-prompts-tray" style="max-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; background: #111; padding: 2px; border-radius: 2px; border: 1px solid #333;">
+                            <div class="asd-p-splitter" title="Drag to resize tray height"></div>
+                            <div class="asd-prompts-tray" style="height: 80px; max-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; background: #111; padding: 2px; border-radius: 2px; border: 1px solid #333;">
                                 <!-- Prompts dinámicos -->
                             </div>
                             <div style="display: flex; gap: 2px;">
@@ -139,12 +179,41 @@ function registerPromptNode(nodeName, defaultFileName) {
                     const tabRecents = container.querySelector(".asd-tab-recents");
                     const tabFavorites = container.querySelector(".asd-tab-favorites");
                     const promptsTray = container.querySelector(".asd-prompts-tray");
+                    const splitter = container.querySelector(".asd-p-splitter");
                     const fileImport = container.querySelector(".asd-file-import");
 
                     textarea.addEventListener("keydown", (e) => e.stopPropagation());
                     textarea.addEventListener("keyup", (e) => e.stopPropagation());
 
-                    // AJUSTE DIRECTO Y SEGURO DE ALTURA DEL CONTENEDOR HTML
+                    if (splitter) {
+                        let startY = 0;
+                        let startH = 0;
+
+                        const onMouseMove = (e) => {
+                            const dy = startY - e.clientY;
+                            let newH = Math.max(30, Math.min(250, startH + dy));
+                            _this.trayHeight = newH;
+                            promptsTray.style.height = newH + "px";
+                            promptsTray.style.maxHeight = newH + "px";
+                        };
+
+                        const onMouseUp = () => {
+                            splitter.classList.remove("dragging");
+                            window.removeEventListener("mousemove", onMouseMove);
+                            window.removeEventListener("mouseup", onMouseUp);
+                        };
+
+                        splitter.addEventListener("mousedown", (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            startY = e.clientY;
+                            startH = promptsTray.offsetHeight;
+                            splitter.classList.add("dragging");
+                            window.addEventListener("mousemove", onMouseMove);
+                            window.addEventListener("mouseup", onMouseUp);
+                        });
+                    }
+
                     const adjustContainerHeight = () => {
                         if (!container) return;
                         const targetH = Math.max(90, _this.size[1] - 40);
@@ -207,6 +276,13 @@ function registerPromptNode(nodeName, defaultFileName) {
                             const targetH = Math.max(140, _this.collapsedHeight || 140);
                             _this.setSize([_this.size[0], targetH]);
                         }
+                        
+                        if (promptsTray) {
+                            const trayH = _this.trayHeight || 80;
+                            promptsTray.style.height = trayH + "px";
+                            promptsTray.style.maxHeight = trayH + "px";
+                        }
+
                         adjustContainerHeight();
                         app.graph?.setDirtyCanvas(true, true);
                     };
@@ -235,7 +311,8 @@ function registerPromptNode(nodeName, defaultFileName) {
                             const res = await fetch(`/academia/prompts/load?name=${name}`);
                             const rData = await res.json();
                             if (rData.status === "success") {
-                                this.promptListData = rData.data;
+                                this.promptListData = rData.data || {};
+                                ensureDataStructure();
                                 this.currentList = name;
                                 listSelect.value = name;
                                 renderTray();
@@ -245,6 +322,7 @@ function registerPromptNode(nodeName, defaultFileName) {
 
                     const saveListToServer = async (name) => {
                         try {
+                            ensureDataStructure();
                             await fetch("/academia/prompts/save", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -256,22 +334,37 @@ function registerPromptNode(nodeName, defaultFileName) {
                         } catch (e) {}
                     };
 
+                    // --- BOTÓN FAVORITOS ---
                     addFavBtn.addEventListener("click", () => {
+                        ensureDataStructure();
                         const activePrompt = textarea.value.trim();
-                        if (!activePrompt) return;
-                        if (!this.promptListData.favorites.includes(activePrompt)) {
-                            this.promptListData.favorites.push(activePrompt);
-                            saveListToServer(this.currentList);
-                            
-                            addFavBtn.innerText = "✅ Saved!";
-                            setTimeout(() => addFavBtn.innerText = "❤️ Favorite", 1000);
+                        
+                        if (!activePrompt) {
+                            addFavBtn.innerText = "⚠️ Write prompt!";
+                            setTimeout(() => addFavBtn.innerText = "❤️ Favorite", 1200);
+                            return;
                         }
+
+                        if (this.promptListData.favorites.includes(activePrompt)) {
+                            addFavBtn.innerText = "⭐ Already Fav!";
+                            setTimeout(() => addFavBtn.innerText = "❤️ Favorite", 1200);
+                            return;
+                        }
+
+                        this.promptListData.favorites.unshift(activePrompt);
+                        this.activeTab = "favorites";
+                        saveListToServer(this.currentList);
+                        
+                        addFavBtn.innerText = "✅ Saved!";
+                        setTimeout(() => addFavBtn.innerText = "❤️ Favorite", 1200);
                     });
 
-                    // --- TRATAMIENTO DE LA COLA ---
+                    // --- RENDERING DE LA BANDEJA Y TARJETAS (ESCAPADO HTML SEGURO) ---
                     const renderTray = () => {
                         promptsTray.innerHTML = "";
-                        const activeList = this.activeTab === "recents" ? (this.promptListData.recents || []) : (this.promptListData.favorites || []);
+                        ensureDataStructure();
+                        
+                        const activeList = this.activeTab === "recents" ? this.promptListData.recents : this.promptListData.favorites;
                         
                         if (this.activeTab === "recents") {
                             tabRecents.style.background = "#4a6ee0"; tabRecents.style.color = "#fff";
@@ -281,7 +374,7 @@ function registerPromptNode(nodeName, defaultFileName) {
                             tabRecents.style.background = "#222"; tabRecents.style.color = "#ccc";
                         }
 
-                        if (activeList.length === 0) {
+                        if (!activeList || activeList.length === 0) {
                             promptsTray.innerHTML = `<div style="text-align:center; padding:10px; color:#666; font-size:9px;">No prompts found</div>`;
                             return;
                         }
@@ -289,9 +382,16 @@ function registerPromptNode(nodeName, defaultFileName) {
                         activeList.forEach((promptText, idx) => {
                             const card = document.createElement("div");
                             card.className = "asd-p-card";
+                            
+                            // 1. Limpieza de saltos de línea para la vista previa de 1 línea
+                            const cleanDisplay = promptText.replace(/\s+/g, ' ').trim();
+                            // 2. Escape HTML para que etiquetas como <video 1> no rompan la tarjeta
+                            const escapedDisplay = escapeHTML(cleanDisplay);
+                            const escapedTitle = escapeHTML(promptText);
+
                             card.innerHTML = `
-                                <div class="asd-p-card-text" title="${promptText.replace(/"/g, '&quot;')}">${promptText}</div>
-                                <div style="display:flex; gap:2px; flex-shrink:0;">
+                                <div class="asd-p-card-text" title="${escapedTitle}">${escapedDisplay}</div>
+                                <div style="display:flex; gap:2px; flex-shrink:0; align-items:center;">
                                     <button class="asd-p-btn asd-btn-card-load">📂 Load</button>
                                     ${this.activeTab === "recents" ? '<button class="asd-p-btn asd-btn-card-add-fav">❤️</button>' : ''}
                                     <button class="asd-p-btn asd-btn-card-del" style="background:#5a2222; border-color:#5a2222;">🗑️</button>
@@ -309,8 +409,9 @@ function registerPromptNode(nodeName, defaultFileName) {
 
                             if (this.activeTab === "recents") {
                                 card.querySelector(".asd-btn-card-add-fav").addEventListener("click", () => {
+                                    ensureDataStructure();
                                     if (!this.promptListData.favorites.includes(promptText)) {
-                                        this.promptListData.favorites.push(promptText);
+                                        this.promptListData.favorites.unshift(promptText);
                                         saveListToServer(this.currentList);
                                     }
                                 });
@@ -403,7 +504,7 @@ function registerPromptNode(nodeName, defaultFileName) {
                         textWidget.serializeValue = () => {
                             const currentVal = textarea.value.trim();
                             if (currentVal) {
-                                this.promptListData.recents = this.promptListData.recents || [];
+                                ensureDataStructure();
                                 const existingIndex = this.promptListData.recents.indexOf(currentVal);
                                 if (existingIndex !== -1) {
                                     this.promptListData.recents.splice(existingIndex, 1);
