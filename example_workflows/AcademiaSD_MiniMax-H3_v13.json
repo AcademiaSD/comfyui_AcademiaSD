@@ -1251,7 +1251,7 @@
         ]
       },
       "widgets_values": [
-        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
         "default"
       ],
       "color": "#323",
@@ -1687,7 +1687,7 @@
         "Node name for S&R": "AcademiaSD_ResolutionCalc"
       },
       "widgets_values": [
-        2,
+        0.6,
         "16:9 (Panorama)",
         "32",
         false,
@@ -1983,6 +1983,7 @@
         "ver": "eadad201b5df04fa8a185784d49829064d806fb8",
         "Node name for S&R": "AcademiaSD_Noise",
         "seed_history": [
+          3361136074083654,
           5815366342604628,
           5386363387782714,
           8414213041025342,
@@ -1991,12 +1992,11 @@
           233751457093485,
           8356080638819035,
           1201080097215099,
-          5094070496966535,
-          2128740848346403
+          5094070496966535
         ]
       },
       "widgets_values": [
-        5815366342604628,
+        3361136074083654,
         "randomize",
         ""
       ],
@@ -2125,7 +2125,7 @@
         "Node name for S&R": "PrimitiveFloat"
       },
       "widgets_values": [
-        15
+        5
       ],
       "color": "#232",
       "bgcolor": "#353"
@@ -2645,64 +2645,6 @@
       "bgcolor": "#653"
     },
     {
-      "id": 146,
-      "type": "AcademiaSD_MultiLora",
-      "pos": [
-        -2453.456876786679,
-        5151.960169698663
-      ],
-      "size": [
-        537.3177797788117,
-        140
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 25,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "model",
-          "type": "MODEL",
-          "link": 387
-        },
-        {
-          "name": "clip",
-          "shape": 7,
-          "type": "CLIP",
-          "link": 392
-        }
-      ],
-      "outputs": [
-        {
-          "name": "MODEL",
-          "type": "MODEL",
-          "links": [
-            394
-          ]
-        },
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            456
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "61407d668de2ea9d1534a738fd6bdb83a2268627",
-        "Node name for S&R": "AcademiaSD_MultiLora"
-      },
-      "widgets_values": [
-        "Standard (Native)",
-        "[]",
-        ""
-      ],
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 152,
       "type": "Fast Groups Bypasser (rgthree)",
       "pos": [
@@ -2847,61 +2789,6 @@
       "bgcolor": "#335"
     },
     {
-      "id": 240,
-      "type": "AcademiaSD_PositivePrompt",
-      "pos": [
-        -1905.4048430963676,
-        4651.219022714702
-      ],
-      "size": [
-        479.35449933829955,
-        596.9354314138918
-      ],
-      "flags": {
-        "pinned": true
-      },
-      "order": 30,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": 456
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": null
-        },
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            454,
-            455
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "eadad201b5df04fa8a185784d49829064d806fb8",
-        "Node name for S&R": "AcademiaSD_PositivePrompt"
-      },
-      "widgets_values": [
-        "",
-        ""
-      ],
-      "color": "#232",
-      "bgcolor": "#353",
-      "asd_expanded": false,
-      "asd_current_list": "MiniMax-H3_prompts",
-      "asd_collapsed_height": 596.9354314138918,
-      "asd_expanded_height": 599.3837345346592,
-      "asd_tray_height": 168
-    },
-    {
       "id": 141,
       "type": "AcademiaSD_Downloader",
       "pos": [
@@ -3028,6 +2915,119 @@
           "subfolder": ""
         }
       ]
+    },
+    {
+      "id": 146,
+      "type": "AcademiaSD_MultiLora",
+      "pos": [
+        -2453.456876786679,
+        5151.960169698663
+      ],
+      "size": [
+        537.3177797788117,
+        140
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 387
+        },
+        {
+          "name": "clip",
+          "shape": 7,
+          "type": "CLIP",
+          "link": 392
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            394
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            456
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "61407d668de2ea9d1534a738fd6bdb83a2268627",
+        "Node name for S&R": "AcademiaSD_MultiLora"
+      },
+      "widgets_values": [
+        "Standard (Native)",
+        "[]",
+        ""
+      ],
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 240,
+      "type": "AcademiaSD_PositivePrompt",
+      "pos": [
+        -1905.4048430963676,
+        4651.219022714702
+      ],
+      "size": [
+        479.35449933829955,
+        596.9354314138918
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 30,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 456
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": null
+        },
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            454,
+            455
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "eadad201b5df04fa8a185784d49829064d806fb8",
+        "Node name for S&R": "AcademiaSD_PositivePrompt"
+      },
+      "widgets_values": [
+        "",
+        ""
+      ],
+      "color": "#232",
+      "bgcolor": "#353",
+      "asd_expanded": false,
+      "asd_current_list": "MiniMax-H3_prompts",
+      "asd_collapsed_height": 596.9354314138918,
+      "asd_expanded_height": 599.3837345346592,
+      "asd_tray_height": 168
     }
   ],
   "links": [
@@ -3745,10 +3745,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.5991434177668377,
+      "scale": 0.5446758343334904,
       "offset": [
-        4033.0322989819188,
-        -4229.596555026894
+        4073.567721779191,
+        -4198.367122198846
       ]
     },
     "frontendVersion": "1.47.12",
