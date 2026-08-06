@@ -26,7 +26,7 @@ async def get_gemini_token(request):
         if os.path.exists(TOKENS_FILE):
             with open(TOKENS_FILE, "r") as f:
                 data = json.load(f)
-                return web.json_response({"token": data.get("gemini", "")})
+                return web.json_response({"token": "****" if data.get("gemini", "") else ""})
     except: pass
     return web.json_response({"token": ""})
 
