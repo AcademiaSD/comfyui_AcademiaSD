@@ -492,7 +492,7 @@
         "collapsed": true
       },
       "order": 8,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -532,7 +532,7 @@
         "pinned": true
       },
       "order": 36,
-      "mode": 4,
+      "mode": 0,
       "inputs": [
         {
           "name": "clip",
@@ -709,7 +709,7 @@
       ],
       "size": [
         569.0219214627036,
-        897.0219214627036
+        654.1853023542001
       ],
       "flags": {
         "pinned": true
@@ -781,13 +781,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "MiniMaxH3_00008-audio.mp4",
+            "filename": "MiniMaxH3_00009-audio.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/h264-mp4",
             "frame_rate": 24,
-            "workflow": "MiniMaxH3_00008.png",
-            "fullpath": "F:\\ComfyUI_windows_portable\\ComfyUI\\output\\MiniMaxH3_00008-audio.mp4"
+            "workflow": "MiniMaxH3_00009.png",
+            "fullpath": "F:\\ComfyUI_windows_portable\\ComfyUI\\output\\MiniMaxH3_00009-audio.mp4"
           }
         }
       },
@@ -994,7 +994,7 @@
         "pinned": true
       },
       "order": 37,
-      "mode": 0,
+      "mode": 4,
       "inputs": [
         {
           "name": "clip",
@@ -1251,7 +1251,7 @@
         ]
       },
       "widgets_values": [
-        "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "minimax_h3_fl2va_pruned_w4a8_mixed.safetensors",
         "default"
       ],
       "color": "#323",
@@ -2258,7 +2258,7 @@
       ],
       "size": [
         579.4016751949334,
-        907.4016751949334
+        659.9740111664053
       ],
       "flags": {},
       "order": 54,
@@ -2338,13 +2338,13 @@
           "hidden": false,
           "paused": false,
           "params": {
-            "filename": "MimiMaxH3_interpolated_00008-audio.mp4",
+            "filename": "MimiMaxH3_interpolated_00009-audio.mp4",
             "subfolder": "",
             "type": "output",
             "format": "video/h264-mp4",
             "frame_rate": 48,
-            "workflow": "MimiMaxH3_interpolated_00008.png",
-            "fullpath": "F:\\ComfyUI_windows_portable\\ComfyUI\\output\\MimiMaxH3_interpolated_00008-audio.mp4"
+            "workflow": "MimiMaxH3_interpolated_00009.png",
+            "fullpath": "F:\\ComfyUI_windows_portable\\ComfyUI\\output\\MimiMaxH3_interpolated_00009-audio.mp4"
           }
         }
       },
@@ -2804,34 +2804,6 @@
       "bgcolor": "#3f5159"
     },
     {
-      "id": 141,
-      "type": "AcademiaSD_Downloader",
-      "pos": [
-        -3294.5506836440236,
-        6628.259149719629
-      ],
-      "size": [
-        2214.614823696997,
-        861.9952825218725
-      ],
-      "flags": {},
-      "order": 25,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "academiasd",
-        "ver": "61407d668de2ea9d1534a738fd6bdb83a2268627",
-        "Node name for S&R": "AcademiaSD_Downloader"
-      },
-      "widgets_values": [
-        ""
-      ],
-      "color": "#323",
-      "bgcolor": "#535",
-      "academia_models": []
-    },
-    {
       "id": 229,
       "type": "AcademiaSD_Noise",
       "pos": [
@@ -2845,7 +2817,7 @@
       "flags": {
         "pinned": true
       },
-      "order": 26,
+      "order": 25,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -3035,6 +3007,136 @@
       "asd_collapsed_height": 596.9354314138918,
       "asd_expanded_height": 599.3837345346592,
       "asd_tray_height": 168
+    },
+    {
+      "id": 141,
+      "type": "AcademiaSD_Downloader",
+      "pos": [
+        -3294.5506836440236,
+        6628.259149719629
+      ],
+      "size": [
+        2224.706045605926,
+        724.0819164331724
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 26,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "61407d668de2ea9d1534a738fd6bdb83a2268627",
+        "Node name for S&R": "AcademiaSD_Downloader"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "color": "#323",
+      "bgcolor": "#535",
+      "academia_models": [
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/vae",
+          "selected_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "filename": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+          "filesize": "19.53 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/diffusion_models",
+          "selected_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "filename": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+          "filesize": "19.53 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": false,
+          "url": "https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4/tree/main",
+          "selected_url": "https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4/resolve/main/minimax_h3_fl2va_pruned_nvfp4.safetensors",
+          "filename": "minimax_h3_fl2va_pruned_nvfp4.safetensors",
+          "filesize": "11.67 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": false,
+          "url": "https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4/tree/main",
+          "selected_url": "https://huggingface.co/lilcheaty/MiniMax-H3-NVFP4/resolve/main/minimax_h3_ref2va_pruned_nvfp4.safetensors",
+          "filename": "minimax_h3_ref2va_pruned_nvfp4.safetensors",
+          "filesize": "11.67 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/ethanfel/Qwen3-VL-32B-Ultra-Heretic-MiniMax-H3-ComfyUI-INT8-ConvRot/tree/main",
+          "selected_url": "https://huggingface.co/ethanfel/Qwen3-VL-32B-Ultra-Heretic-MiniMax-H3-ComfyUI-INT8-ConvRot/resolve/main/qwen3vl_32b_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "filename": "qwen3vl_32b_h3_ultra_uncensored_heretic_int8_convrot.safetensors",
+          "filesize": "24.55 GB",
+          "folder": "text_encoders",
+          "subfolder": ""
+        },
+        {
+          "enabled": false,
+          "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/text_encoders",
+          "selected_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "filename": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+          "filesize": "25.28 GB",
+          "folder": "text_encoders",
+          "subfolder": ""
+        },
+        {
+          "enabled": false,
+          "url": "https://huggingface.co/sakamakismile/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4/tree/main",
+          "selected_url": "https://huggingface.co/sakamakismile/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4/resolve/main/qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors",
+          "filename": "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors",
+          "filesize": "14.61 GB",
+          "folder": "text_encoders",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/vae",
+          "selected_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_video_vae_fp16.safetensors",
+          "filename": "minimax_h3_video_vae_fp16.safetensors",
+          "filesize": "4.85 GB",
+          "folder": "vae",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/vae",
+          "selected_url": "https://huggingface.co/Comfy-Org/MiniMax-H3/resolve/main/vae/minimax_h3_audio_vae_fp32.safetensors",
+          "filename": "minimax_h3_audio_vae_fp32.safetensors",
+          "filesize": "577.22 MB",
+          "folder": "vae",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Kijai/MiniMax-H3-TAE/tree/main",
+          "selected_url": "https://huggingface.co/Kijai/MiniMax-H3-TAE/resolve/main/vae_approx/taeh3.safetensors",
+          "filename": "taeh3.safetensors",
+          "filesize": "9.34 MB",
+          "folder": "vae_approx",
+          "subfolder": ""
+        },
+        {
+          "enabled": false,
+          "url": "https://huggingface.co/Kijai/MiniMax-H3-experimental/tree/main",
+          "selected_url": "https://huggingface.co/Kijai/MiniMax-H3-experimental/resolve/main/minimax_h3_fl2va_pruned_w4a8_mixed.safetensors",
+          "filename": "minimax_h3_fl2va_pruned_w4a8_mixed.safetensors",
+          "filesize": "11.68 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        }
+      ]
     }
   ],
   "links": [
@@ -3770,10 +3872,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.40610351939285183,
+      "scale": 0.7194371569191201,
       "offset": [
-        4903.317013011982,
-        -3926.438485696425
+        3748.33083099959,
+        -4556.517907906629
       ]
     },
     "frontendVersion": "1.47.12",
@@ -3790,9 +3892,9 @@
         "hash": "",
         "size": 5207808496
       },
-      "127_minimax_h3_ref2va_pruned_int8_convrot.safetensors": {
+      "127_minimax_h3_fl2va_pruned_w4a8_mixed.safetensors": {
         "hash": "",
-        "size": 20970379616
+        "size": 12540858008
       },
       "241_minimax_h3_turbo_4step_ckpt500.safetensors": {
         "hash": "",
