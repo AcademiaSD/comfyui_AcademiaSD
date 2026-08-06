@@ -411,6 +411,7 @@
           ]
         }
       ],
+      "title": "Load Audio VAE",
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.30.0",
@@ -457,6 +458,7 @@
           ]
         }
       ],
+      "title": "Load Video VAE",
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.30.0",
@@ -707,7 +709,7 @@
       ],
       "size": [
         569.0219214627036,
-        659.1124221621988
+        334
       ],
       "flags": {
         "pinned": true
@@ -1328,6 +1330,7 @@
           ]
         }
       ],
+      "title": "Load CLIP (Text Encoder)",
       "properties": {
         "cnr_id": "comfy-core",
         "ver": "0.30.0",
@@ -1409,7 +1412,7 @@
       ],
       "size": [
         335.12059359641535,
-        973.748652510704
+        310
       ],
       "flags": {
         "pinned": true
@@ -1510,7 +1513,7 @@
         "pinned": true
       },
       "order": 14,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
@@ -2750,7 +2753,7 @@
       ],
       "size": [
         579.4016751949334,
-        664.9942826104623
+        334
       ],
       "flags": {},
       "order": 51,
@@ -2852,7 +2855,7 @@
       ],
       "size": [
         479.35449933829955,
-        599.3837345346592
+        596.9354314138918
       ],
       "flags": {
         "pinned": true
@@ -2887,12 +2890,12 @@
         "Node name for S&R": "AcademiaSD_PositivePrompt"
       },
       "widgets_values": [
-        "Convierte el dibujo retro de la <Image 1> en una fotografia super realista de estilo cinematografico, respeta la composición de la <image 1> la posición de los elementos y el texto, pero modificalos para que se vea como un fotograma de una pelicula de acción de alta calidad. manten todos los elementos en la misma ubicacion pero cambia el estilo a imagen ultra realista. ",
+        "",
         ""
       ],
       "color": "#232",
       "bgcolor": "#353",
-      "asd_expanded": true,
+      "asd_expanded": false,
       "asd_current_list": "MiniMax-H3_prompts",
       "asd_collapsed_height": 596.9354314138918,
       "asd_expanded_height": 599.3837345346592,
@@ -3742,17 +3745,18 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.7249635354978721,
+      "scale": 0.5991434177668377,
       "offset": [
-        4010.191499872717,
-        -5690.031606044868
+        4033.0322989819188,
+        -4229.596555026894
       ]
     },
     "frontendVersion": "1.47.12",
     "VHS_latentpreview": false,
     "VHS_latentpreviewrate": 0,
     "VHS_MetadataImage": true,
-    "VHS_KeepIntermediate": true
+    "VHS_KeepIntermediate": true,
+    "anomalous_hashes": {}
   },
   "version": 0.4
 }
