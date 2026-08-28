@@ -15,14 +15,28 @@ function escapeHTML(str) {
 function hideNativeTextWidget(node) {
     if (!node.widgets) return;
     const textWidget = node.widgets.find(w => w.name === "text");
-    if (textWidget) {
-        textWidget.type = "hidden"; // Tipo oficial de LiteGraph para ocultar widgets
-        textWidget.computeSize = () => [0, -4];
-        textWidget.draw = () => {};
-        if (textWidget.inputEl) {
-            textWidget.inputEl.style.display = "none";
-            textWidget.inputEl.style.visibility = "hidden";
-        }
+    // Salida barata: esta funcion se llama en cada frame desde onDrawForeground.
+    if (!textWidget || textWidget.hidden === true) return;
+
+    // El frontend moderno (>= 1.16) decide la visibilidad de un widget por la
+    // propiedad `hidden`, NO por `type`. Marcando solo type = "hidden" el widget
+    // seguia entrando en el layout y ComfyUI seguia creando su wrapper
+    // <div class="dom-widget"> flotando sobre el canvas, que captura los clics.
+    textWidget.hidden = true;
+    textWidget.type = "hidden"; // compatibilidad con frontends antiguos
+
+    // NUNCA devolver una altura negativa aqui: LiteGraph hace
+    // computedHeight = computeSize()[1] + 4, y ComfyUI escribe
+    // style.height = (computedHeight - 2 * margin) + "px". Un valor negativo es
+    // CSS invalido, el navegador lo descarta y el wrapper cae a height: 100%.
+    textWidget.computeSize = () => [0, 0];
+
+    // `element` es la propiedad actual; `inputEl` es un alias deprecado que
+    // escupe warnings en consola, asi que solo se usa como ultimo recurso.
+    const el = textWidget.element || textWidget.inputEl;
+    if (el && el.style) {
+        el.style.display = "none";
+        el.style.visibility = "hidden";
     }
 }
 
@@ -214,13 +228,16 @@ function registerPromptNode(nodeName, defaultFileName) {
                         });
                     }
 
-                    // CORRECCIÓN QUIRÚRGICA: Ajustar solo el container del nodo
-                    // Sin alterar nunca container.parentElement (para no romper la capa de clics global de ComfyUI)
+                    // El wrapper .dom-widget que crea ComfyUI ya tiene exactamente el
+                    // tamaño del hueco reservado dentro del nodo. El container solo debe
+                    // rellenarlo al 100%: fijar pixeles aqui lo desincronizaba del wrapper
+                    // y ademas escribia estilos en cada frame (layout thrash).
                     const adjustContainerHeight = () => {
                         if (!container) return;
-                        const targetH = Math.max(90, _this.size[1] - 40);
-                        container.style.height = targetH + "px";
-                        container.style.maxHeight = targetH + "px";
+                        if (container.style.height !== "100%") {
+                            container.style.height = "100%";
+                            container.style.maxHeight = "100%";
+                        }
                     };
 
                     this.computeSize = function(out) {
@@ -491,18 +508,27 @@ function registerPromptNode(nodeName, defaultFileName) {
                     });
 
                     container.addEventListener("mousedown", (e) => e.stopPropagation());
-					const domWidget = this.addDOMWidget("UI", "HTML", container);
-
-					// IMPORTANTE:
-					// El DOM widget NO debe depender de _this.size[1].
-					// Si lo hacemos, ComfyUI puede entrar en un ciclo de
-					// crecimiento del nodo.
-					//
-					// Le damos un tamaño fijo que corresponde al área interna
-					// del nodo y dejamos que el nodo controle su propio tamaño.
-					domWidget.computeSize = function() {
-						return [0, 0];
-					};
+                    // IMPORTANTE: NO sobrescribir domWidget.computeSize.
+                    //
+                    // LGraphNode._arrangeWidgets() toma la rama `if (w.computeSize)` y hace
+                    // computedHeight = computeSize()[1] + 4  ->  con [0, 0] eso da 4.
+                    // Despues DomWidgets.vue calcula el tamaño del wrapper como
+                    // computedHeight - 2 * margin  ->  4 - 20 = -16, y aplica
+                    // style.height = "-16px". Es CSS invalido: el navegador lo descarta y
+                    // manda la clase `size-full` (height: 100%) del propio wrapper. Como el
+                    // wrapper es position: fixed, ese 100% es el alto del VIEWPORT: queda un
+                    // rectangulo transparente, con pointer-events: auto, del ancho del nodo y
+                    // bajando hasta el final de la pantalla. Eso es el "cuadrado invisible"
+                    // que tapa los nodos de debajo (y por eso empeora al editar el prompt:
+                    // al enfocar el textarea ComfyUI hace bringToFront y le sube el z-index).
+                    //
+                    // Sin computeSize, ComfyUI usa DOMWidgetImpl.computeLayoutSize() y le
+                    // reparte el espacio libre real del cuerpo del nodo: nunca negativo, y
+                    // nunca mayor que el nodo (asi que tampoco hay ciclo de crecimiento).
+                    const domWidget = this.addDOMWidget("UI", "HTML", container, {
+                        margin: 4,
+                        getMinHeight: () => 60,
+                    });
 
                     hideNativeTextWidget(this);
 
