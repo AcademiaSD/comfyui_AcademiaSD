@@ -204,6 +204,21 @@ app.registerExtension({
                 };
 
                 let hoverTimeout;
+                const placeTooltip = (el, x, y) => {
+                    if (!el) return;
+                    const m = 12;                       // margen con el borde
+                    const r = el.getBoundingClientRect();
+                    let left = x + 15;
+                    let top  = y + 15;
+                    if (left + r.width  > window.innerWidth  - m) left = x - 15 - r.width;
+                    if (top  + r.height > window.innerHeight - m) top  = y - 15 - r.height;
+                    // Si tampoco cabe volcado (ficha muy alta, ventana baja), se
+                    // pega al borde en vez de salirse. / If it does not fit
+                    // flipped either, clamp to the edge instead of overflowing.
+                    el.style.left = Math.max(m, left) + "px";
+                    el.style.top  = Math.max(m, top) + "px";
+                };
+
                 const handleTooltipEnter = (e, loraName) => {
                     if (!loraName || loraName === "None" || loraName.includes("(Missing)")) return;
                     
@@ -212,15 +227,15 @@ app.registerExtension({
                         if (!loraTooltip) return;
 
                         loraTooltip.style.display = "block";
-                        loraTooltip.style.left = (e.clientX + 15) + "px";
-                        loraTooltip.style.top = (e.clientY + 15) + "px";
 
                         if (window.loraMetadataCache && window.loraMetadataCache[loraName]) {
                             loraTooltip.innerText = window.loraMetadataCache[loraName];
+                            placeTooltip(loraTooltip, e.clientX, e.clientY);
                             return;
                         }
 
                         loraTooltip.innerText = "⏳ Loading metadata...";
+                        placeTooltip(loraTooltip, e.clientX, e.clientY);
                         try {
                             const res = await fetch("/academia/lora_info", {
                                 method: "POST", headers: {"Content-Type": "application/json"},
@@ -232,6 +247,7 @@ app.registerExtension({
                             
                             if (loraTooltip.style.display === "block") {
                                 loraTooltip.innerText = jsonRes.info;
+                                placeTooltip(loraTooltip, e.clientX, e.clientY);
                             }
                         } catch(e) {
                             loraTooltip.innerText = "❌ Error loading metadata.";
@@ -240,11 +256,8 @@ app.registerExtension({
                 };
 
                 const handleTooltipMove = (e) => {
-                    let loraTooltip = document.getElementById("asd-lora-tooltip");
-                    if(loraTooltip) {
-                        loraTooltip.style.left = (e.clientX + 15) + "px";
-                        loraTooltip.style.top = (e.clientY + 15) + "px";
-                    }
+                    placeTooltip(document.getElementById("asd-lora-tooltip"),
+                                 e.clientX, e.clientY);
                 };
 
                 const handleTooltipLeave = () => {
@@ -469,7 +482,7 @@ app.registerExtension({
                         border: 1px solid #555; padding: 10px; border-radius: 6px; 
                         z-index: 999999; display: none; pointer-events: none; 
                         font-family: monospace; font-size: 13px; line-height: 1.4;
-                        white-space: pre-wrap; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+                        white-space: pre-wrap; max-width: 520px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);
                         backdrop-filter: blur(4px);
                     `;
                     document.body.appendChild(globalTooltip);
