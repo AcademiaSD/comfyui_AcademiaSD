@@ -1,0 +1,12 @@
+# Bytecode
+__pycache__/
+*.py[cod]
+
+# Credenciales: nunca deben salir del equipo
+nodes/gemini_api_key.txt
+*_api_key.txt
+*.key
+
+# Copias de trabajo
+*_bak.py
+*_bak.js

@@ -277,4 +277,32 @@ An all-in-one, cable-free image injector designed specifically for LTX-Video Ima
 
 ---
 
+## 🎚️ Academia SD Fast Switch (A/B)
+![Academia SD Fast Switch](assets/Fast-switch.png)
+
+A pair of nodes for workflows that exist in two flavours — switching a pipeline from **FL2VA** to **Ref2VA**, for instance. Instead of hunting down every group to bypass and every loader to re-point, you flip one physical switch.
+
+### 🅰️🅱️ Fast Switch · Models
+
+Two model slots fed from the same folder. The active one is the one that leaves the node.
+
+*   **🟢 🔴 Active vs. asleep at a glance:** The live slot is drawn in green and the sleeping one in red. Nothing to read — you can tell which model is armed from across the canvas.
+*   **🔌 Plugs into any loader:** The `model_name` output connects straight into the `unet_name` of a **Load Diffusion Model**, and just as well into `lora_name`, `ckpt_name` or `vae_name`. It uses a wildcard type, so a single node covers every loader instead of one variant per model kind.
+*   **📁 Any models folder:** Defaults to `models/diffusion_models`. The ⚙ gear lists every folder ComfyUI knows about (`models/loras`, `models/vae`, `models/text_encoders`…) to pick with one click, or lets you type a path by hand.
+*   **✏️ Renameable labels:** Double-click `A` or `B` and type over it. Call them `FL2VA` and `Ref2VA` — the names are yours.
+*   **🏷️ Secondary `label` output:** A `STRING` carrying the active label, handy as a filename prefix so your renders say which branch produced them.
+
+### 🎚️ Fast Switch · Toggle
+
+The switch itself, and the part that moves everything else.
+
+*   **🎛️ A lever, not a checkbox:** Drag the knob left or right, or click for it to snap across. The active side lights up green while the other dims to red.
+*   **🔀 Groups on one side, bypassed on the other:** Assign each group to `A`, `B` or `–`. That third state is the whole point: `–` means this switch never touches that group, so a branch can arm what it needs without you having to declare the entire workflow.
+*   **📸 One-click setup:** Leave the workflow exactly as you want it for one branch, flip the lever to that side and press 📸. Every group that is currently on gets assigned to this side and everything bypassed to the other. No walking down a list of checkboxes.
+*   **📡 Reaches nodes it is not wired to:** The toggle finds every **Fast Switch · Models** node in the graph and moves it too — no cables involved. It also works the other way round: clicking a slot in a Models node moves the lever and the groups with it.
+*   **🤏 Folds down to almost nothing:** The group list collapses away, leaving just the lever and a one-line summary. Unfold it only when you need to reassign something.
+*   **⚙️ Options:** Bypass or Mute for the off side, apply the active side on workflow load, and shared labels — rename `FL2VA` once and every Fast Switch node in the graph follows.
+
+---
+
 # Workflows included.
