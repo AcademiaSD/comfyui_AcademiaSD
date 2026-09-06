@@ -50,33 +50,52 @@ app.registerExtension({
                 };
 
                 const container = document.createElement("div");
-                container.style.cssText = "width:100%; display:flex; flex-direction:column; align-items:center; padding:8px 8px 14px; background:#111; border-radius:6px; border:1px solid #444; margin-top:5px;";
+                // overflow:hidden es la garantia dura de que nada se pinte fuera
+                // del recuadro negro pase lo que pase con la altura.
+                container.style.cssText = "width:100%; box-sizing:border-box; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:10px 8px 12px; background:#111; border-radius:6px; border:1px solid #444; margin-top:5px;";
                 const resLabel = document.createElement("div");
-                resLabel.style.cssText = "color:#00ff00; font-size:16px; font-weight:bold; font-family:monospace;";
+                resLabel.style.cssText = "flex:0 0 auto; line-height:20px; color:#00ff00; font-size:16px; font-weight:bold; font-family:monospace;";
+                // Los megapixeles REALES, los de despues de redondear por
+                // divisible_by, no salen en ningun otro sitio: el widget
+                // megapixel es el objetivo, no el resultado.
                 const mpLabel = document.createElement("div");
-                mpLabel.style.cssText = "color:#888; font-size:11px; margin-top:4px; font-family:monospace;";
+                mpLabel.style.cssText = "flex:0 0 auto; line-height:14px; white-space:nowrap; color:#888; font-size:11px; font-family:monospace;";
                 container.appendChild(resLabel);
                 container.appendChild(mpLabel);
                 const displayW = this.addDOMWidget("Display", "HTML", container);
                 // No es una entrada del nodo: no tiene por que viajar en el prompt.
                 displayW.serialize = false;
                 if (displayW.options) displayW.options.serialize = false;
-                // Declarar la altura evita que el contenido se salga de la caja.
-                const boxHeight = () => Math.max(56, Math.ceil(container.scrollHeight) + 6);
+                // NO medir el DOM. ComfyUI dimensiona los widgets DOM en pixeles
+                // de PANTALLA (a zoom 2.3 una linea de 20 px mide 60), mientras que
+                // node.size va en unidades de grafo. Mezclarlos hacia crecer la caja
+                // sin parar. El layout de este recuadro lo definimos aqui entero,
+                // asi que su altura es una constante exacta en unidades de grafo:
+                //   padding 10 + linea 20 + hueco 4 + linea 14 + padding 12 + bordes 2
+                const BOX_H = 62;
+                const remeasure = () => {
+                    const need = self.computeSize()[1];
+                    // Solo crecer: un tamano puesto a mano por el usuario se respeta.
+                    if (self.size[1] < need) {
+                        self.setSize([self.size[0], need]);
+                        app.graph.setDirtyCanvas(true, true);
+                    }
+                };
                 if (displayW.options) {
-                    displayW.options.getMinHeight = boxHeight;
-                    displayW.options.getMaxHeight = boxHeight;
+                    displayW.options.getMinHeight = () => BOX_H;
+                    displayW.options.getMaxHeight = () => BOX_H;
                 }
 
-                // Los avisos ocupan la linea de los MP durante unos segundos en
-                // vez de anadir una tercera: asi no cambia el alto de la caja ni
-                // se pinta nada por encima de los botones.
+                // El unico aviso que queda (no encuentro el Load Image) ocupa la
+                // propia linea de la resolucion unos segundos y la devuelve: una
+                // sola linea, ninguna altura extra, nada que pueda solaparse.
                 let msgTimer = null;
                 const note = (text) => {
                     clearTimeout(msgTimer);
                     mpLabel.innerText = text;
                     mpLabel.style.color = "#d29922";
-                    msgTimer = setTimeout(() => { mpLabel.style.color = "#888"; calc(); }, 5000);
+                    remeasure();
+                    msgTimer = setTimeout(() => calc(), 5000);
                 };
 
                 const activeRatio = () =>
@@ -87,8 +106,12 @@ app.registerExtension({
                 const calc = () => {
                     const p = activeRatio();
                     if (!p) {
+                        resLabel.style.color = "#00ff00";
+                        resLabel.style.fontSize = "16px";
                         resLabel.innerText = "— x —";
+                        mpLabel.style.color = "#d29922";
                         mpLabel.innerText = "(invalid ratio)";
+                        remeasure();
                         return;
                     }
                     const [wr, hr] = p;
@@ -99,11 +122,14 @@ app.registerExtension({
                     const w = h * ratio;
                     const wf = Math.max(div, Math.round(w / div) * div);
                     const hf = Math.max(div, Math.round(h / div) * div);
+                    clearTimeout(msgTimer);
+                    resLabel.style.color = "#00ff00";
+                    resLabel.style.fontSize = "16px";
                     resLabel.innerText = `${wf} x ${hf}`;
 
                     // Mientras la proporcion siga siendo la de la imagen de
-                    // referencia, se ensena su tamano original: es lo que permite
-                    // bajar los MP sabiendo de donde vienes. Se borra solo en
+                    // referencia se ensena su tamano original: es lo que permite
+                    // bajar los MP sabiendo de donde vienes. Desaparece solo en
                     // cuanto cambias la proporcion.
                     let ref = "";
                     const rs = self.properties?.ref_size;
@@ -112,9 +138,9 @@ app.registerExtension({
                         const [cw, ch] = simplify(wr * 1000, hr * 1000);
                         if (rw === cw && rh === ch) ref = `  ·  ref ${rs.w}×${rs.h}`;
                     }
-                    clearTimeout(msgTimer);
                     mpLabel.style.color = "#888";
                     mpLabel.innerText = `(Real: ${((wf * hf) / 1048576).toFixed(2)} MP)${ref}`;
+                    remeasure();
                 };
 
                 /* --- el desplegable y el interruptor son el mismo ajuste --- */
@@ -271,6 +297,7 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function () {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 setTimeout(() => this.__academiaResCalc?.(), 60);
+                setTimeout(() => this.__academiaResCalc?.(), 400);   // tras el layout
             };
         }
     }
