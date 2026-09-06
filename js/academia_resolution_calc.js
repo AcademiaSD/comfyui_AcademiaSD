@@ -22,7 +22,10 @@ app.registerExtension({
                 mpLabel.style.cssText = "color:#888; font-size:11px; margin-top:2px; font-family:monospace;";
                 container.appendChild(resLabel);
                 container.appendChild(mpLabel);
-                this.addDOMWidget("Display", "HTML", container);
+                const displayW = this.addDOMWidget("Display", "HTML", container);
+                // No es una entrada del nodo: no tiene por que viajar en el prompt.
+                displayW.serialize = false;
+                if (displayW.options) displayW.options.serialize = false;
 
                 const calc = () => {
                     const mp = mpW.value;
@@ -45,9 +48,23 @@ app.registerExtension({
                     mpLabel.innerText = `(Real: ${((wf*hf)/1048576).toFixed(2)} MP)`;
                 };
 
+                // Encadenar, no reemplazar: si el frontend le pone un callback
+                // propio a un widget, sustituirlo lo romperia en silencio.
                 [mpW, ratioW, divW, customToggleW, customRatioW].forEach(w => {
-                    if(w) w.callback = () => { calc(); };
+                    if (!w) return;
+                    const prev = w.callback;
+                    w.callback = function (...args) {
+                        const r = prev?.apply(this, args);
+                        calc();
+                        return r;
+                    };
                 });
+
+                // Los valores guardados se restauran DESPUES de onNodeCreated, asi
+                // que el display de arriba se calculo con los valores por defecto.
+                // Sin esto, al abrir un workflow el LED ensena una resolucion que
+                // no es la que recibe Python.
+                this.__academiaResCalc = calc;
 
                 this.addWidget("button", "📐 Get Size from Image", null, async () => {
                     if(!this.inputs[0]?.link) return;
@@ -69,14 +86,50 @@ app.registerExtension({
 
                 this.addWidget("button", "➗ Half MP", null, () => { mpW.value = Math.max(0.1, mpW.value / 2); calc(); });
                 this.addWidget("button", "✖️ Double MP", null, () => { mpW.value = mpW.value * 2; calc(); });
-                this.addWidget("button", "🔄 Swap Ratio", null, () => {
-                    const p = customToggleW.value ? customRatioW.value.split(":") : ratioW.value.split(" ")[0].split(":");
-                    customToggleW.value = true;
-                    customRatioW.value = `${p[1]}:${p[0]}`;
+                // Intercambia la resolucion actual: vertical <-> horizontal.
+                // Invertir el ratio es exactamente eso: como w=raiz(A*r) y
+                // h=raiz(A/r), usar 1/r intercambia ambos, y divisible_by redondea
+                // igual a cada uno. Por eso NO hace falta tocar custom_ratio: se
+                // queda en el modo en el que estes.
+                this.addWidget("button", "🔄 Swap Resolution", null, () => {
+                    if (customToggleW.value) {
+                        const p = String(customRatioW.value).split(":");
+                        if (p.length !== 2) return;
+                        customRatioW.value = `${p[1].trim()}:${p[0].trim()}`;
+                    } else {
+                        const [a, b] = ratioW.value.split(" ")[0].split(":");
+                        const mirror = `${b}:${a}`;
+                        const values = ratioW.options?.values || [];
+                        const found = values.find(v => String(v).split(" ")[0] === mirror);
+                        if (found) {
+                            ratioW.value = found;          // se queda en preset
+                        } else {
+                            // Preset sin pareja en la lista: la unica forma de
+                            // expresarlo es el ratio manual.
+                            customToggleW.value = true;
+                            customRatioW.value = mirror;
+                        }
+                    }
                     calc();
+                    app.graph.setDirtyCanvas(true, true);
                 });
 
+                for (const w of this.widgets) {
+                    if (w.type === "button") {
+                        w.serialize = false;
+                        if (w.options) w.options.serialize = false;
+                    }
+                }
+
                 calc();
+            };
+
+            // El display se pinta en onNodeCreated, antes de que ComfyUI
+            // restaure los widgets guardados. Hay que rehacerlo despues.
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function () {
+                if (onConfigure) onConfigure.apply(this, arguments);
+                setTimeout(() => this.__academiaResCalc?.(), 60);
             };
         }
     }

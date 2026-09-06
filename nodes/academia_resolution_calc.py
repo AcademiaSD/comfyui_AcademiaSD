@@ -26,7 +26,10 @@ class AcademiaResolutionCalc:
                 "megapixel": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 100.0, "step": 0.1}),
                 "aspect_ratio": (ratios, {"default": "4:5 (Artistic Frame)"}),
                 "divisible_by": (["8", "16", "32", "64"], {"default": "16"}),
-                "custom_ratio": ("BOOLEAN", {"default": False, "label_on": "Enable", "label_off": "Disable"}),
+                # label_on es lo que se ENSEÑA cuando el valor es True. Con
+                # "Enable"/"Disable" el nodo ponia "Enable" justo mientras el
+                # ratio manual estaba actuando, que se lee como "esta apagado".
+                "custom_ratio": ("BOOLEAN", {"default": False, "label_on": "Custom ON", "label_off": "Custom OFF"}),
                 "custom_aspect_ratio": ("STRING", {"default": "1:1"}),
             },
             "optional": { "image": ("IMAGE",) }
