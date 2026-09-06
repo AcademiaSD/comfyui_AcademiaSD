@@ -299,9 +299,10 @@ The switch itself, and the part that moves everything else.
 *   **🎛️ A lever, not a checkbox:** Drag the knob left or right, or click for it to snap across. The active side lights up green while the other dims to red.
 *   **🔀 Groups on one side, bypassed on the other:** Assign each group to `A`, `B` or `–`. That third state is the whole point: `–` means this switch never touches that group, so a branch can arm what it needs without you having to declare the entire workflow.
 *   **📸 One-click setup:** Leave the workflow exactly as you want it for one branch, flip the lever to that side and press 📸. Every group that is currently on gets assigned to this side and everything bypassed to the other. No walking down a list of checkboxes.
-*   **📡 Reaches nodes it is not wired to:** The toggle finds every **Fast Switch · Models** node in the graph and moves it too — no cables involved. It also works the other way round: clicking a slot in a Models node moves the lever and the groups with it.
+*   **📡 Drives its Models nodes without a cable:** Every **Fast Switch · Models** node carries a 🔗 chip saying which switch commands it, and you set it from either end — the chip on the Models node, or the switch's own ⚙ menu. Drop a single switch on the canvas and new Models nodes attach to it on their own. It works in reverse too: clicking a slot on a linked Models node asks *its* switch to flip.
+*   **🔒 One switch, one scope:** Two Fast Switches in the same graph never interfere. Each owns its group assignments and its own followers, so flipping one never moves the other or touches its groups. The lever shows a 🔗 counter of how many Models nodes obey it.
 *   **🤏 Folds down to almost nothing:** The group list collapses away, leaving just the lever and a one-line summary. Unfold it only when you need to reassign something.
-*   **⚙️ Options:** Bypass or Mute for the off side, apply the active side on workflow load, and shared labels — rename `FL2VA` once and every Fast Switch node in the graph follows.
+*   **⚙️ Options:** Bypass or Mute for the off side, apply the active side on workflow load, and label push — rename `FL2VA` once on the switch and the Models nodes that follow it pick the name up.
 
 ---
 

@@ -1,14 +1,16 @@
 // academia_fast_switch.js
 // Academia SD Fast Switch: el interruptor fisico A/B y su nodo de modelos.
 //
-//   Toggle  → mueve la palanca, enciende los grupos de un lado, pasa por
-//             bypass los del otro y empuja el lado a TODOS los nodos Models
-//             del grafo, esten conectados o no.
+//   Toggle  → mueve la palanca, enciende los grupos de un lado y pasa por
+//             bypass los del otro. Cada Toggle es INDEPENDIENTE: manda sobre
+//             sus propios grupos y sobre los nodos Models enlazados a el, y
+//             nunca sobre otro Toggle ni sobre los seguidores de otro.
 //   Models  → dos ranuras del mismo directorio. La activa se pinta en VERDE,
 //             la dormida en ROJO, y es la activa la que sale por la salida.
+//             Sigue al Toggle que elijas (o a ninguno), sin necesidad de cable.
 //
-// Los dos hablan por el mismo bus, asi que tambien funciona al reves: pulsar
-// una ranura del nodo Models mueve la palanca y los grupos.
+// El enlace tambien funciona al reves: pulsar una ranura de un Models enlazado
+// le pide el cambio a SU Toggle, que aplica sus grupos y avisa a sus seguidores.
 
 import { app } from "../../scripts/app.js";
 import {
@@ -142,6 +144,14 @@ function injectStyle() {
 .afs-slot.on .afs-file { border-color:#3fb95055; }
 .afs-file.missing { border-color:#f85149; color:#f85149; }
 
+.afs-linkinfo { flex:none; font-size:10px; padding:1px 4px; border-radius:4px;
+    background:rgba(255,255,255,0.05); }
+.afs-linkchip { flex:none; font-size:10px; padding:1px 5px; border-radius:4px;
+    cursor:pointer; background:rgba(255,255,255,0.05); color:#8b949e; }
+.afs-linkchip:hover { background:rgba(255,255,255,0.12); color:#e6edf3; }
+.afs-linkchip.none { color:#6e7681; }
+.afs-linkchip.broken { color:#f85149; background:rgba(248,81,73,.12); }
+
 .afs-err { color:#f85149; font-size:10px; padding:0 2px; }
 .afs-hint { color:#6e7681; font-size:10px; text-align:center; padding:8px 4px;
     line-height:1.5; }
@@ -198,9 +208,14 @@ function clickOrDouble(el, onClick, onDouble) {
 
 /* ------------------------------------------------------------------- bus */
 
-// Un unico protocolo para los dos nodos. `type:"afs"` para no pisar los
-// eventos del switch de matriz, que escucha `type:"mode"`.
-function broadcast(node, payload) {
+// Cada Toggle es su propio canal, identificado por su id de nodo, y un nodo
+// Models guarda a que canal sigue. Un evento solo lo atiende quien esta
+// enlazado a ESE Toggle: dos interruptores en el mismo grafo no se pisan, cada
+// uno manda sobre sus propios grupos y sobre sus propios seguidores.
+//
+// `type:"afs"` para no pisar los eventos del switch de matriz, que escucha
+// `type:"mode"`.
+function emit(node, payload) {
     bus.emit(Object.assign({ type: "afs", src: node.afsUid, graph: graphOf(node) }, payload));
 }
 
@@ -213,16 +228,100 @@ function listenBus(node, handler) {
     });
 }
 
+/* --- lado del Toggle --- */
+
+function channelOf(toggleNode) {
+    return String(toggleNode.id);
+}
+
+function pushSide(node) {
+    emit(node, { kind: "side", from: channelOf(node), side: node.afsState.side });
+}
+
+function pushLabels(node) {
+    if (!node.afsState.opts.shareLabels) return;
+    emit(node, { kind: "labels", from: channelOf(node), labels: node.afsState.labels });
+}
+
+// Renombrar en un Models enlazado que adopta etiquetas duraria hasta el
+// siguiente empujon del Toggle. Se renombra donde vive el nombre de verdad.
+function renameModelsLabel(node, side, value) {
+    const t = node.afsState.opts.shareLabels ? linkedToggle(node) : null;
+    if (t) {
+        t.afsState.labels[side] = value;
+        t.afsSync();
+        t.afsRender();
+        pushLabels(t);
+    } else {
+        node.afsState.labels[side] = value;
+        node.afsSync();
+    }
+    node.afsRender();
+}
+
+function followerCount(node) {
+    const ch = channelOf(node);
+    const graph = graphOf(node);
+    let n = 0;
+    for (const other of graph?._nodes || graph?.nodes || []) {
+        if (other.type === T_MODELS && other.afsState?.link === ch) n += 1;
+    }
+    return n;
+}
+
+/* --- lado del Models --- */
+
+function toggleNodes(node) {
+    const graph = graphOf(node);
+    return (graph?._nodes || graph?.nodes || []).filter((n) => n.type === T_TOGGLE);
+}
+
+function modelsNodes(node) {
+    const graph = graphOf(node);
+    return (graph?._nodes || graph?.nodes || []).filter((n) => n.type === T_MODELS);
+}
+
+// Un id de nodo no le dice nada a nadie; las etiquetas si.
+function toggleTitle(t) {
+    const st = t.afsState;
+    const labels = st ? ` · ${labelOf(st, "a")}/${labelOf(st, "b")}` : "";
+    return `#${t.id} ${t.title || "Fast Switch Toggle"}${labels}`;
+}
+
+function goToNode(n) {
+    try {
+        app.canvas.centerOnNode(n);
+        app.canvas.selectNode?.(n);
+        redraw();
+    } catch (e) {}
+}
+
+// Engancha un Models a un Toggle y lo pone al dia de una vez.
+function linkModelsTo(modelsNode, toggle) {
+    const st = modelsNode.afsState;
+    st.link = toggle ? channelOf(toggle) : "";
+    modelsNode.afsSync();
+    if (toggle) {
+        setModelsSide(modelsNode, toggle.afsState?.side || "a", { relay: false });
+        if (st.opts.shareLabels && toggle.afsState?.labels) {
+            adoptLabels(modelsNode, toggle.afsState.labels);
+        }
+        toggle.afsRender();
+    }
+    modelsNode.afsRender();
+}
+
+function linkedToggle(node) {
+    const ch = node.afsState?.link;
+    if (!ch) return null;
+    return toggleNodes(node).find((t) => channelOf(t) === ch) || null;
+}
+
 function adoptLabels(node, labels) {
     if (!node.afsState?.opts?.shareLabels) return;
     node.afsState.labels = { a: labels.a, b: labels.b };
     node.afsSync();
     node.afsRender();
-}
-
-function pushLabels(node) {
-    if (!node.afsState.opts.shareLabels) return;
-    broadcast(node, { kind: "labels", labels: node.afsState.labels });
 }
 
 /* ================================================================== TOGGLE */
@@ -264,13 +363,13 @@ function applyGroups(node) {
                 `${offCount} ${off}, ${touched} node(s) changed`);
 }
 
-function setToggleSide(node, side, { broadcastIt = true } = {}) {
+function setToggleSide(node, side) {
     const st = node.afsState;
     st.side = side === "b" ? "b" : "a";
     applyGroups(node);
     node.afsSync();
     node.afsRender();
-    if (broadcastIt) broadcast(node, { kind: "side", side: st.side });
+    pushSide(node);
 }
 
 function captureToggle(node) {
@@ -376,11 +475,13 @@ function buildToggleUI(node) {
         node.afsSync();
         node.afsRender();
     };
+    const linkInfo = document.createElement("span");
+    linkInfo.className = "afs-linkinfo";
     const gear = document.createElement("div");
     gear.className = "afs-gear";
     gear.textContent = "⚙";
     gear.onclick = (e) => openToggleGear(node, e);
-    meta.append(panelToggle, gear);
+    meta.append(panelToggle, linkInfo, gear);
     root.appendChild(meta);
 
     /* panel */
@@ -407,12 +508,13 @@ function buildToggleUI(node) {
         root.addEventListener(ev, (e) => e.stopPropagation());
     }
 
-    node.afsEls = { root, labA, labB, track, panelToggle, panel, list, filter };
+    node.afsEls = { root, labA, labB, track, panelToggle, linkInfo, panel, list, filter };
     return root;
 }
 
 function openToggleGear(node, e) {
     const st = node.afsState;
+    const models = modelsNodes(node);
     const tick = (v) => (v ? "☑ " : "☐ ");
     popupMenu(e.clientX, e.clientY, [
         { head: "Off side" },
@@ -420,7 +522,7 @@ function openToggleGear(node, e) {
         { content: (st.opts.off === "mute" ? "● " : "○ ") + "Mute", callback: () => { st.opts.off = "mute"; node.afsSync(); applyGroups(node); } },
         "-",
         { content: tick(st.opts.applyOnLoad) + "Apply on workflow load", callback: () => { st.opts.applyOnLoad = !st.opts.applyOnLoad; node.afsSync(); } },
-        { content: tick(st.opts.shareLabels) + "Share labels with other Fast Switch nodes", callback: () => { st.opts.shareLabels = !st.opts.shareLabels; node.afsSync(); pushLabels(node); } },
+        { content: tick(st.opts.shareLabels) + "Push labels to my Models nodes", callback: () => { st.opts.shareLabels = !st.opts.shareLabels; node.afsSync(); pushLabels(node); } },
         "-",
         { content: "✎ Rename " + labelOf(st, "a") + " (left)", callback: () => {
             const v = askText("Left label:", labelOf(st, "a"));
@@ -431,6 +533,17 @@ function openToggleGear(node, e) {
             if (v) { st.labels.b = v; node.afsSync(); pushLabels(node); node.afsRender(); }
         } },
         "-",
+        // Si pones el interruptor despues de los selectores, se reclaman desde
+        // aqui en vez de ir nodo por nodo.
+        ...(models.length ? [{ head: "Models nodes on this switch" }] : []),
+        ...models.map((m) => {
+            const mine = m.afsState?.link === channelOf(node);
+            return {
+                content: (mine ? "● " : "○ ") + `#${m.id} ${m.title || "Fast Switch Models"}`,
+                callback: () => linkModelsTo(m, mine ? null : node),
+            };
+        }),
+        ...(models.length ? ["-"] : []),
         { content: "▶ Re-apply now", callback: () => applyGroups(node) },
         { content: "🧹 Unassign every group", callback: () => { st.groups = {}; node.afsSync(); node.afsRender(); } },
     ]);
@@ -438,7 +551,7 @@ function openToggleGear(node, e) {
 
 function renderToggle(node) {
     const st = node.afsState;
-    const { labA, labB, track, panelToggle, panel, list, filter } = node.afsEls;
+    const { labA, labB, track, panelToggle, linkInfo, panel, list, filter } = node.afsEls;
 
     labA.textContent = labelOf(st, "a");
     labB.textContent = labelOf(st, "b");
@@ -453,6 +566,15 @@ function renderToggle(node) {
         if (m === "a") nA += 1; else if (m === "b") nB += 1;
     }
     panelToggle.textContent = `${st.collapsed ? "▸" : "▾"} groups · ${nA} ${labelOf(st, "a")} / ${nB} ${labelOf(st, "b")}`;
+
+    // Cuantos nodos Models siguen a ESTE interruptor. Verlo evita justo la
+    // confusion de creer que un switch manda sobre todo el grafo.
+    const followers = followerCount(node);
+    linkInfo.textContent = `🔗 ${followers}`;
+    linkInfo.title = followers
+        ? `${followers} Models node(s) follow this switch`
+        : "No Models node follows this switch yet";
+    linkInfo.style.opacity = followers ? "1" : ".45";
     panel.style.display = st.collapsed ? "none" : "flex";
 
     if (!st.collapsed) {
@@ -564,6 +686,7 @@ function modelsDefaults() {
         folder: DEFAULT_FOLDER,
         a: "",
         b: "",
+        link: "",                  // id del Toggle que manda; "" = independiente
         opts: { shareLabels: true },
     };
 }
@@ -576,15 +699,22 @@ function normalizeModels(raw) {
     s.folder = s.folder || d.folder;
     s.a = typeof s.a === "string" ? s.a : "";
     s.b = typeof s.b === "string" ? s.b : "";
+    s.link = typeof s.link === "string" ? s.link : "";
     s.opts = Object.assign({}, d.opts, s.opts || {});
     return s;
 }
 
-function setModelsSide(node, side, { broadcastIt = true } = {}) {
+function setModelsSide(node, side, { relay = true } = {}) {
+    const t = relay ? linkedToggle(node) : null;
+    if (t) {
+        // Enlazado: no decide por su cuenta. Le pide el cambio a su Toggle, que
+        // aplicara sus grupos y respondera a todos sus seguidores a la vez.
+        emit(node, { kind: "flip", to: channelOf(t), side });
+        return;
+    }
     node.afsState.side = side === "b" ? "b" : "a";
     node.afsSync();
     node.afsRender();
-    if (broadcastIt) broadcast(node, { kind: "side", side: node.afsState.side });
 }
 
 function buildModelsUI(node) {
@@ -597,11 +727,14 @@ function buildModelsUI(node) {
     const pathEl = document.createElement("div");
     pathEl.className = "afs-path";
     pathEl.onclick = (e) => openModelsGear(node, e);
+    const linkChip = document.createElement("span");
+    linkChip.className = "afs-linkchip";
+    linkChip.onclick = (e) => openLinkMenu(node, e);
     const gear = document.createElement("div");
     gear.className = "afs-gear";
     gear.textContent = "⚙";
     gear.onclick = (e) => openModelsGear(node, e);
-    folderBar.append(pathEl, gear);
+    folderBar.append(pathEl, linkChip, gear);
     root.appendChild(folderBar);
 
     const err = document.createElement("div");
@@ -622,12 +755,8 @@ function buildModelsUI(node) {
         name.className = "afs-name";
         clickOrDouble(name,
             () => setModelsSide(node, side),
-            () => editInline(name, labelOf(node.afsState, side), (v) => {
-                node.afsState.labels[side] = v;
-                node.afsSync();
-                pushLabels(node);
-                node.afsRender();
-            }));
+            () => editInline(name, labelOf(node.afsState, side),
+                             (v) => renameModelsLabel(node, side, v)));
         name.title = "Click: make this the active slot · double click: rename";
 
         const file = document.createElement("select");
@@ -647,8 +776,35 @@ function buildModelsUI(node) {
         root.addEventListener(ev, (e) => e.stopPropagation());
     }
 
-    node.afsEls = { root, pathEl, err, slots };
+    node.afsEls = { root, pathEl, linkChip, err, slots };
     return root;
+}
+
+// Elegir a que interruptor obedece este nodo. Se saca a su propio menu porque
+// es la pregunta que mas se hace en cuanto hay mas de un Fast Switch.
+function openLinkMenu(node, e) {
+    const st = node.afsState;
+    const toggles = toggleNodes(node);
+    const current = linkedToggle(node);
+    const items = [{ head: "Which switch commands this node" }];
+
+    if (!toggles.length) {
+        items.push({ content: "No Fast Switch Toggle in this graph", callback: () => {} });
+    }
+    for (const t of toggles) {
+        items.push({
+            content: (st.link === channelOf(t) ? "● " : "○ ") + toggleTitle(t),
+            callback: () => linkModelsTo(node, t),
+        });
+    }
+    items.push({
+        content: (!st.link ? "● " : "○ ") + "Standalone (independent A/B)",
+        callback: () => linkModelsTo(node, null),
+    });
+    if (current) {
+        items.push("-", { content: "↳ Go to that switch", callback: () => goToNode(current) });
+    }
+    popupMenu(e.clientX, e.clientY, items);
 }
 
 async function openModelsGear(node, e) {
@@ -670,25 +826,55 @@ async function openModelsGear(node, e) {
         "-",
         { content: "✎ Rename " + labelOf(st, "a"), callback: () => {
             const v = askText("Label A:", labelOf(st, "a"));
-            if (v) { st.labels.a = v; node.afsSync(); pushLabels(node); node.afsRender(); }
+            if (v) renameModelsLabel(node, "a", v);
         } },
         { content: "✎ Rename " + labelOf(st, "b"), callback: () => {
             const v = askText("Label B:", labelOf(st, "b"));
-            if (v) { st.labels.b = v; node.afsSync(); pushLabels(node); node.afsRender(); }
+            if (v) renameModelsLabel(node, "b", v);
         } },
-        { content: tick(st.opts.shareLabels) + "Share labels with other Fast Switch nodes",
-          callback: () => { st.opts.shareLabels = !st.opts.shareLabels; node.afsSync(); pushLabels(node); } },
+        "-",
+        { head: "Follow which switch" },
+        { content: (!st.link ? "● " : "○ ") + "Standalone (independent A/B)",
+          callback: () => { st.link = ""; node.afsSync(); node.afsRender(); } },
+        ...toggleNodes(node).map((t) => ({
+            content: (st.link === channelOf(t) ? "● " : "○ ") + toggleTitle(t),
+            callback: () => linkModelsTo(node, t),
+        })),
+        { content: tick(st.opts.shareLabels) + "Adopt labels from that switch",
+          callback: () => {
+              st.opts.shareLabels = !st.opts.shareLabels;
+              node.afsSync();
+              const t = linkedToggle(node);
+              if (st.opts.shareLabels && t?.afsState?.labels) adoptLabels(node, t.afsState.labels);
+              node.afsRender();
+          } },
     ];
     popupMenu(e.clientX, e.clientY, items);
 }
 
 function renderModels(node) {
     const st = node.afsState;
-    const { pathEl, err, slots } = node.afsEls;
+    const { pathEl, linkChip, err, slots } = node.afsEls;
     const files = node.afsFiles || [];
 
     pathEl.textContent = "📁 " + st.folder;
     pathEl.title = "Folder for both slots — click to change";
+
+    // Que interruptor manda sobre este nodo, a la vista y no escondido en un menu.
+    const t = linkedToggle(node);
+    if (t) {
+        linkChip.textContent = `🔗 #${t.id}`;
+        linkChip.title = `Follows "${t.title || "Fast Switch Toggle"}" (node #${t.id})`;
+        linkChip.className = "afs-linkchip";
+    } else if (st.link) {
+        linkChip.textContent = "🔗 ⚠";
+        linkChip.title = `The switch it followed (#${st.link}) is gone — pick another one in ⚙`;
+        linkChip.className = "afs-linkchip broken";
+    } else {
+        linkChip.textContent = "🔗 —";
+        linkChip.title = "Standalone: this node obeys nobody. Pick a switch in ⚙";
+        linkChip.className = "afs-linkchip none";
+    }
 
     if (node.afsError) {
         err.style.display = "";
@@ -739,7 +925,7 @@ function fitModels(node) {
 
 /* =============================================================== registro */
 
-function commonSetup(node, { normalize, build, render, onSide, onLoad }) {
+function commonSetup(node, { normalize, build, render, onBus, onLoad }) {
     node.afsUid = uid("n");
 
     const dataWidget = node.widgets?.find((w) => w.name === "switch_data");
@@ -766,10 +952,7 @@ function commonSetup(node, { normalize, build, render, onSide, onLoad }) {
         clampToMin(node, size);
     };
 
-    node.afsUnsub = listenBus(node, (evt) => {
-        if (evt.kind === "side") onSide(node, evt.side);
-        else if (evt.kind === "labels") adoptLabels(node, evt.labels);
-    });
+    node.afsUnsub = listenBus(node, (evt) => onBus(node, evt));
 
     node.afsSync();
     setTimeout(() => { node.afsRender(); onLoad?.(node); }, 60);
@@ -793,6 +976,9 @@ function installLifecycle(nodeType, { restore }) {
     nodeType.prototype.onConfigure = function () {
         onConfigure?.apply(this, arguments);
         const self = this;
+        // Viene de un workflow guardado: su enlace ya esta decidido, no se
+        // reinventa por debajo.
+        this.afsConfigured = true;
         const w = this.widgets?.find((x) => x.name === "switch_data");
         if (w?.value) {
             try { restore(self, JSON.parse(w.value)); }
@@ -830,11 +1016,12 @@ app.registerExtension({
                     normalize: normalizeToggle,
                     build: buildToggleUI,
                     render: renderToggle,
-                    onSide: (n, side) => {
-                        n.afsState.side = side === "b" ? "b" : "a";
-                        applyGroups(n);
-                        n.afsSync();
-                        n.afsRender();
+                    // Un Toggle jamas obedece a otro Toggle. Lo unico que
+                    // atiende es la peticion de cambio de un Models suyo.
+                    onBus: (n, evt) => {
+                        if (evt.kind === "flip" && evt.to === channelOf(n)) {
+                            setToggleSide(n, evt.side);
+                        }
                     },
                 });
                 this.afsOnLoad = () => {
@@ -877,10 +1064,29 @@ app.registerExtension({
                     normalize: normalizeModels,
                     build: buildModelsUI,
                     render: renderModels,
-                    onSide: (n, side) => setModelsSide(n, side, { broadcastIt: false }),
+                    onBus: (n, evt) => {
+                        if (!evt.from || evt.from !== n.afsState.link) return;
+                        if (evt.kind === "side") setModelsSide(n, evt.side, { relay: false });
+                        else if (evt.kind === "labels") adoptLabels(n, evt.labels);
+                    },
                     onLoad: (n) => fetchFiles(n),
                 });
                 this.afsOnLoad = () => fetchFiles(self);
+
+                // Nodo recien puesto a mano: si en el grafo hay exactamente un
+                // interruptor, se engancha solo. Con varios se queda
+                // independiente a proposito, porque adivinar cual seria
+                // precisamente el comportamiento global que hay que evitar.
+                setTimeout(() => {
+                    if (self.afsConfigured || self.afsState.link) return;
+                    const ts = toggleNodes(self);
+                    if (ts.length === 1) {
+                        linkModelsTo(self, ts[0]);
+                        console.log(`[Fast Switch] #${self.id} linked to switch #${ts[0].id}`);
+                    } else {
+                        self.afsRender();
+                    }
+                }, 320);
             };
 
             installLifecycle(nodeType, {
