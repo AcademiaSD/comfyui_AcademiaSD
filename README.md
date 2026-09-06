@@ -247,10 +247,13 @@ Add cinematic film grain and organic noise exclusively to specific areas of your
 A modern resolution calculator tailored for Megapixel-based models (like SDXL and Flux).
 *   **Megapixel-Driven:** Instead of guessing widths and heights, set your target Megapixels (e.g., `1.0` for SDXL or `2.0` for Flux) and let the node do the complex math.
 *   **Extensive Ratio Library:** Comes pre-loaded with an exhaustive list of cinematic and standard aspect ratios (from `1:1 Perfect Square` up to `32:9 Extreme Ultrawide`).
-*   **Custom Ratio Override:** Enable the `custom_ratio` switch to type any exotic aspect ratio (e.g., `14:9`) on the fly.
+*   **📐 Get Size from Image:** Point the `image` input at a reference picture and the node adopts its real megapixels and locks its proportion. Lower the megapixels afterwards and the shape is preserved — the way to say "this image, but smaller". The ratio is simplified and matched against the library: `736×1104` becomes the `2:3` preset, while an odd `1672×941` selects the `Custom` entry instead. The match is exact, never approximate, because rounding it to the nearest preset would quietly change your reference's proportion.
+*   **Custom Ratio Override:** Type any exotic aspect ratio (e.g., `14:9`) in `custom_aspect_ratio`. The dropdown carries a `Custom` entry and the `custom_ratio` switch stays in step with it in both directions, so the dropdown always states the ratio actually in use rather than showing a preset the node is ignoring.
+*   **🔄 Swap Resolution:** Flips the current resolution between portrait and landscape, keeping the megapixels and the divisibility. On a preset it selects the mirrored preset (`16:9` → `9:16`) and stays on presets; on a manual ratio it inverts that. Inverting a ratio *is* a width/height swap, so `1936 x 1088` becomes exactly `1088 x 1936`.
+*   **➗ / ✖️ Half & Double MP:** One click to halve or double the target megapixels while the proportion holds.
 *   **Divisibility Safety:** Easily lock the output to be strictly divisible by `8`, `16`, `32`, or `64` to prevent tensor dimension errors during inference.
-*   **Real-time LED Screen:** Instantly preview the exact mathematically calculated `width` and `height` in a sleek green display as you change settings, without needing to queue a prompt. Outputs standard `INT` variables ready to connect to your Empty Latent nodes.
-  
+*   **Real-time LED Screen:** Instantly preview the exact mathematically calculated `width` and `height` in a sleek green display as you change settings, without needing to queue a prompt. Under it sits the *real* megapixel count after divisibility rounding — which is not the same as the target you asked for and appears nowhere else — plus the reference size while the proportion still matches it. Outputs standard `INT` variables ready to connect to your Empty Latent nodes.
+
 ---
 
 ## ⏱️ Academia SD Time Calculator
