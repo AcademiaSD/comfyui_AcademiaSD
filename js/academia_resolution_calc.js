@@ -50,27 +50,33 @@ app.registerExtension({
                 };
 
                 const container = document.createElement("div");
-                container.style.cssText = "width:100%; display:flex; flex-direction:column; align-items:center; padding:8px; background:#111; border-radius:6px; border:1px solid #444; margin-top:5px;";
+                container.style.cssText = "width:100%; display:flex; flex-direction:column; align-items:center; padding:8px 8px 14px; background:#111; border-radius:6px; border:1px solid #444; margin-top:5px;";
                 const resLabel = document.createElement("div");
                 resLabel.style.cssText = "color:#00ff00; font-size:16px; font-weight:bold; font-family:monospace;";
                 const mpLabel = document.createElement("div");
-                mpLabel.style.cssText = "color:#888; font-size:11px; margin-top:2px; font-family:monospace;";
-                const msgLabel = document.createElement("div");
-                msgLabel.style.cssText = "color:#d29922; font-size:10px; margin-top:2px; font-family:monospace; display:none;";
+                mpLabel.style.cssText = "color:#888; font-size:11px; margin-top:4px; font-family:monospace;";
                 container.appendChild(resLabel);
                 container.appendChild(mpLabel);
-                container.appendChild(msgLabel);
                 const displayW = this.addDOMWidget("Display", "HTML", container);
                 // No es una entrada del nodo: no tiene por que viajar en el prompt.
                 displayW.serialize = false;
                 if (displayW.options) displayW.options.serialize = false;
+                // Declarar la altura evita que el contenido se salga de la caja.
+                const boxHeight = () => Math.max(56, Math.ceil(container.scrollHeight) + 6);
+                if (displayW.options) {
+                    displayW.options.getMinHeight = boxHeight;
+                    displayW.options.getMaxHeight = boxHeight;
+                }
 
+                // Los avisos ocupan la linea de los MP durante unos segundos en
+                // vez de anadir una tercera: asi no cambia el alto de la caja ni
+                // se pinta nada por encima de los botones.
                 let msgTimer = null;
                 const note = (text) => {
-                    msgLabel.innerText = text;
-                    msgLabel.style.display = text ? "" : "none";
                     clearTimeout(msgTimer);
-                    if (text) msgTimer = setTimeout(() => { msgLabel.style.display = "none"; }, 6000);
+                    mpLabel.innerText = text;
+                    mpLabel.style.color = "#d29922";
+                    msgTimer = setTimeout(() => { mpLabel.style.color = "#888"; calc(); }, 5000);
                 };
 
                 const activeRatio = () =>
@@ -106,6 +112,8 @@ app.registerExtension({
                         const [cw, ch] = simplify(wr * 1000, hr * 1000);
                         if (rw === cw && rh === ch) ref = `  ·  ref ${rs.w}×${rs.h}`;
                     }
+                    clearTimeout(msgTimer);
+                    mpLabel.style.color = "#888";
                     mpLabel.innerText = `(Real: ${((wf * hf) / 1048576).toFixed(2)} MP)${ref}`;
                 };
 
@@ -188,14 +196,12 @@ app.registerExtension({
                         ratioW.value = preset;
                         customToggleW.value = false;
                         self.properties.last_preset = preset;
-                        note(`${width}×${height} → ${rw}:${rh}`);
                     } else {
                         // No encaja en ninguna: ratio manual, y el desplegable lo
                         // dice en vez de seguir ensenando un preset que no se usa.
                         customRatioW.value = `${rw}:${rh}`;
                         customToggleW.value = true;
                         ratioW.value = CUSTOM;
-                        note(`${width}×${height} → Custom ${rw}:${rh}`);
                     }
                     calc();
                     app.graph.setDirtyCanvas(true, true);
