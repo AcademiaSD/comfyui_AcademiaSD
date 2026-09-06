@@ -12,6 +12,10 @@ class AcademiaResolutionCalc:
     @classmethod
     def INPUT_TYPES(s):
         ratios = [
+            # Lo elige "Get Size from Image" cuando la imagen de referencia no
+            # encaja en ninguna proporcion de la lista, y asi el desplegable
+            # dice de verdad que ratio esta en uso.
+            "Custom",
             "1:1 (Perfect Square)", "2:3 (Classic Portrait)", "3:4 (Golden Ratio)", 
             "3:5 (Elegant Vertical)", "4:5 (Artistic Frame)", "5:7 (Balanced Portrait)", 
             "5:8 (Tall Portrait)", "7:9 (Modern Portrait)", "9:16 (Slim Vertical)", 
@@ -40,14 +44,35 @@ class AcademiaResolutionCalc:
     FUNCTION = "calc_resolution"
     CATEGORY = "Academia SD"
 
+    @staticmethod
+    def _parse_ratio(text, field):
+        raw = str(text).strip().replace("/", ":")
+        parts = [p.strip() for p in raw.split(":") if p.strip()]
+        if len(parts) != 2:
+            raise ValueError(
+                "Academia Resolution Calc: {} must look like W:H, got {!r}."
+                .format(field, text))
+        try:
+            w_r, h_r = float(parts[0]), float(parts[1])
+        except ValueError:
+            raise ValueError(
+                "Academia Resolution Calc: {} must be two numbers, got {!r}."
+                .format(field, text))
+        if w_r <= 0 or h_r <= 0:
+            raise ValueError(
+                "Academia Resolution Calc: {} must be positive, got {!r}."
+                .format(field, text))
+        return w_r, h_r
+
     def calc_resolution(self, megapixel, aspect_ratio, divisible_by, custom_ratio, custom_aspect_ratio, image=None):
-        if custom_ratio:
-            parts = custom_aspect_ratio.split(":")
-            w_r, h_r = float(parts[0]), float(parts[1])
+        # El desplegable y el interruptor son dos caras del mismo ajuste. Basta
+        # con que cualquiera de los dos pida ratio manual para usarlo: si alguna
+        # vez se descuadran, el nodo no calcula en silencio con una proporcion
+        # que no es la que se ve.
+        if custom_ratio or str(aspect_ratio).strip().startswith("Custom"):
+            w_r, h_r = self._parse_ratio(custom_aspect_ratio, "custom_aspect_ratio")
         else:
-            ratio_str = aspect_ratio.split(" ")[0]
-            parts = ratio_str.split(":")
-            w_r, h_r = float(parts[0]), float(parts[1])
+            w_r, h_r = self._parse_ratio(str(aspect_ratio).split(" ")[0], "aspect_ratio")
 
         target_area = megapixel * 1048576
         ratio = w_r / h_r
