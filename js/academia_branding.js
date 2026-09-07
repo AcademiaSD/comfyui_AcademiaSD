@@ -84,7 +84,7 @@ function drawBrandBox(node, ctx, titleHeight) {
         return;
     }
 
-    const size = Math.max(8, Math.min(26, Number(setting(SETTING_SIZE, 16)) || 16));
+    const size = Math.max(8, Math.min(28, Number(setting(SETTING_SIZE, 20)) || 20));
     const alpha = Math.max(0.1, Math.min(1, Number(setting(SETTING_ALPHA, 1)) || 1));
 
     ctx.save();
@@ -124,8 +124,8 @@ app.registerExtension({
             category: ["Academia SD", "Branding", "Icon size"],
             name: "Icon size (px)",
             type: "slider",
-            attrs: { min: 8, max: 26, step: 1 },
-            defaultValue: 16,
+            attrs: { min: 8, max: 28, step: 1 },
+            defaultValue: 20,
             onChange: () => app.graph?.setDirtyCanvas(true, true),
         },
         {
