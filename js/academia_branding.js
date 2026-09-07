@@ -84,7 +84,11 @@ function drawBrandBox(node, ctx, titleHeight) {
         return;
     }
 
-    const size = Math.max(8, Math.min(28, Number(setting(SETTING_SIZE, 20)) || 20));
+    // 30 es el maximo geometrico: NODE_TITLE_HEIGHT vale 30, el icono va
+    // centrado en (15, -15) y el texto del titulo empieza en x=30. A ese tamano
+    // toca justo el borde izquierdo del nodo, el alto entero de la barra y el
+    // comienzo del texto. Mas alla se sale de la barra y pisa el titulo.
+    const size = Math.max(8, Math.min(30, Number(setting(SETTING_SIZE, 20)) || 20));
     const alpha = Math.max(0.1, Math.min(1, Number(setting(SETTING_ALPHA, 1)) || 1));
 
     ctx.save();
@@ -122,9 +126,9 @@ app.registerExtension({
         {
             id: SETTING_SIZE,
             category: ["Academia SD", "Branding", "Icon size"],
-            name: "Icon size (px)",
+            name: "Icon size (px) — 30 fills the title bar edge to edge",
             type: "slider",
-            attrs: { min: 8, max: 28, step: 1 },
+            attrs: { min: 8, max: 30, step: 1 },
             defaultValue: 20,
             onChange: () => app.graph?.setDirtyCanvas(true, true),
         },
