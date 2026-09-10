@@ -86,17 +86,29 @@ class AcademiaResolutionCalc:
 
 # Registro de ruta seguro
 routes = server.PromptServer.instance.routes
+ALLOWED_IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
+
 @routes.get("/academia_res/get_image_size")
 async def get_image_size(request):
     filename = request.rel_url.query.get("filename")
-    if not filename: return web.json_response({"error": "No filename"}, status=400)
-    image_path = folder_paths.get_annotated_filepath(filename)
-    if not image_path or not os.path.exists(image_path): return web.json_response({"error": "Not found"}, status=404)
+    if not filename:
+        return web.json_response({"error": "No filename"}, status=400)
+
+    # Only image files may be opened through this endpoint.
+    if not filename.lower().split("?")[0].endswith(ALLOWED_IMAGE_EXTS):
+        return web.json_response({"error": "Invalid file type"}, status=400)
+
     try:
+        # get_annotated_filepath() rejects paths escaping the base directory,
+        # but it raises instead of returning, so it must run inside the try.
+        image_path = folder_paths.get_annotated_filepath(filename)
+        if not image_path or not os.path.exists(image_path):
+            return web.json_response({"error": "Not found"}, status=404)
         with Image.open(image_path) as img:
             return web.json_response({"width": img.width, "height": img.height})
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
+    except Exception:
+        # Never echo the exception text: it leaks absolute paths.
+        return web.json_response({"error": "Invalid request"}, status=400)
 
 NODE_CLASS_MAPPINGS = { "AcademiaSD_ResolutionCalc": AcademiaResolutionCalc }
 NODE_DISPLAY_NAME_MAPPINGS = { "AcademiaSD_ResolutionCalc": "Academia SD Resolution Calc 🧮" }
