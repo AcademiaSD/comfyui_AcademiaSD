@@ -75,11 +75,8 @@ def _folder_key(spec):
     if s.lower().startswith("models/"):
         candidates.append(s[len("models/"):])
     for c in candidates:
-        try:
-            if c in folder_paths.folder_names_and_paths:
-                return c, s
-        except Exception:
-            pass
+        if c in folder_paths.folder_names_and_paths:
+            return c, s
     return None, s
 
 

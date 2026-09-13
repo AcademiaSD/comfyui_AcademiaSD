@@ -74,7 +74,7 @@ class AcademiaModelLoader:
 
         # target_dir es una carpeta local ya descargada, no un repo remoto:
         # aqui no hay revision que fijar.
-        loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(  # nosec B615 - ruta local
+        loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(  # nosec B615
             target_dir,
             torch_dtype=torch.float16,
             device_map="auto",

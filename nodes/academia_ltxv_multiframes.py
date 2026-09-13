@@ -40,7 +40,7 @@ class AcademiaLTXVMultiFrames:
     def apply_in_place(self, vae, latent, kf_data="[]"):
         try:
             frames = json.loads(kf_data)
-        except:
+        except Exception:
             frames =[]
 
         if not frames:

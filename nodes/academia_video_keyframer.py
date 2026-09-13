@@ -53,7 +53,7 @@ class AcademiaVideoKeyframer:
     def process_keyframes(self, output_prefix, fps, index, kf_data="[]"):
         try:
             keyframes = json.loads(kf_data)
-        except:
+        except Exception:
             keyframes =[]
 
         if len(keyframes) < 2:

@@ -28,10 +28,12 @@ def format_size(size_bytes):
         p = math.pow(1024, i)
         s = round(size_bytes / p, 2)
         return f"{s} {size_name[i]}"
-    except:
+    except Exception:
         return "Unknown"
 
-def get_headers_with_auth(url, civitai_token="", hf_token=""):
+# Los parametros de token van vacios por defecto: eso significa "sin token",
+# no una credencial escrita en el codigo.
+def get_headers_with_auth(url, civitai_token="", hf_token=""):  # nosec B107
     req_headers = HEADERS.copy()
     if "civitai.com" in url and civitai_token:
         req_headers["Authorization"] = f"Bearer {civitai_token}"
@@ -39,7 +41,9 @@ def get_headers_with_auth(url, civitai_token="", hf_token=""):
         req_headers["Authorization"] = f"Bearer {hf_token}"
     return req_headers
 
-def get_file_info_from_url(url, civitai_token="", hf_token=""):
+# Los parametros de token van vacios por defecto: eso significa "sin token",
+# no una credencial escrita en el codigo.
+def get_file_info_from_url(url, civitai_token="", hf_token=""):  # nosec B107
     if not url or not url.startswith(('http://', 'https://')):
         return None, "0 B"
         
@@ -120,7 +124,9 @@ def get_download_target_path(folder_name, subfolder):
             break
     return _sub_seguro(target_base, subfolder)
 
-def background_download_task(url, file_path, civitai_token="", hf_token=""):
+# Los parametros de token van vacios por defecto: eso significa "sin token",
+# no una credencial escrita en el codigo.
+def background_download_task(url, file_path, civitai_token="", hf_token=""):  # nosec B107
     temp_path = file_path + ".temp"
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -152,19 +158,17 @@ def background_download_task(url, file_path, civitai_token="", hf_token=""):
 # Placeholder sent to the browser instead of a stored token. Posting it back
 # means "keep whatever is already saved", so the UI can round-trip without ever
 # handling the real value.
-TOKEN_MASK = "****"
+TOKEN_MASK = "****"  # nosec B105
 
 
 def _read_tokens():
-    if os.path.exists(TOKENS_FILE):
-        try:
-            with open(TOKENS_FILE, "r") as f:
-                data = json.load(f)
-                if isinstance(data, dict):
-                    return data
-        except Exception:
-            pass
-    return {}
+    """Tokens guardados, o {} si el fichero falta o esta corrupto."""
+    try:
+        with open(TOKENS_FILE, "r") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 @PromptServer.instance.routes.get("/academia/tokens")
@@ -255,7 +259,7 @@ async def parse_url(request):
                     files = [{"name": os.path.basename(s["rfilename"]), "url": f"https://huggingface.co/{repo_id}/resolve/{branch}/{s['rfilename']}", "size": format_size(s.get("size"))} 
                              for s in res.json().get("siblings", []) if s["rfilename"].endswith((".safetensors", ".gguf", ".ckpt", ".pt", ".bin", ".pth", ".onnx", ".sft"))]
                     if files: return web.json_response({"status": "success", "type": "repo", "files": files})
-            except: pass
+            except Exception: pass
     return web.json_response({"status": "success", "type": "direct", "url": url})
 
 @PromptServer.instance.routes.post("/academia/check")
@@ -284,7 +288,7 @@ async def check_file(request):
 
     if exists:
         try: filesize = format_size(os.path.getsize(existing_file))
-        except: pass
+        except Exception: pass
         URL_INFO_CACHE[url] = {"filename": filename, "size": filesize}
     else:
         # ¡BUGFIX! Forzamos siempre a leer el tamaño si no existe, sin importar si el nombre ya lo sabíamos.
@@ -297,7 +301,7 @@ async def check_file(request):
             exists = find_existing_file(folder, subfolder, filename) is not None
             if exists:
                 try: filesize = format_size(os.path.getsize(find_existing_file(folder, subfolder, filename)))
-                except: pass
+                except Exception: pass
 
     return web.json_response({"status": "success", "exists": exists, "filename": filename, "filesize": filesize, "is_downloading": False})
 

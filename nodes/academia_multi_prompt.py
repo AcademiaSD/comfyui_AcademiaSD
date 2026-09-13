@@ -21,7 +21,7 @@ class AcademiaMultiPrompt:
     def get_prompt(self, index, prompt_data="[]"):
         try:
             prompts = json.loads(prompt_data)
-        except:
+        except Exception:
             prompts =[]
 
         if not prompts:

@@ -20,15 +20,21 @@ except ImportError:
 TOKENS_FILE = os.path.join(folder_paths.base_path, "models", "academia_tokens.json")
 
 # --- RUTAS API PARA GUARDAR Y LEER EL TOKEN DE FORMA SEGURA ---
+def _clave_guardada():
+    """Clave de Gemini guardada en disco, o cadena vacia si no hay o no se puede leer."""
+    try:
+        with open(TOKENS_FILE, "r") as f:
+            data = json.load(f)
+    except Exception:
+        return ""
+    return data.get("gemini", "") if isinstance(data, dict) else ""
+
+
 @PromptServer.instance.routes.get("/academia/gemini_token")
 async def get_gemini_token(request):
-    try:
-        if os.path.exists(TOKENS_FILE):
-            with open(TOKENS_FILE, "r") as f:
-                data = json.load(f)
-                return web.json_response({"token": "****" if data.get("gemini", "") else ""})
-    except: pass
-    return web.json_response({"token": ""})
+    """Indica si hay clave guardada, nunca su valor."""
+    # Los cuatro asteriscos son un marcador para el navegador, no un secreto.
+    return web.json_response({"token": "****" if _clave_guardada() else ""})
 
 @PromptServer.instance.routes.post("/academia/gemini_token")
 async def save_gemini_token(request):
@@ -43,7 +49,7 @@ async def save_gemini_token(request):
                     tokens = loaded
         # The widget shows "****" once a key is stored; saving without retyping
         # must not overwrite the real key with the mask.
-        if token != "****":
+        if token != "****":  # nosec B105
             tokens["gemini"] = token
         with open(TOKENS_FILE, "w") as f:
             json.dump(tokens, f)
@@ -59,12 +65,7 @@ async def fetch_gemini_models(request):
     
     # Si la clave está oculta (****) o vacía, la intentamos leer del disco duro
     if not api_key or api_key == "****":
-        try:
-            if os.path.exists(TOKENS_FILE):
-                with open(TOKENS_FILE, "r") as f:
-                    tdata = json.load(f)
-                    api_key = tdata.get("gemini", "")
-        except: pass
+        api_key = _clave_guardada()
 
     if not api_key or api_key == "****":
         return web.json_response({"error": "No API Key provided. Please paste your API Key or save it first."})
@@ -135,13 +136,7 @@ class AcademiaGeminiVision:
         
         # --- LECTURA SEGURA DE LA API KEY ---
         if not api_key or api_key.strip() == "" or api_key.strip() == "****":
-            try:
-                if os.path.exists(TOKENS_FILE):
-                    with open(TOKENS_FILE, "r") as f:
-                        tdata = json.load(f)
-                        api_key = tdata.get("gemini", "")
-            except:
-                pass
+            api_key = _clave_guardada()
 
         if not api_key or api_key.strip() == "" or api_key.strip() == "****":
             error_msg = "Error: API Key is missing. Please provide a valid Google Gemini API Key."

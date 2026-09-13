@@ -232,7 +232,7 @@ class AcademiaMultiLoraNode:
     def apply_loras(self, model, injection_method, lora_data="[]", clip=None):
         try:
             loras = json.loads(lora_data)
-        except:
+        except Exception:
             loras = []
 
         if not loras:
