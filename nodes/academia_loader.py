@@ -33,7 +33,10 @@ class AcademiaModelLoader:
         
         if not os.path.exists(target_dir):
             print(f"[AcademiaSD] Descargando {repo_id}...")
-            snapshot_download(repo_id=repo_id, local_dir=target_dir, local_dir_use_symlinks=False)
+            # revision explicita: deja por escrito de que rama se descarga en vez
+            # de depender del valor por defecto de la libreria.
+            snapshot_download(repo_id=repo_id, revision="main", local_dir=target_dir,
+                              local_dir_use_symlinks=False)
 
         if loaded_data["path"] == target_dir:
             return (loaded_data,)
@@ -50,15 +53,17 @@ class AcademiaModelLoader:
         if low_vram == "enable":
             quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 
-        loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(
+        # target_dir es una carpeta local ya descargada, no un repo remoto:
+        # aqui no hay revision que fijar.
+        loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(  # nosec B615 - ruta local
             target_dir,
             torch_dtype=torch.float16,
             device_map="auto",
             trust_remote_code=True,
             quantization_config=quant_config
         ).eval()
-        
-        loaded_data["processor"] = AutoProcessor.from_pretrained(target_dir, trust_remote_code=True)
+
+        loaded_data["processor"] = AutoProcessor.from_pretrained(target_dir, trust_remote_code=True)  # nosec B615
         loaded_data["path"] = target_dir
         
         return (loaded_data,)

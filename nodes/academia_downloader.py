@@ -125,7 +125,10 @@ def background_download_task(url, file_path, civitai_token="", hf_token=""):
     try:
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         req_headers = get_headers_with_auth(url, civitai_token, hf_token)
-        with requests.get(url, stream=True, allow_redirects=True, headers=req_headers) as r:
+        # timeout de conexion y de lectura entre trozos: sin el, un servidor que
+        # deja la conexion abierta sin enviar nada cuelga la descarga para siempre.
+        with requests.get(url, stream=True, allow_redirects=True, headers=req_headers,
+                          timeout=(10, 60)) as r:
             r.raise_for_status()
             total_length = r.headers.get('content-length')
             total_length = int(total_length) if total_length else 0
