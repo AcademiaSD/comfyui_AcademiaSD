@@ -8,7 +8,7 @@ ComfyUI and ForgeWebUI tutorial in my Youtube channel [@Academia SD](https://www
 ---
 
 ## Academia SD Automatic Downloader for ComfyUI ⬇️ v1.02
-![Academia SD Automatic downloader](assets/Automatic_Downloader.png)
+![Academia SD Automatic downloader](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Automatic_Downloader.png)
 
 A highly integrated download manager designed for ComfyUI. Download checkpoints, LoRAs, VAEs, and other models directly inside your workspace without leaving the canvas.
 
@@ -36,7 +36,7 @@ Each model row features a real-time status light:
 
 ---
 # Academia SD Advanced CLIP Text Encode (Positive & Negative) 🟢🔴
-![Academia SD Advanced Clip Text Encode](assets/AcademiaSD_Clip_text_encode.png)
+![Academia SD Advanced Clip Text Encode](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/AcademiaSD_Clip_text_encode.png)
 
 
 An ultra-sleek, highly responsive custom CLIP Text Encode implementation for ComfyUI. Designed to act as a direct, drop-in replacement for the native CLIP Text Encode node, it introduces a dynamic, collapsible utility tray for managing prompt history, favorites, and custom prompt lists—all while maintaining an incredibly small, pixel-perfect footprint on your canvas.
@@ -73,7 +73,7 @@ custom_nodes/comfyui_AcademiaSD/prompt_lists/
 ---
 
 # Academia SD Advanced Seed Generator for ComfyUI 🎲
-![Academia SD Advanced Seed Generator](assets/academia_seed.png)
+![Academia SD Advanced Seed Generator](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/academia_seed.png)
 
 An ultra-compact, high-performance seed generator node built specifically for ComfyUI. Designed to replace the native, pixel-perfect HTML interface that minimizes canvas clutter while introducing advanced seed history management.
 
@@ -109,7 +109,7 @@ An ultra-compact, high-performance seed generator node built specifically for Co
 ---
 
 # 💊 Academia SD Multi-LoRA v0.8
-![Academia SD Multi-LoRA](assets/AcademiaSD_MultiLora.png)
+![Academia SD Multi-LoRA](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/AcademiaSD_MultiLora.png)
 
 Load multiple LoRAs in a hyper-compact space without cluttering your workflow with dozens of chained nodes.
 *   **Global & Individual Toggles:** Enable or disable LoRAs with a single click for quick testing without disconnecting cables.
@@ -119,7 +119,7 @@ Load multiple LoRAs in a hyper-compact space without cluttering your workflow wi
 ---
 
 ## 🔢 Academia SD Numeric Input
-![Academia SD Numeric Input](assets/Academia_Numeric_Input.png)
+![Academia SD Numeric Input](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Academia_Numeric_Input.png)
 
 Dual data converter for maximum compatibility.
 *   Enter a single integer value (e.g., `1024`).
@@ -129,7 +129,7 @@ Dual data converter for maximum compatibility.
 ---
 
 ## 💾🚀 Academia SD Image Save & Send v0.3
-![Academia SD Image Save & Send](assets/AcademiaSD_SaveAndSend.png)
+![Academia SD Image Save & Send](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/AcademiaSD_SaveAndSend.png)
 
 End circular connections and easily build cyclic image editing workflows.
 *   **Standard Saving:** Safely saves your images in the `output` folder.
@@ -138,7 +138,7 @@ End circular connections and easily build cyclic image editing workflows.
 ---
 
 ## 🖥️ Academia SD Resolution Selector v0.9
-![](./assets/Resolution_Selector.png)
+![](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Resolution_Selector.png)
 
 Absolute control over resolution with mathematical precision.
 *   **Tensor Safety:** Every number entering and leaving this node is mathematically forced to be a multiple of 8, ensuring the generation process doesn't throw errors (Ideal for Flux and LTX-Video).
@@ -150,7 +150,7 @@ Absolute control over resolution with mathematical precision.
 ## Academia SD VL Model Loader (Qwen3-vl) & captions nodes
 
 This set of nodes is designed to automate the process of image captioning and dataset preparation using Vision Language Models (VLM).
-![](./assets/captions_wf.png)
+![](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/captions_wf.png)
 
 ### 1. AcademiaSD VLModel (Down)Loader
 This node handles the acquisition and initialization of Vision Language Models directly from HuggingFace.
@@ -205,7 +205,7 @@ Automates the creation of sidecar text files for model training datasets.
 
 ## Bypass nodes by value
 This node acts as a central control hub to manage the execution state (Active vs. Bypass) of up to 5 connected nodes. It is especially useful for modular workflows where you want to toggle stages on or off dynamically.
-![](./assets/bypasser.png)
+![](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/bypasser.png)
 
 
 - **How it works:**
@@ -230,7 +230,7 @@ Dataset captions included
 ---
 
 ## Academia SD Masked Noise
-![Academia SD Masked Noise](assets/AcademiaSD_MaskedNoise.png)
+![Academia SD Masked Noise](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/AcademiaSD_MaskedNoise.png)
 
 Add cinematic film grain and organic noise exclusively to specific areas of your image using a mask.
 *   **True Additive Noise:** Unlike nodes that just fade your image into a static picture, this node uses additive mathematics. The `noise_intensity` slider softens or sharpens the grain structure without making it transparent, preserving the full opacity of the effect over your image.
@@ -242,7 +242,7 @@ Add cinematic film grain and organic noise exclusively to specific areas of your
 ---
 
 ## 🧮 Academia SD Resolution Calc
-![Academia SD Resolution Calc](assets/AcademiaSD_resolution_calc.png)
+![Academia SD Resolution Calc](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/AcademiaSD_resolution_calc.png)
 
 A modern resolution calculator tailored for Megapixel-based models (like SDXL and Flux).
 *   **Megapixel-Driven:** Instead of guessing widths and heights, set your target Megapixels (e.g., `1.0` for SDXL or `2.0` for Flux) and let the node do the complex math.
@@ -257,7 +257,7 @@ A modern resolution calculator tailored for Megapixel-based models (like SDXL an
 ---
 
 ## ⏱️ Academia SD Time Calculator
-![Academia SD Time Calculator](assets/Time_calculator.png)
+![Academia SD Time Calculator](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Time_calculator.png)
 
 A pocket-sized, real-time video duration calculator for animation workflows.
 *   **Instant Visual Feedback:** Displays the exact video duration in seconds on a sleek, green LED-style digital screen the moment you type or change a value, without needing to run the queue.
@@ -268,7 +268,7 @@ A pocket-sized, real-time video duration calculator for animation workflows.
 ---
 
 ## 🖼️ Academia SD LTXV Multi-Frames
-![Academia SD LTXV Multi-Frames](assets/LTXVMultiFrames.png)
+![Academia SD LTXV Multi-Frames](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/LTXVMultiFrames.png)
 
 An all-in-one, cable-free image injector designed specifically for LTX-Video Image-to-Video workflows.
 *   **Drag & Drop Interface:** Upload and manage multiple reference images directly inside the node's UI. No need for messy `Load Image` nodes cluttering your workspace.
@@ -281,7 +281,7 @@ An all-in-one, cable-free image injector designed specifically for LTX-Video Ima
 ---
 
 ## 🎚️ Academia SD Fast Switch (A/B)
-![Academia SD Fast Switch](assets/Fast-switch.png)
+![Academia SD Fast Switch](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Fast-switch.png)
 
 A pair of nodes for workflows that exist in two flavours — switching a pipeline from **FL2VA** to **Ref2VA**, for instance. Instead of hunting down every group to bypass and every loader to re-point, you flip one physical switch.
 
