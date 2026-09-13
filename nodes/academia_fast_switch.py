@@ -125,6 +125,11 @@ def list_models(spec):
         except Exception as e:
             return [], "folder_paths:" + key, str(e)
 
+    # Sin carpeta no hay nada que listar: sin esto se recorreria la instalacion
+    # entera de ComfyUI y se devolveria cada modelo encontrado.
+    if not cleaned:
+        return [], "", "No folder specified"
+
     # Ruta escrita a mano que ComfyUI no tiene registrada: se recorre a pelo,
     # relativa a la raiz de ComfyUI si no es absoluta.
     root = cleaned
