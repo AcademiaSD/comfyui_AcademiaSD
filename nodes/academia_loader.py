@@ -11,6 +11,37 @@ from transformers import AutoProcessor, BitsAndBytesConfig
 
 loaded_data = {"model": None, "processor": None, "path": None}
 
+_VISION_DIR = os.path.join(
+    os.path.dirname(os.path.realpath(__file__)), "..", "..", "..", "models", "vision")
+_FLAG_REMOTE_CODE = os.path.join(_VISION_DIR, "allow_remote_code.flag")
+
+
+def _remote_code_permitido():
+    """Si se permite ejecutar el codigo que venga dentro del repo del modelo.
+
+    transformers ejecuta Python del propio repo cuando trust_remote_code=True. Como
+    repo_id sale de un widget, cualquiera que alcance /prompt podria apuntar a un
+    repo suyo y ejecutar lo que quisiera en la maquina del usuario.
+
+    El permiso NO puede ser un widget del nodo: quien envia el /prompt controla
+    todos los widgets y lo activaria el mismo. Tiene que vivir donde solo llegue
+    quien tenga acceso a la maquina: una variable de entorno o un fichero en disco.
+    """
+    if os.environ.get("ACADEMIASD_ALLOW_REMOTE_CODE", "").strip().lower() in ("1", "true", "yes", "on"):
+        return True
+    return os.path.exists(_FLAG_REMOTE_CODE)
+
+
+_AVISO_REMOTE_CODE = (
+    "[AcademiaSD] El modelo '{repo}' pide ejecutar codigo incluido en su propio "
+    "repositorio (trust_remote_code).\n"
+    "Esta desactivado por seguridad: quien alcance el puerto de ComfyUI podria "
+    "cargar un repositorio malicioso y ejecutar codigo en tu equipo.\n"
+    "Si confias en ese modelo, activalo de una de estas dos formas:\n"
+    "  - crea el fichero: {flag}\n"
+    "  - o arranca ComfyUI con la variable ACADEMIASD_ALLOW_REMOTE_CODE=1"
+)
+
 class AcademiaModelLoader:
     @classmethod
     def INPUT_TYPES(s):
@@ -72,19 +103,34 @@ class AcademiaModelLoader:
         if low_vram == "enable":
             quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 
-        # target_dir es una carpeta local ya descargada, no un repo remoto:
-        # aqui no hay revision que fijar.
-        loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(  # nosec B615
-            target_dir,
-            torch_dtype=torch.float16,
-            device_map="auto",
-            trust_remote_code=True,
-            quantization_config=quant_config
-        ).eval()
+        permitir_codigo = _remote_code_permitido()
 
-        loaded_data["processor"] = AutoProcessor.from_pretrained(target_dir, trust_remote_code=True)  # nosec B615
+        try:
+            # target_dir es una carpeta local ya descargada, no un repo remoto:
+            # aqui no hay revision que fijar.
+            loaded_data["model"] = AutoModelForVision2Seq.from_pretrained(  # nosec B615
+                target_dir,
+                torch_dtype=torch.float16,
+                device_map="auto",
+                trust_remote_code=permitir_codigo,
+                quantization_config=quant_config
+            ).eval()
+
+            loaded_data["processor"] = AutoProcessor.from_pretrained(  # nosec B615
+                target_dir, trust_remote_code=permitir_codigo)
+        except Exception as e:
+            if not permitir_codigo:
+                # transformers pide trust_remote_code cuando el repo trae su propio
+                # codigo de modelado. Explicamos como habilitarlo en vez de soltar
+                # el error crudo, que no dice como salir del paso.
+                aviso = _AVISO_REMOTE_CODE.format(
+                    repo=repo_id, flag=os.path.abspath(_FLAG_REMOTE_CODE))
+                print(aviso)
+                raise RuntimeError(aviso) from e
+            raise
+
         loaded_data["path"] = target_dir
-        
+
         return (loaded_data,)
 
 NODE_CLASS_MAPPINGS = {"AcademiaModelLoader": AcademiaModelLoader}
