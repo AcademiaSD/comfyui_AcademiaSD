@@ -52,7 +52,7 @@ async def save_gemini_token(request):
         if token != "****":  # nosec B105
             tokens["gemini"] = token
         with open(TOKENS_FILE, "w") as f:
-            json.dump(tokens, f)
+            f.write(json.dumps(tokens))
         return web.json_response({"status": "success"})
     except Exception:
         return web.json_response({"status": "error", "message": "Could not save token"}, status=400)

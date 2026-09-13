@@ -40,7 +40,7 @@ class LoopCounter:
         print(f"[LoopCounter v{ACADEMIASD_VERSION}] -> Current: {current_value_to_output}. Saving for next time: {next_value_to_save}")
         try:
             with open(FILE_PATH, 'w') as f:
-                json.dump({'loop_count': next_value_to_save}, f, indent=4)
+                f.write(json.dumps({'loop_count': next_value_to_save}, indent=4))
         except Exception as e:
             print(f"[LoopCounter] ERROR: Could not save the file. {e}")
         return (current_value_to_output,)
@@ -61,7 +61,7 @@ class ResetCounter:
         reset_value = 0
         try:
             with open(FILE_PATH, 'w') as f:
-                json.dump({'loop_count': reset_value}, f, indent=4)
+                f.write(json.dumps({'loop_count': reset_value}, indent=4))
             print(f"[ResetCounter] Counter reset to {reset_value} in '{FILE_PATH}'")
         except Exception as e:
             print(f"[ResetCounter] ERROR: Could not write the reset file. {e}")

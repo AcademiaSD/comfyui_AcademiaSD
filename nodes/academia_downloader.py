@@ -193,7 +193,7 @@ async def save_tokens(request):
             if value != TOKEN_MASK:
                 saved[k] = value
         with open(TOKENS_FILE, "w") as f:
-            json.dump(saved, f)
+            f.write(json.dumps(saved))
         return web.json_response({"status": "success"})
     except Exception:
         return web.json_response({"status": "error", "message": "Could not save tokens"}, status=400)
@@ -230,7 +230,7 @@ async def save_download_preset(request):
     safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).rstrip()
     try:
         with open(os.path.join(PRESETS_DIR, f"{safe_name}.json"), "w", encoding="utf-8") as f:
-            json.dump(data.get("data", []), f, indent=4)
+            f.write(json.dumps(data.get("data", []), indent=4))
         return web.json_response({"status": "success"})
     except Exception: return web.json_response({"status": "error", "message": "Could not save the preset"}, status=400)
 

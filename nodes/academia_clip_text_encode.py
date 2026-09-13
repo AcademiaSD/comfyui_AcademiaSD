@@ -30,7 +30,7 @@ for default_file in ["default_positive_prompt.json", "default_negative_prompt.js
     file_path = os.path.join(PROMPT_LISTS_DIR, default_file)
     if not os.path.exists(file_path):
         with open(file_path, "w", encoding="utf-8") as f:
-            json.dump({"favorites": [], "recents": []}, f, indent=4)
+            f.write(json.dumps({"favorites": [], "recents": []}, indent=4))
 
 # --- RUTAS DE API ---
 @PromptServer.instance.routes.get("/academia/prompts/list")
@@ -73,7 +73,7 @@ async def save_prompt_file(request):
         file_path = os.path.join(PROMPT_LISTS_DIR, f"{safe_name}.json")
         
         with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(content, f, indent=4)
+            f.write(json.dumps(content, indent=4))
         return web.json_response({"status": "success"})
     except Exception:
         return web.json_response({"status": "error", "message": "Could not save the prompt list"}, status=400)
