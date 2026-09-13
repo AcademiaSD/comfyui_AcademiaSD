@@ -507,14 +507,22 @@ app.registerExtension({
                 };
 
                 container.querySelector("#asd-btn-save").addEventListener("click", () => {
-                    if(!currentPreset || currentPreset === "default") {
+                    // Save overwrites the list picked in the dropdown, whether or not it
+                    // was loaded first. Only "Save As" asks for a new name.
+                    const target = presetSel.value || currentPreset;
+                    if(!target || target === "default") {
                         const name = prompt("Enter a name for this preset:", "My_Models");
                         if(name) saveToServer(name);
-                    } else { saveToServer(currentPreset); }
+                        return;
+                    }
+                    if(confirm(`Replace the list "${target}" with the models currently on screen?`)) {
+                        saveToServer(target);
+                    }
                 });
 
                 container.querySelector("#asd-btn-saveas").addEventListener("click", () => {
-                    const name = prompt("Enter a NEW name for this preset:", currentPreset + "_copy");
+                    const base = presetSel.value || currentPreset || "My_Models";
+                    const name = prompt("Enter a NEW name for this preset:", base + "_copy");
                     if(name) saveToServer(name);
                 });
 

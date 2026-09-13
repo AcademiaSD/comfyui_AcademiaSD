@@ -123,22 +123,50 @@ def background_download_task(url, file_path, civitai_token="", hf_token=""):
         ACTIVE_DOWNLOADS.pop(url, None)
 
 # --- RUTAS API ---
-@PromptServer.instance.routes.get("/academia/tokens")
-async def get_tokens(request):
+# Placeholder sent to the browser instead of a stored token. Posting it back
+# means "keep whatever is already saved", so the UI can round-trip without ever
+# handling the real value.
+TOKEN_MASK = "****"
+
+
+def _read_tokens():
     if os.path.exists(TOKENS_FILE):
         try:
-            with open(TOKENS_FILE, "r") as f: return web.json_response(json.load(f))
-        except: pass
-    return web.json_response({"civitai": "", "huggingface": ""})
+            with open(TOKENS_FILE, "r") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    return data
+        except Exception:
+            pass
+    return {}
+
+
+@PromptServer.instance.routes.get("/academia/tokens")
+async def get_tokens(request):
+    # Never return the stored tokens: this endpoint is reachable by anything
+    # that can talk to the ComfyUI port. Report only whether one is set.
+    saved = _read_tokens()
+    return web.json_response({
+        k: (TOKEN_MASK if saved.get(k) else "")
+        for k in ("civitai", "huggingface")
+    })
+
 
 @PromptServer.instance.routes.post("/academia/tokens")
 async def save_tokens(request):
     data = await request.json()
+    saved = _read_tokens()
     try:
+        for k in ("civitai", "huggingface"):
+            value = data.get(k, "")
+            # The UI echoes the mask back when the field was not edited.
+            if value != TOKEN_MASK:
+                saved[k] = value
         with open(TOKENS_FILE, "w") as f:
-            json.dump({"civitai": data.get("civitai", ""), "huggingface": data.get("huggingface", "")}, f)
+            json.dump(saved, f)
         return web.json_response({"status": "success"})
-    except Exception as e: return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not save tokens"}, status=400)
 
 @PromptServer.instance.routes.get("/academia/download_presets")
 async def get_download_presets(request):

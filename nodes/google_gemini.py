@@ -38,13 +38,18 @@ async def save_gemini_token(request):
         tokens = {}
         if os.path.exists(TOKENS_FILE):
             with open(TOKENS_FILE, "r") as f:
-                tokens = json.load(f)
-        tokens["gemini"] = token
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    tokens = loaded
+        # The widget shows "****" once a key is stored; saving without retyping
+        # must not overwrite the real key with the mask.
+        if token != "****":
+            tokens["gemini"] = token
         with open(TOKENS_FILE, "w") as f:
             json.dump(tokens, f)
         return web.json_response({"status": "success"})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not save token"}, status=400)
 
 # --- RUTA API: Para buscar modelos dinámicamente ---
 @PromptServer.instance.routes.post("/academia/gemini_models")
