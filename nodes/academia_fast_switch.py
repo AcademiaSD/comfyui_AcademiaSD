@@ -83,6 +83,39 @@ def _folder_key(spec):
     return None, s
 
 
+def _raices_permitidas():
+    """Raices donde ComfyUI guarda modelos, incluidas las de extra_model_paths.yaml."""
+    raices = set()
+    try:
+        raices.add(os.path.abspath(folder_paths.base_path))
+    except Exception:
+        pass
+    try:
+        for entrada in folder_paths.folder_names_and_paths.values():
+            for p in entrada[0]:
+                raices.add(os.path.abspath(p))
+    except Exception:
+        pass
+    return raices
+
+
+def _raiz_permitida(root):
+    """True si root cae dentro de alguna raiz configurada.
+
+    Esta ruta es alcanzable sin autenticacion, asi que una carpeta escrita a
+    mano no puede servir para enumerar cualquier punto del disco. Las unidades
+    distintas quedan fuera salvo que esten configuradas en ComfyUI.
+    """
+    root = os.path.abspath(root)
+    for base in _raices_permitidas():
+        try:
+            if os.path.commonpath([base, root]) == base:
+                return True
+        except ValueError:
+            continue
+    return False
+
+
 def list_models(spec):
     """Ficheros de la carpeta pedida. Devuelve (lista, como_se_resolvio, error)."""
     key, cleaned = _folder_key(spec)
@@ -100,6 +133,8 @@ def list_models(spec):
             root = os.path.join(folder_paths.base_path, cleaned)
         except Exception:
             root = os.path.abspath(cleaned)
+    if not _raiz_permitida(root):
+        return [], "", "Folder is outside the configured model directories"
     if not os.path.isdir(root):
         return [], root, "Directory not found: {}".format(root)
 

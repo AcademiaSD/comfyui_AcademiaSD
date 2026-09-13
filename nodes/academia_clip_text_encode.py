@@ -8,6 +8,23 @@ from aiohttp import web
 PROMPT_LISTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompt_lists")
 os.makedirs(PROMPT_LISTS_DIR, exist_ok=True)
 
+
+def _prompt_path(name):
+    """Ruta de <name>.json dentro de PROMPT_LISTS_DIR.
+
+    Devuelve None si el nombre intenta salirse del directorio: estas rutas son
+    alcanzables por cualquiera que llegue al puerto de ComfyUI, así que el
+    nombre nunca puede elegir un fichero arbitrario del disco.
+    """
+    if not name:
+        return None
+    base = os.path.abspath(PROMPT_LISTS_DIR)
+    destino = os.path.abspath(os.path.join(base, f"{name}.json"))
+    if os.path.commonpath([base, destino]) != base:
+        return None
+    return destino
+
+
 # Creación de plantillas vacías por defecto si no existen
 for default_file in ["default_positive_prompt.json", "default_negative_prompt.json"]:
     file_path = os.path.join(PROMPT_LISTS_DIR, default_file)
@@ -21,22 +38,25 @@ async def list_prompt_files(request):
     try:
         files = [f[:-5] for f in os.listdir(PROMPT_LISTS_DIR) if f.endswith(".json")]
         return web.json_response({"status": "success", "files": sorted(files)})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not list the prompt files"}, status=400)
 
 @PromptServer.instance.routes.get("/academia/prompts/load")
 async def load_prompt_file(request):
     name = request.query.get("name")
     if not name:
         return web.json_response({"status": "error", "message": "No name provided"})
-    
-    file_path = os.path.join(PROMPT_LISTS_DIR, f"{name}.json")
+
+    file_path = _prompt_path(name)
+    if file_path is None:
+        return web.json_response({"status": "error", "message": "Invalid name"}, status=400)
+
     if os.path.exists(file_path):
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 return web.json_response({"status": "success", "data": json.load(f)})
-        except Exception as e:
-            return web.json_response({"status": "error", "message": str(e)})
+        except Exception:
+            return web.json_response({"status": "error", "message": "Could not read the prompt list"}, status=400)
     return web.json_response({"status": "success", "data": {"favorites": [], "recents": []}})
 
 @PromptServer.instance.routes.post("/academia/prompts/save")
@@ -55,8 +75,8 @@ async def save_prompt_file(request):
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(content, f, indent=4)
         return web.json_response({"status": "success"})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not save the prompt list"}, status=400)
 
 @PromptServer.instance.routes.delete("/academia/prompts/delete")
 async def delete_prompt_file(request):
@@ -64,14 +84,17 @@ async def delete_prompt_file(request):
         name = request.query.get("name")
         if not name or "default_positive" in name or "default_negative" in name:
             return web.json_response({"status": "error", "message": "Cannot delete default templates"})
-        
-        file_path = os.path.join(PROMPT_LISTS_DIR, f"{name}.json")
+
+        file_path = _prompt_path(name)
+        if file_path is None:
+            return web.json_response({"status": "error", "message": "Invalid name"}, status=400)
+
         if os.path.exists(file_path):
             os.remove(file_path)
             return web.json_response({"status": "success"})
         return web.json_response({"status": "error", "message": "File not found"})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not delete the prompt list"}, status=400)
 
 
 # --- CLASE BASE DEL NODO ---

@@ -18,6 +18,13 @@ async def send_to_edit(request):
     if not filename:
         return web.json_response({"status": "error", "message": "No filename provided"})
 
+    # Esta ruta es alcanzable por cualquiera que llegue al puerto de ComfyUI, asi
+    # que ni el nombre ni la subcarpeta pueden elegir un fichero fuera de output/.
+    filename = os.path.basename(filename)
+    subfolder = subfolder.replace("..", "").strip("\\/")
+    if not filename:
+        return web.json_response({"status": "error", "message": "Invalid filename"}, status=400)
+
     # 1. Rutas base
     output_dir = folder_paths.get_output_directory()
     input_dir = folder_paths.get_input_directory()
@@ -25,7 +32,15 @@ async def send_to_edit(request):
     # 2. Construir rutas completas
     # Archivo origen en Output
     source_path = os.path.join(output_dir, subfolder, filename) if subfolder else os.path.join(output_dir, filename)
-    
+
+    base_out = os.path.abspath(output_dir)
+    try:
+        dentro = os.path.commonpath([base_out, os.path.abspath(source_path)]) == base_out
+    except ValueError:
+        dentro = False
+    if not dentro:
+        return web.json_response({"status": "error", "message": "Invalid source path"}, status=400)
+
     # Crear una subcarpeta "Academia_Edits" en Input para no mezclar las fotos copiadas con las originales
     target_subfolder = "Academia_Edits"
     target_folder = os.path.join(input_dir, target_subfolder)
@@ -43,8 +58,8 @@ async def send_to_edit(request):
             return web.json_response({"status": "success", "target_path": relative_target_path})
         else:
             return web.json_response({"status": "error", "message": "Source file not found in output folder."})
-    except Exception as e:
-        return web.json_response({"status": "error", "message": str(e)})
+    except Exception:
+        return web.json_response({"status": "error", "message": "Could not copy the file"}, status=400)
 
 
 class AcademiaSaveAndSendNode:

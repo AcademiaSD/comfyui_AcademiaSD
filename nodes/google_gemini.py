@@ -84,8 +84,8 @@ async def fetch_gemini_models(request):
             
         models = await asyncio.to_thread(get_models)
         return web.json_response({"models": models})
-    except Exception as e:
-        return web.json_response({"error": str(e)})
+    except Exception:
+        return web.json_response({"error": "Could not list the models"}, status=400)
 
 
 class AcademiaGeminiVision:

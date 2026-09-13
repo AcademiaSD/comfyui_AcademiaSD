@@ -74,14 +74,39 @@ def get_file_info_from_url(url, civitai_token="", hf_token=""):
     except Exception as e:
         return None, "Unknown"
 
+def _dentro_de(base, destino):
+    """True si destino queda dentro de base. Distinta unidad cuenta como fuera."""
+    base, destino = os.path.abspath(base), os.path.abspath(destino)
+    try:
+        return os.path.commonpath([base, destino]) == base
+    except ValueError:
+        return False
+
+
+def _sub_seguro(base, subfolder):
+    """Une subfolder a base sin permitir que se salga.
+
+    Quitar ".." no basta: en Windows una ruta con unidad ("C:\\Windows\\Temp")
+    hace que os.path.join descarte la base por completo. Devuelve None si el
+    valor recibido intenta escapar.
+    """
+    if not subfolder:
+        return base
+    limpio = subfolder.replace("..", "").strip("\\/")
+    if not limpio:
+        return base
+    destino = os.path.join(base, limpio)
+    return destino if _dentro_de(base, destino) else None
+
+
 def find_existing_file(folder_name, subfolder, filename):
     paths = folder_paths.get_folder_paths(folder_name)
     if not paths: return None
     for base_path in paths:
-        check_path = base_path
-        if subfolder:
-            check_path = os.path.join(check_path, subfolder.replace("..", "").strip("\\/"))
-        full_file_path = os.path.join(check_path, filename)
+        check_path = _sub_seguro(base_path, subfolder)
+        if check_path is None:
+            continue
+        full_file_path = os.path.join(check_path, os.path.basename(filename or ""))
         if os.path.exists(full_file_path):
             return full_file_path
     return None
@@ -93,9 +118,7 @@ def get_download_target_path(folder_name, subfolder):
         if os.path.basename(os.path.normpath(p)) == folder_name:
             target_base = p
             break
-    if subfolder:
-        target_base = os.path.join(target_base, subfolder.replace("..", "").strip("\\/"))
-    return target_base
+    return _sub_seguro(target_base, subfolder)
 
 def background_download_task(url, file_path, civitai_token="", hf_token=""):
     temp_path = file_path + ".temp"
@@ -168,11 +191,24 @@ async def save_tokens(request):
     except Exception:
         return web.json_response({"status": "error", "message": "Could not save tokens"}, status=400)
 
+def _preset_path(name):
+    """Ruta de <name>.json dentro de PRESETS_DIR, o None si se sale del directorio."""
+    if not name:
+        return None
+    base = os.path.abspath(PRESETS_DIR)
+    destino = os.path.abspath(os.path.join(base, f"{name}.json"))
+    if os.path.commonpath([base, destino]) != base:
+        return None
+    return destino
+
+
 @PromptServer.instance.routes.get("/academia/download_presets")
 async def get_download_presets(request):
     name = request.query.get("name")
     if name:
-        filepath = os.path.join(PRESETS_DIR, f"{name}.json")
+        filepath = _preset_path(name)
+        if filepath is None:
+            return web.json_response({"status": "error", "message": "Invalid name"}, status=400)
         if os.path.exists(filepath):
             with open(filepath, "r", encoding="utf-8") as f: return web.json_response({"status": "success", "data": json.load(f)})
         return web.json_response({"status": "error", "message": "Preset not found"})
@@ -189,7 +225,7 @@ async def save_download_preset(request):
         with open(os.path.join(PRESETS_DIR, f"{safe_name}.json"), "w", encoding="utf-8") as f:
             json.dump(data.get("data", []), f, indent=4)
         return web.json_response({"status": "success"})
-    except Exception as e: return web.json_response({"status": "error", "message": str(e)})
+    except Exception: return web.json_response({"status": "error", "message": "Could not save the preset"}, status=400)
 
 @PromptServer.instance.routes.get("/academia/folders")
 async def get_folders(request):
@@ -281,7 +317,11 @@ async def download_file(request):
     if find_existing_file(folder, subfolder, filename):
         return web.json_response({"status": "exists", "message": "File already exists."})
 
-    file_path = os.path.join(get_download_target_path(folder, subfolder), filename)
+    destino = get_download_target_path(folder, subfolder)
+    if destino is None:
+        return web.json_response({"status": "error", "message": "Invalid destination folder."}, status=400)
+
+    file_path = os.path.join(destino, filename)
     ACTIVE_DOWNLOADS[url] = {"progress": 0}
     asyncio.create_task(asyncio.to_thread(background_download_task, url, file_path, civ_t, hf_t))
     
