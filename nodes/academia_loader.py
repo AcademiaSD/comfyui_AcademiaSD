@@ -19,6 +19,17 @@ class AcademiaModelLoader:
                 "repo_id": ("STRING", {"default": "Qwen/Qwen2-VL-2B-Instruct"}),
                 "low_vram": (["enable", "disable"], {"default": "enable"}),
             },
+            "optional": {
+                # Vacio = rama main, que es lo que se venia haciendo. Poner aqui el
+                # hash de un commit fija esa version exacta: una rama puede cambiar
+                # de contenido sin avisar, un commit no.
+                "revision": ("STRING", {
+                    "default": "",
+                    "multiline": False,
+                    "tooltip": "Optional. Commit hash (or tag) to pin the download. "
+                               "Leave empty to use the main branch.",
+                }),
+            },
         }
 
     RETURN_TYPES = ("ACADEMIA_MODEL",)
@@ -26,17 +37,25 @@ class AcademiaModelLoader:
     FUNCTION = "load_model"
     CATEGORY = "AcademiaSD"
 
-    def load_model(self, repo_id, low_vram):
+    def load_model(self, repo_id, low_vram, revision=""):
+        revision = (revision or "").strip()
+
         # 1. Rutas (Igual que antes pero más robusto)
         current_dir = os.path.dirname(os.path.realpath(__file__))
-        target_dir = os.path.join(current_dir, "..", "..", "..", "models", "vision", repo_id.replace("/", "_"))
-        
+        # El nombre de carpeta sale del repo_id, asi que solo dejamos pasar
+        # caracteres inocuos: un "..\\.." en el campo saldria del directorio.
+        nombre = "".join(c if (c.isalnum() or c in "._-") else "_" for c in repo_id)
+        if revision:
+            # Cada revision en su propia carpeta. Sin esto, fijar un commit
+            # reutilizaria la descarga anterior y no se traeria nada nuevo.
+            sufijo = "".join(c if (c.isalnum() or c in "._-") else "_" for c in revision)
+            nombre = f"{nombre}@{sufijo[:20]}"
+        target_dir = os.path.join(current_dir, "..", "..", "..", "models", "vision", nombre)
+
         if not os.path.exists(target_dir):
-            print(f"[AcademiaSD] Descargando {repo_id}...")
-            # revision explicita: deja por escrito de que rama se descarga en vez
-            # de depender del valor por defecto de la libreria.
-            snapshot_download(repo_id=repo_id, revision="main", local_dir=target_dir,
-                              local_dir_use_symlinks=False)
+            print(f"[AcademiaSD] Descargando {repo_id} ({revision or 'main'})...")
+            snapshot_download(repo_id=repo_id, revision=revision or "main",
+                              local_dir=target_dir, local_dir_use_symlinks=False)
 
         if loaded_data["path"] == target_dir:
             return (loaded_data,)
