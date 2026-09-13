@@ -19,9 +19,10 @@ _FLAG_REMOTE_CODE = os.path.join(_VISION_DIR, "allow_remote_code.flag")
 def _remote_code_permitido():
     """Si se permite ejecutar el codigo que venga dentro del repo del modelo.
 
-    transformers ejecuta Python del propio repo cuando trust_remote_code=True. Como
-    repo_id sale de un widget, cualquiera que alcance /prompt podria apuntar a un
-    repo suyo y ejecutar lo que quisiera en la maquina del usuario.
+    Con esa opcion activada, transformers ejecuta el Python que venga dentro del
+    repositorio del modelo. Como repo_id sale de un widget, cualquiera que alcance
+    /prompt podria apuntar a un repo suyo y ejecutar lo que quisiera en la maquina
+    del usuario.
 
     El permiso NO puede ser un widget del nodo: quien envia el /prompt controla
     todos los widgets y lo activaria el mismo. Tiene que vivir donde solo llegue
