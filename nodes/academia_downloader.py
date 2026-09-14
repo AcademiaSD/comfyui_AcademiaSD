@@ -1,6 +1,7 @@
 import os
 import asyncio
 import requests
+import threading
 import urllib.parse
 import re
 import json
@@ -14,6 +15,22 @@ HEADERS = {
 }
 
 ACTIVE_DOWNLOADS = {}
+
+# Una sesion HTTP por hilo. Reutiliza la conexion entre las varias peticiones que
+# hace cada descarga (comprobar cabeceras, seguir redirecciones, bajar el fichero)
+# en vez de abrir una nueva cada vez. Por hilo y no global porque el nodo descarga
+# en paralelo y requests.Session no esta pensada para usarse desde varios a la vez.
+_LOCAL = threading.local()
+
+
+def sesion():
+    s = getattr(_LOCAL, "http", None)
+    if s is None:
+        s = requests.Session()
+        _LOCAL.http = s
+    return s
+
+
 TOKENS_FILE = os.path.join(folder_paths.base_path, "models", "academia_tokens.json")
 PRESETS_DIR = os.path.join(folder_paths.base_path, "models", "academia_presets")
 os.makedirs(PRESETS_DIR, exist_ok=True)
@@ -52,7 +69,7 @@ def get_file_info_from_url(url, civitai_token="", hf_token=""):  # nosec B107
 
     try:
         req_headers = get_headers_with_auth(url, civitai_token, hf_token)
-        response = requests.get(url, stream=True, allow_redirects=True, headers=req_headers, timeout=8)
+        response = sesion().get(url, stream=True, allow_redirects=True, headers=req_headers, timeout=8)
         response.close()
         
         if response.status_code in [401, 403] or "civitai.com/login" in response.url:
@@ -133,7 +150,7 @@ def background_download_task(url, file_path, civitai_token="", hf_token=""):  # 
         req_headers = get_headers_with_auth(url, civitai_token, hf_token)
         # timeout de conexion y de lectura entre trozos: sin el, un servidor que
         # deja la conexion abierta sin enviar nada cuelga la descarga para siempre.
-        with requests.get(url, stream=True, allow_redirects=True, headers=req_headers,
+        with sesion().get(url, stream=True, allow_redirects=True, headers=req_headers,
                           timeout=(10, 60)) as r:
             r.raise_for_status()
             total_length = r.headers.get('content-length')
@@ -254,7 +271,7 @@ async def parse_url(request):
             headers = HEADERS.copy()
             if hf_token: headers["Authorization"] = f"Bearer {hf_token}"
             try:
-                res = await asyncio.to_thread(requests.get, f"https://huggingface.co/api/models/{repo_id}", headers=headers, timeout=10)
+                res = await asyncio.to_thread(sesion().get, f"https://huggingface.co/api/models/{repo_id}", headers=headers, timeout=10)
                 if res.status_code == 200:
                     files = [{"name": os.path.basename(s["rfilename"]), "url": f"https://huggingface.co/{repo_id}/resolve/{branch}/{s['rfilename']}", "size": format_size(s.get("size"))} 
                              for s in res.json().get("siblings", []) if s["rfilename"].endswith((".safetensors", ".gguf", ".ckpt", ".pt", ".bin", ".pth", ".onnx", ".sft"))]
