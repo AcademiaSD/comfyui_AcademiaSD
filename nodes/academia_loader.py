@@ -17,30 +17,27 @@ _FLAG_REMOTE_CODE = os.path.join(_VISION_DIR, "allow_remote_code.flag")
 
 
 def _remote_code_permitido():
-    """Si se permite ejecutar el codigo que venga dentro del repo del modelo.
+    """Whether the model repository's own code is allowed to run.
 
-    Con esa opcion activada, transformers ejecuta el Python que venga dentro del
-    repositorio del modelo. Como repo_id sale de un widget, cualquiera que alcance
-    /prompt podria apuntar a un repo suyo y ejecutar lo que quisiera en la maquina
-    del usuario.
+    With that option on, transformers executes the Python shipped inside the
+    model repository. repo_id comes from a widget, so anyone able to reach
+    /prompt could name a repository of their own and have it run on the user's
+    machine.
 
-    El permiso NO puede ser un widget del nodo: quien envia el /prompt controla
-    todos los widgets y lo activaria el mismo. Tiene que vivir donde solo llegue
-    quien tenga acceso a la maquina: una variable de entorno o un fichero en disco.
+    The permission cannot be a widget: whoever sends the prompt sets every
+    widget in it. It has to live where only someone with access to the machine
+    can put it, so it is a file on disk.
     """
-    if os.environ.get("ACADEMIASD_ALLOW_REMOTE_CODE", "").strip().lower() in ("1", "true", "yes", "on"):
-        return True
     return os.path.exists(_FLAG_REMOTE_CODE)
 
 
 _AVISO_REMOTE_CODE = (
-    "[AcademiaSD] El modelo '{repo}' pide ejecutar codigo incluido en su propio "
-    "repositorio (trust_remote_code).\n"
-    "Esta desactivado por seguridad: quien alcance el puerto de ComfyUI podria "
-    "cargar un repositorio malicioso y ejecutar codigo en tu equipo.\n"
-    "Si confias en ese modelo, activalo de una de estas dos formas:\n"
-    "  - crea el fichero: {flag}\n"
-    "  - o arranca ComfyUI con la variable ACADEMIASD_ALLOW_REMOTE_CODE=1"
+    "[AcademiaSD] Model '{repo}' asks to run code shipped inside the model "
+    "repository (trust_remote_code).\n"
+    "That is disabled for safety: anyone able to reach the ComfyUI port could "
+    "load a malicious repository and run code on your machine.\n"
+    "If you trust this model, allow it by creating this file:\n"
+    "  {flag}"
 )
 
 class AcademiaModelLoader:
@@ -78,7 +75,7 @@ class AcademiaModelLoader:
         # caracteres inocuos: un "..\\.." en el campo saldria del directorio.
         nombre = "".join(c if (c.isalnum() or c in "._-") else "_" for c in repo_id)
         if revision:
-            # Cada revision en su propia carpeta. Sin esto, fijar un commit
+            # Cada revision va a una carpeta aparte. Sin esto, fijar un commit
             # reutilizaria la descarga anterior y no se traeria nada nuevo.
             sufijo = "".join(c if (c.isalnum() or c in "._-") else "_" for c in revision)
             nombre = f"{nombre}@{sufijo[:20]}"
@@ -121,8 +118,8 @@ class AcademiaModelLoader:
                 target_dir, trust_remote_code=permitir_codigo)
         except Exception as e:
             if not permitir_codigo:
-                # transformers pide trust_remote_code cuando el repo trae su propio
-                # codigo de modelado. Explicamos como habilitarlo en vez de soltar
+                # transformers pide esa opcion cuando el repositorio trae codigo
+                # de modelado propio. Explicamos como habilitarlo en vez de soltar
                 # el error crudo, que no dice como salir del paso.
                 aviso = _AVISO_REMOTE_CODE.format(
                     repo=repo_id, flag=os.path.abspath(_FLAG_REMOTE_CODE))

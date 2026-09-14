@@ -32,7 +32,7 @@ def _clave_guardada():
 
 @PromptServer.instance.routes.get("/academia/gemini_token")
 async def get_gemini_token(request):
-    """Indica si hay clave guardada, nunca su valor."""
+    """Indica si hay clave guardada, nunca el valor."""
     # Los cuatro asteriscos son un marcador para el navegador, no un secreto.
     return web.json_response({"token": "****" if _clave_guardada() else ""})
 

@@ -77,7 +77,7 @@ MAX_LINEAS = 46     # lineas totales antes de resumir el resto
 
 
 def _corta(valor, limite=MAX_VALOR):
-    """Deja el valor en una linea. Los JSON largos se resumen por su tamano."""
+    """Deja el valor en una linea. Los JSON largos se resumen por tamano."""
     v = str(valor).replace("\n", " ").strip()
     if len(v) <= limite:
         return v
@@ -145,7 +145,7 @@ def read_lora_metadata(lora_path):
             out.append("")
             out.append("\U0001F3F7\uFE0F  TAGS ({})".format(len(orden)))
             # Se parte a mano porque el tooltip usa pre-wrap y una linea larga
-            # ensancharia el recuadro hasta su max-width.
+            # ensancharia el recuadro hasta el max-width.
             linea = "    "
             for trozo in lista.split(", "):
                 if len(linea) + len(trozo) > 54:
