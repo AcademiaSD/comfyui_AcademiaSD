@@ -11,6 +11,102 @@ function escapeHTML(str) {
         .replace(/'/g, "&#039;");
 }
 
+
+/* ── VISTA PREVIA DEL PROMPT AL PASAR EL PUNTERO ──────────────────────────────
+   El title="" nativo recorta el texto, lo pinta en una sola tira y no se puede
+   desplazar, que es justo lo que hace falta con un prompt de varias lineas.
+   Este panel flotante muestra el prompt entero y SE PUEDE RECORRER: por eso no
+   se cierra al entrar el puntero en el, solo al salir de la tarjeta Y del panel.
+
+   Vive en document.body y no dentro de la tarjeta, porque la bandeja tiene
+   overflow oculto y ahi dentro quedaria recortado.
+
+   The native title="" truncates, renders as one strip and cannot be scrolled --
+   exactly what a multi-line prompt needs. This floating panel shows the whole
+   prompt and can be scrolled, so it stays open while the pointer is inside it
+   and closes only when the pointer has left both the card and the panel. It
+   lives on document.body rather than inside the card because the tray clips its
+   overflow and it would be cut off in there. */
+let asdPreviewEl = null;
+let asdPreviewTimer = null;
+
+function asdPreviewPanel() {
+    if (asdPreviewEl) return asdPreviewEl;
+
+    const style = document.createElement("style");
+    style.textContent = `
+        .asd-prompt-preview {
+            position: fixed; z-index: 10000; display: none;
+            max-width: 520px; max-height: 340px; overflow-y: auto;
+            padding: 8px 10px; box-sizing: border-box;
+            background: #101010; color: #ddd;
+            border: 1px solid #4a6ee0; border-radius: 4px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            font-family: monospace; font-size: 11px; line-height: 1.45;
+            white-space: pre-wrap; overflow-wrap: anywhere;
+        }
+        .asd-prompt-preview::-webkit-scrollbar { width: 8px; }
+        .asd-prompt-preview::-webkit-scrollbar-track { background: #1a1a1a; }
+        .asd-prompt-preview::-webkit-scrollbar-thumb { background: #4a6ee0; border-radius: 4px; }
+    `;
+    document.head.appendChild(style);
+
+    asdPreviewEl = document.createElement("div");
+    asdPreviewEl.className = "asd-prompt-preview";
+    document.body.appendChild(asdPreviewEl);
+
+    asdPreviewEl.addEventListener("mouseenter", () => clearTimeout(asdPreviewTimer));
+    asdPreviewEl.addEventListener("mouseleave", asdHidePreview);
+    // La rueda no debe llegar al lienzo de ComfyUI, que la interpreta como zoom.
+    // The wheel must not reach ComfyUI's canvas, which reads it as zoom.
+    asdPreviewEl.addEventListener("wheel", (e) => e.stopPropagation());
+
+    return asdPreviewEl;
+}
+
+function asdShowPreview(text, anchorEl) {
+    const el = asdPreviewPanel();
+    clearTimeout(asdPreviewTimer);
+
+    // textContent, no innerHTML: el prompt puede traer <video 1> o similares y
+    // aqui no hay que escapar nada ni arriesgarse a inyectar marcado.
+    // textContent, not innerHTML: a prompt may carry <video 1> and the like, so
+    // nothing needs escaping and no markup can be injected.
+    el.textContent = text;
+    el.style.display = "block";
+    el.scrollTop = 0;
+
+    const r = anchorEl.getBoundingClientRect();
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+
+    // A la izquierda de la tarjeta si cabe, que es donde no tapa la bandeja;
+    // si no cabe, a la derecha. Siempre dentro de la ventana.
+    // Left of the card when it fits, where it does not cover the tray; right
+    // otherwise. Always clamped inside the viewport.
+    let x = r.left - w - 10;
+    if (x < 8) x = Math.min(r.right + 10, window.innerWidth - w - 8);
+    if (x < 8) x = 8;
+
+    let y = r.top - 4;
+    if (y + h > window.innerHeight - 8) y = window.innerHeight - h - 8;
+    if (y < 8) y = 8;
+
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+}
+
+function asdHidePreview() {
+    // Margen para poder cruzar el hueco entre la tarjeta y el panel sin que se
+    // cierre por el camino.
+    // Grace period so the gap between card and panel can be crossed without it
+    // closing on the way.
+    clearTimeout(asdPreviewTimer);
+    asdPreviewTimer = setTimeout(() => {
+        if (asdPreviewEl) asdPreviewEl.style.display = "none";
+    }, 140);
+}
+
 // Función auxiliar para ocultar el widget nativo de forma limpia y definitiva
 function hideNativeTextWidget(node) {
     if (!node.widgets) return;
@@ -404,10 +500,9 @@ function registerPromptNode(nodeName, defaultFileName) {
                             const cleanDisplay = promptText.replace(/\s+/g, ' ').trim();
                             // 2. Escape HTML para que etiquetas como <video 1> no rompan la tarjeta
                             const escapedDisplay = escapeHTML(cleanDisplay);
-                            const escapedTitle = escapeHTML(promptText);
 
                             card.innerHTML = `
-                                <div class="asd-p-card-text" title="${escapedTitle}">${escapedDisplay}</div>
+                                <div class="asd-p-card-text">${escapedDisplay}</div>
                                 <div style="display:flex; gap:2px; flex-shrink:0; align-items:center;">
                                     <button class="asd-p-btn asd-btn-card-load">📂 Load</button>
                                     ${this.activeTab === "recents" ? '<button class="asd-p-btn asd-btn-card-add-fav">❤️</button>' : ''}
@@ -415,7 +510,15 @@ function registerPromptNode(nodeName, defaultFileName) {
                                 </div>
                             `;
 
+                            // Sobre la tarjeta y no sobre .asd-p-card-text, que lleva
+                            // pointer-events: none y nunca recibiria el evento.
+                            // On the card, not on .asd-p-card-text, which carries
+                            // pointer-events: none and would never see the event.
+                            card.addEventListener("mouseenter", () => asdShowPreview(promptText, card));
+                            card.addEventListener("mouseleave", asdHidePreview);
+
                             card.querySelector(".asd-btn-card-load").addEventListener("click", () => {
+                                asdHidePreview();
                                 textarea.value = promptText;
                                 const liveTextWidget = _this.widgets.find(w => w.name === "text");
                                 if (liveTextWidget) liveTextWidget.value = promptText;
@@ -435,6 +538,7 @@ function registerPromptNode(nodeName, defaultFileName) {
                             }
 
                             card.querySelector(".asd-btn-card-del").addEventListener("click", () => {
+                                asdHidePreview();
                                 activeList.splice(idx, 1);
                                 saveListToServer(this.currentList);
                             });

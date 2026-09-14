@@ -49,6 +49,7 @@ An ultra-sleek, highly responsive custom CLIP Text Encode implementation for Com
 *   **🧹 Zero-Overlap DOM Injection:** Completely isolates and overrides ComfyUI's native multiline `<textarea>` element at the DOM level (`display: none !important`). This guarantees no duplicate text render overlays, no layout breaks, and a clean interface from the millisecond the node is spawned.
 *   **⏪ Auto-Queueing Recent Prompts (Last 10):** Generates and keeps a real-time rolling list (FIFO) of your last 10 queued prompts. Duplicate entries are automatically cleaned up and pushed to the top.
 *   **❤️ Favorites Vault:** Save your absolute best prompts directly to a dedicated Favorites list by clicking the heart button. They are styled as independent cards with quick-action utilities to load or delete them.
+*   **🔍 Scrollable Hover Preview:** Hovering a Recents or Favorites card pops up a floating panel with the **entire** prompt, line breaks intact and scrollable when it overflows. It stays open while the pointer is inside it, so long multi-line prompts can actually be read and scrolled — unlike a native tooltip, which truncates to a single strip and vanishes the moment you reach for it.
 *   **📂 Multi-Preset Saving & Loading:** Create custom preset files (e.g., `landscapes.json`, `portraits.json`). Supports saving, creating copies (`Save As`), and deleting presets directly from the node.
 *   **⚡ Default File Auto-Loading:** 
     *   The **Positive Node** automatically loads `default_positive_prompt.json` on startup.
