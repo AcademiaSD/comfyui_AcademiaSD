@@ -526,7 +526,7 @@ and the first take is plain text-to-video. `None` is valid downstream —
 ReferenceToVideo skips null references and ImageToVideo's `first_frame` is
 optional — so only the first card of the strip stays empty.
 
-> **New in 2.4.4.** Measured and working end to end, but young: the numbers above
+> **New in 2.4.5.** Measured and working end to end, but young: the numbers above
 > come from around fifteen series of clips, not from one lucky run. Updating from
 > an earlier version needs a ComfyUI restart and *Fix node (recreate)* on
 > Multi-Prompt, Moviola Out and the CLIP Text Encode nodes — all three changed

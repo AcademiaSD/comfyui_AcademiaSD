@@ -48,17 +48,21 @@ import glob
 import os
 import re
 import shutil
-# subprocess: el montaje llama a ffmpeg y ffprobe, que son binarios externos --
-# no hay forma de unir clips ni de medir una costura dentro del proceso. Se usa
-# siempre con `shell=False`, lista de argumentos y ejecutable absoluto; ver
-# `_correr` para el detalle de por que eso no abre una via de ejecucion.
-#
-# subprocess: joining clips and measuring a seam means ffmpeg and ffprobe, which
-# are external binaries. Always shell=False, argument list, absolute executable;
-# see `_correr` for why that is not an execution path.
-import subprocess  # nosec B404
-import tempfile
+from fractions import Fraction
 
+# PyAV, no un ffmpeg externo. Enlaza libavcodec/libavformat DENTRO del proceso,
+# asi que aqui no se lanza ningun programa: se acabo el `subprocess` y, con el,
+# la necesidad de que el usuario tenga ffmpeg instalado. `av>=17` es requisito
+# del propio ComfyUI, no de un pack de terceros, asi que lo tiene todo el mundo.
+#
+# Antes esto pedia ffmpeg Y ffprobe. `imageio-ffmpeg`, que instala
+# VideoHelperSuite, trae solo ffmpeg: quien no tuviera ffprobe en el sistema se
+# quedaba sin montaje sin saber por que.
+#
+# PyAV rather than an external ffmpeg. It links libavcodec/libavformat INSIDE the
+# process, so nothing is launched here: no subprocess, and no need for the user to
+# have ffmpeg installed. `av>=17` is a requirement of ComfyUI itself.
+import av
 import numpy as np
 import torch
 from PIL import Image
@@ -71,7 +75,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.4"
+    ACADEMIASD_VERSION = "2.4.5"
 
 try:
     from safetensors.torch import load_file as _st_load
@@ -487,8 +491,8 @@ class AcademiaMoviolaOut:
 # Joins a project's takes and lets you undo the last one. Everything the montage
 # does is measured, not guessed.
 
-CRUCE_CURVA = "qsin"        # potencia constante: las dos mitades no son identicas
 VENTANA_BUSQUEDA = 20       # fotogramas del clip nuevo que se exploran
+FPS_POR_DEFECTO = 24.0      # solo si el contenedor no declara ninguno
 HUNDIMIENTO = 0.6           # el minimo debe bajar a esto de los hombros de la V
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
@@ -518,149 +522,82 @@ FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 PATRON_VIDEO = r"^{}_(\d+)(?:__\d+)?([^.]*)\.(mp4|mkv|mov|webm)$"
 
 
-def _binario(ruta):
-    """La ruta, solo si es un ejecutable ABSOLUTO que existe. Si no, None.
-
-    Nunca se invoca un programa por su nombre suelto. Con un nombre relativo es
-    el sistema quien decide cual se ejecuta recorriendo el PATH, y ahi cualquier
-    `ffmpeg` colocado en el directorio equivocado gana la carrera. Resolviendo la
-    ruta completa antes, lo que se lanza queda fijado aqui.
-
-    Only an ABSOLUTE, existing executable. A bare program name leaves the choice
-    to the system's PATH search, where any `ffmpeg` dropped in the wrong folder
-    wins the race; resolving the full path first pins down what runs.
-    """
-    if not ruta:
+def _abrir(ruta):
+    """Contenedor abierto, o None si el fichero no se deja leer."""
+    try:
+        return av.open(ruta)
+    except Exception:
         return None
-    completa = os.path.abspath(ruta)
-    return completa if os.path.isfile(completa) else None
 
 
-def _herramientas():
-    """(ffmpeg, ffprobe), ambos absolutos. Cualquiera puede ser None.
+def _aviso(que, ruta, exc):
+    """Deja constancia en consola sin tumbar el montaje.
 
-    Se prefiere el del sistema porque trae ffprobe al lado; el de imageio_ffmpeg
-    es solo ffmpeg, asi que sirve para codificar pero no para medir.
-    System first because it ships ffprobe alongside; imageio_ffmpeg is ffmpeg
-    only, enough to encode but not to measure.
+    Un clip ilegible no debe llevarse por delante las otras nueve tomas, pero
+    tampoco puede desaparecer en silencio.
+    One unreadable clip must not take the other nine takes down, and must not
+    vanish silently either.
     """
-    ff = _binario(shutil.which("ffmpeg"))
-    fp = _binario(shutil.which("ffprobe"))
-    if ff and not fp:
-        fp = _binario(os.path.join(os.path.dirname(ff),
-                                   "ffprobe.exe" if os.name == "nt" else "ffprobe"))
-    if not ff:
-        try:
-            from imageio_ffmpeg import get_ffmpeg_exe
-            ff = _binario(get_ffmpeg_exe())
-        except Exception:
-            ff = None
-    return ff, fp
+    print("[Moviola] {} {}: {}".format(que, os.path.basename(ruta), exc))
 
 
-def _correr(cmd):
-    """Lanza ffmpeg o ffprobe con su lista de argumentos.
+def _info(ruta):
+    """(fps, duracion, fotogramas, hay_audio, rate, canales) leidos del contenedor.
 
-    Tres cosas hacen que esto no sea una via de ejecucion:
+    Esto lo hacia ffprobe. Leerlo con PyAV no es solo quitarse una dependencia:
+    es que la informacion sale de la MISMA libreria que luego decodifica, asi que
+    no hay dos versiones de ffmpeg que puedan discrepar.
 
-    - `shell=False` explicito y `cmd` SIEMPRE una lista. Sin shell no hay quien
-      interprete `;`, `|` ni `&&`: cada elemento llega al proceso como un unico
-      argumento, venga el texto de donde venga.
-    - El ejecutable es una ruta absoluta ya comprobada (`_binario`), nunca un
-      nombre que resuelva el PATH.
-    - Los argumentos no son texto de nadie de fuera. Las rutas salen de
-      `_partes()`, que resuelve bajo `output/` y rechaza lo que se escape; los
-      numeros pasan por `int()`; y el filtro se arma con medidas.
-
-    Three things keep this from being an execution path: `shell=False` with `cmd`
-    always a list, so nothing interprets `;`, `|` or `&&` and every element
-    arrives as a single argument; an absolute, already-checked executable instead
-    of a PATH lookup; and arguments that are never outside text -- paths come from
-    `_partes()`, which resolves under `output/` and refuses anything escaping it,
-    numbers go through `int()`, and the filter is built from measurements.
+    This used to be ffprobe. Reading it through PyAV is not only one dependency
+    less: the numbers come from the same library that later decodes, so there are
+    no two ffmpeg builds that can disagree.
     """
-    if not isinstance(cmd, (list, tuple)) or not cmd:
-        raise ValueError("[Moviola] el comando debe ser una lista "
-                         "/ the command must be a list")
-    if not _binario(cmd[0]):
-        raise ValueError("[Moviola] ejecutable no valido / invalid executable")
-
-    kw = {"capture_output": True, "text": True, "shell": False}
-    if os.name == "nt":
-        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    return subprocess.run([str(x) for x in cmd], **kw)  # nosec B603
-
-
-def _sondear(fp, ruta, flujo, campos):
-    r = _correr([fp, "-v", "error", "-select_streams", flujo,
-                 "-show_entries", campos, "-of", "csv=p=0", ruta])
-    return r.stdout.strip()
-
-
-def _fps(fp, ruta):
-    """Los fps REALES, no un valor fijo: la interpolacion se activa a voluntad y
-    un valor fijo desalinearia el audio justo en la costura."""
+    c = _abrir(ruta)
+    if c is None:
+        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0)
     try:
-        a, b = _sondear(fp, ruta, "v:0", "stream=r_frame_rate").split("/")
-        v = float(a) / float(b)
-        return v if v > 1.0 else 24.0
+        v = c.streams.video[0] if c.streams.video else None
+        a = c.streams.audio[0] if c.streams.audio else None
+        fps = float(v.average_rate) if v and v.average_rate else FPS_POR_DEFECTO
+        dur = float(c.duration) / av.time_base if c.duration else 0.0
+        n = int(v.frames or 0) if v else 0
+        if not n and fps > 0 and dur:
+            n = int(round(dur * fps))
+        return (fps if fps > 1.0 else FPS_POR_DEFECTO, dur, n,
+                a is not None, int(a.rate) if a else 0, int(a.channels) if a else 0)
     except Exception:
-        return 24.0
+        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0)
+    finally:
+        c.close()
 
 
-def _duracion(fp, ruta):
-    try:
-        return float(_sondear(fp, ruta, "v:0", "format=duration").splitlines()[0])
-    except Exception:
-        r = _correr([fp, "-v", "error", "-show_entries", "format=duration",
-                     "-of", "csv=p=0", ruta])
-        try:
-            return float(r.stdout.strip())
-        except ValueError:
-            return 0.0
+def _fps(ruta):
+    return _info(ruta)[0]
 
 
-def _duracion_audio(fp, ruta):
-    try:
-        return float(_sondear(fp, ruta, "a:0", "stream=duration"))
-    except Exception:
-        return _duracion(fp, ruta)
+def _duracion(ruta):
+    return _info(ruta)[1]
 
 
-def _n_fotogramas(fp, ruta):
-    try:
-        return int(_sondear(fp, ruta, "v:0", "stream=nb_read_frames").replace("N/A", "") or 0) or \
-            int(_correr([fp, "-v", "error", "-count_frames", "-select_streams", "v:0",
-                         "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0",
-                         ruta]).stdout.strip())
-    except Exception:
-        return 0
+def _n_fotogramas(ruta):
+    return _info(ruta)[2]
 
 
-def _tiene_audio(fp, ruta):
+def _tiene_audio(ruta):
     """Si el fichero trae pista de sonido de verdad.
 
-    No se deduce del nombre: "-audio" lo pone el guardador por convencion y
-    quien no guarde el proyecto con sonido no lo tendra. Lo que rompe el montaje
-    es referenciar [i:a] de un clip mudo -- ffmpeg no encuentra el flujo y se cae
-    entero, asi que se pregunta al fichero.
-
-    Not inferred from the name: "-audio" is the saver's convention. What breaks
-    the montage is referencing [i:a] of a silent clip -- ffmpeg cannot find the
-    stream and the whole run dies -- so the file is asked.
+    No se deduce del nombre: "-audio" lo pone el guardador por convencion y quien
+    no guarde el proyecto con sonido no lo tendra.
+    Not inferred from the name: "-audio" is the saver's convention.
     """
-    try:
-        return bool(_sondear(fp, ruta, "a:0", "stream=index").strip())
-    except Exception:
-        return False
+    return _info(ruta)[3]
 
 
 def _clips(carpeta, prefijo):
     """Los clips de ese prefijo, ordenados por su NUMERO y no por su nombre.
 
     Alfabeticamente _00010 iria antes que _00009 en cuanto el bucle pasara de
-    nueve vueltas. Si hay version con audio y sin ella para el mismo numero, gana
-    la de audio. / Sorted by INTEGER, not by name. The -audio variant wins.
+    nueve vueltas. / Sorted by INTEGER, not by name.
     """
     if not os.path.isdir(carpeta):
         return []
@@ -673,32 +610,85 @@ def _clips(carpeta, prefijo):
         n = int(m.group(1))
         cola = (m.group(2) or "").lower()
         # Desempate para un mismo numero: primero el que lleve audio, y a
-        # igualdad el nombre mas corto. Sin la segunda parte, dos variantes sin
-        # audio dependerian del orden del sistema de ficheros.
-        # Tie-break for one number: audio first, then the shortest name. Without
-        # the second half, two soundless variants would depend on the OS order.
+        # igualdad el nombre mas corto, para no depender del orden del disco.
         clave = (0 if "audio" in cola else 1, len(f))
         if n not in mejor or clave < mejor[n][0]:
             mejor[n] = (clave, os.path.join(carpeta, f))
     return [(n, mejor[n][1]) for n in sorted(mejor)]
 
 
-def _fotogramas(ff, ruta, desde, cuantos, tmp, etq):
-    """Varios fotogramas seguidos en UNA llamada: de uno en uno son doscientas
-    aperturas del mismo fichero por montaje."""
-    patron = os.path.join(tmp, "{}_%03d.png".format(etq))
-    _correr([ff, "-v", "error", "-y", "-i", ruta,
-             "-vf", r"select=gte(n\,{})".format(desde),
-             "-vsync", "0", "-frames:v", str(cuantos), patron])
-    return [os.path.join(tmp, "{}_{:03d}.png".format(etq, k + 1)) for k in range(cuantos)]
+# -- lectura de fotogramas ---------------------------------------------------
+
+def _fotogramas(ruta, desde, cuantos):
+    """`cuantos` fotogramas seguidos desde el indice `desde`, ya en numpy.
+
+    Antes esto escribia PNG a un temporal y luego los volvia a leer con PIL. Al
+    decodificar en proceso el fotograma YA es un array: se ahorra el viaje por
+    disco, la recompresion y el directorio temporal entero.
+
+    This used to write PNGs to a temp dir and read them back with PIL. Decoding
+    in-process the frame already IS an array: no disk round trip, no recompression
+    and no temp directory at all.
+    """
+    c = _abrir(ruta)
+    if c is None:
+        return []
+    out = []
+    try:
+        v = c.streams.video[0]
+        v.thread_type = "AUTO"
+        for i, f in enumerate(c.decode(v)):
+            if i >= desde:
+                out.append(f.to_ndarray(format="rgb24").astype(np.float64))
+                if len(out) >= cuantos:
+                    break
+    except Exception as exc:
+        # Se devuelve lo leido hasta aqui, que el que llama sabe manejar. Pero se
+        # avisa: callarlo deja un montaje raro sin ninguna pista de por que.
+        # What was read is returned and the caller handles it -- but say so:
+        # swallowing it leaves an odd cut with no clue as to why.
+        _aviso("no se pudieron leer fotogramas de", ruta, exc)
+    finally:
+        c.close()
+    return out
 
 
-def _leer(p):
-    return np.asarray(Image.open(p).convert("RGB"), np.float64)
+def _ultimos_fotogramas(ruta, cuantos=2):
+    """Los ultimos `cuantos` fotogramas, sin recorrer el clip entero.
+
+    Se salta al 95% y se decodifica desde ahi guardando una ventana corta. Leer
+    los 349 fotogramas para quedarse con dos es lo que hacia lento el medir.
+    Seeks to 95% and keeps a short window: decoding 349 frames to keep two is
+    what made measuring slow.
+    """
+    c = _abrir(ruta)
+    if c is None:
+        return []
+    cola = []
+    try:
+        v = c.streams.video[0]
+        v.thread_type = "AUTO"
+        if c.duration:
+            try:
+                c.seek(int(c.duration * 0.95), backward=True, stream=v)
+            except Exception:
+                # Un seek que falla no es un fallo: se decodifica entero, mas
+                # lento pero igual de correcto.
+                # A failed seek is not an error: decode the lot, slower but right.
+                pass  # nosec B110
+        for f in c.decode(v):
+            cola.append(f)
+            if len(cola) > cuantos:
+                cola.pop(0)
+    except Exception as exc:
+        _aviso("no se pudo leer el final de", ruta, exc)
+    finally:
+        c.close()
+    return [f.to_ndarray(format="rgb24").astype(np.float64) for f in cola]
 
 
 def _dif(a, b):
-    return float(np.abs(_leer(a) - _leer(b)).mean())
+    return float(np.abs(a - b).mean())
 
 
 def _ganancia(a, b):
@@ -709,24 +699,22 @@ def _ganancia(a, b):
     negros del fondo. / Per-channel GAIN, not offset: the mismatch is
     multiplicative and an offset would lift the blacks.
     """
-    A, B = _leer(a), _leer(b)
     g = []
-    for c in range(3):
-        mb = B[..., c].mean()
-        g.append(1.0 if mb < 1e-6 else max(0.5, min(2.0, A[..., c].mean() / mb)))
+    for ch in range(3):
+        mb = b[..., ch].mean()
+        g.append(1.0 if mb < 1e-6 else max(0.5, min(2.0, a[..., ch].mean() / mb)))
     return g
 
 
-def _perfil(ff, fp, a, b, tmp, etq):
+def _perfil(a, b, etq=""):
     """Diferencia del ultimo fotograma de A contra los primeros de B.
 
     El perfil sale en V y el minimo cae donde el rebobinado alcanza al clip
     anterior. Una V de verdad se hunde muy por debajo de sus dos hombros; si no
     lo hace, el plano esta casi quieto y el minimo es ruido.
     """
-    na = _n_fotogramas(fp, a)
-    fa = _fotogramas(ff, a, max(0, na - 2), 2, tmp, etq + "a")
-    fb = _fotogramas(ff, b, 0, VENTANA_BUSQUEDA + 1, tmp, etq + "b")
+    fa = _ultimos_fotogramas(a, 2)
+    fb = _fotogramas(b, 0, VENTANA_BUSQUEDA + 1)
     if len(fa) < 2 or len(fb) < 2:
         return None
     difs = [_dif(fa[1], x) for x in fb]
@@ -743,8 +731,6 @@ def _recorte_esperado(latent_frames, fps):
     Cada latente salvo la primera codifica cuatro fotogramas reales, y la
     interpolacion a 48 fps duplica. Es una GUIA: la medida manda, esto solo
     rescata las costuras donde no hay V que medir.
-    Each latent but the first encodes four real frames, and interpolation to
-    48 fps doubles it. A GUIDE only: the measurement wins.
     """
     reales = max(1, int(latent_frames)) * FRAMES_POR_LATENTE
     return reales * 2 if fps > 36 else reales
@@ -756,8 +742,8 @@ def _decidir_recortes(perfiles, esperado):
     El minimo NO es donde cortar: es el fotograma que REPITE, el que mas se
     parece al ultimo del clip anterior. Conservarlo enseña ese instante dos veces
     y el movimiento se para. Medido sobre nueve costuras: cortando EN el minimo,
-    siete cambiaban 0,18-0,49 veces el movimiento normal -- el paron. Un
-    fotograma despues, seis se quedan en 1,10-1,21, que es lo que da un corte.
+    siete cambiaban 0,18-0,49 veces el movimiento normal -- el paron. Un fotograma
+    despues, seis se quedan en 1,10-1,21, que es lo que da un corte.
 
     El rebobinado dura lo mismo en toda la serie, asi que las costuras planas
     copian la mediana de las que si tienen V. Si ninguna la tiene, se usa
@@ -771,10 +757,14 @@ def _decidir_recortes(perfiles, esperado):
     return [((p["k"] + 1) if (p and p["clara"]) else comun) for p in perfiles]
 
 
-def _medir(ff, fp, rutas, tmp, latent_frames, log):
-    perfiles = [_perfil(ff, fp, rutas[i], rutas[i + 1], tmp, "s{}".format(i))
+def claras_hay(perfiles):
+    return any(p and p["clara"] for p in perfiles)
+
+
+def _medir(rutas, latent_frames, log):
+    perfiles = [_perfil(rutas[i], rutas[i + 1], "s{}".format(i))
                 for i in range(len(rutas) - 1)]
-    esperado = _recorte_esperado(latent_frames, _fps(fp, rutas[0]))
+    esperado = _recorte_esperado(latent_frames, _fps(rutas[0]))
     recortes = _decidir_recortes(perfiles, esperado)
 
     salida = []
@@ -789,124 +779,247 @@ def _medir(ff, fp, rutas, tmp, latent_frames, log):
         salida.append((n_rec, _ganancia(p["fa"][1], sup)))
         log.append("   seam {} -> {}   dip at {}{}   trim {}".format(
             i + 1, i + 2, p["k"], "" if p["clara"] else " (flat, copied)", n_rec))
-    if not claras_hay(perfiles):
+    if perfiles and not claras_hay(perfiles):
         log.append("   no clear dip anywhere: fell back to latent_frames "
                    "({} frames)".format(esperado))
     return salida
 
 
-def claras_hay(perfiles):
-    return any(p and p["clara"] for p in perfiles)
+# -- audio -------------------------------------------------------------------
 
-
-def _montar(ff, fp, rutas, destino, latent_frames, crf, log):
-    """Un solo filter_complex para todo: encadenar ffmpeg clip a clip recodifica
-    en cada paso y la perdida se acumula."""
-    tmp = tempfile.mkdtemp(prefix="moviola_")
+def _leer_audio(ruta):
+    """Toda la pista en un array [canales, muestras] float32, y su frecuencia."""
+    c = _abrir(ruta)
+    if c is None:
+        return None, 0
     try:
-        dec = _medir(ff, fp, rutas, tmp, latent_frames, log)
+        if not c.streams.audio:
+            return None, 0
+        a = c.streams.audio[0]
+        rate = int(a.rate)
+        remuestreo = av.AudioResampler(format="fltp", layout="stereo", rate=rate)
+        trozos = []
+        for f in c.decode(a):
+            for g in remuestreo.resample(f):
+                trozos.append(g.to_ndarray())
+        for g in remuestreo.resample(None):
+            trozos.append(g.to_ndarray())
+        if not trozos:
+            return None, rate
+        return np.concatenate(trozos, axis=-1).astype(np.float32), rate
+    except Exception:
+        return None, 0
     finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        c.close()
 
+
+def _estirar(pista, destino):
+    """Lleva la pista a exactamente `destino` muestras, interpolando.
+
+    Los clips salen del generador con el audio ~26 ms MAS CORTO que el video, y
+    concatenando sin mas ese hueco se acumula. Se estira, NO se rellena con
+    silencio: rellenar deja un agujero a digital cero antes de cada costura,
+    medido en -89,9 dBFS, que es lo que se oye como un corte seco. El estirado
+    es de un 0,5%, unos nueve centesimos de tono, inaudible.
+
+    Clips arrive with audio ~26 ms shorter than picture and that gap accumulates.
+    Stretched, never padded with silence: padding leaves a digital-zero hole
+    before every seam, measured at -89.9 dBFS, and that is the hard cut you hear.
+    """
+    if pista is None or destino <= 0:
+        return None
+    n = pista.shape[-1]
+    if n == destino:
+        return pista
+    viejo = np.linspace(0.0, 1.0, n, dtype=np.float64)
+    nuevo = np.linspace(0.0, 1.0, destino, dtype=np.float64)
+    return np.stack([np.interp(nuevo, viejo, pista[c]) for c in range(pista.shape[0])]
+                    ).astype(np.float32)
+
+
+def _curva(n, subiendo):
+    """Rampa de POTENCIA CONSTANTE (cuarto de seno) de `n` muestras.
+
+    Las dos mitades del cruce son dos generaciones del mismo instante: se parecen
+    pero no coinciden muestra a muestra, asi que una rampa lineal dejaria unos
+    3 dB de hoyo en mitad de la ventana.
+    Constant-power ramp: the two halves are two generations of the same instant,
+    alike but not sample-identical, so a linear ramp would dip ~3 dB mid-window.
+    """
+    if n <= 0:
+        return np.zeros(0, dtype=np.float32)
+    t = np.linspace(0.0, 1.0, n, dtype=np.float32)
+    return np.sin(t * np.pi / 2.0) if subiendo else np.cos(t * np.pi / 2.0)
+
+
+def _pista_montada(rutas, recorta, duraciones, log):
+    """La banda sonora completa del montaje, o None si no se puede.
+
+    EL CRUCE SALE GRATIS DEL RECORTE. Los fotogramas descartados son un
+    REBOBINADO, asi que su audio cubre el MISMO instante que la cola del clip
+    anterior: estan alineados en el tiempo. Cruzarlos no desplaza nada, porque el
+    solape no se inventa, ya estaba ahi. Por eso no se usa nada parecido a
+    `acrossfade`, que solapa y ACORTA -- 0,25 s de desfase por costura, mas de dos
+    segundos al cabo de diez clips, con el dialogo descuadrado.
+
+    THE CROSSFADE COMES FREE FROM THE TRIM. The discarded frames are a rewind, so
+    their audio covers the same instant as the previous clip's tail: crossing them
+    shifts nothing because the overlap was already there.
+    """
+    piezas, cabezas, rate = [], [], 0
+    for i, r in enumerate(rutas):
+        pista, rt = _leer_audio(r)
+        if pista is None:
+            return None, 0
+        rate = rate or rt
+        if rt != rate:
+            return None, 0
+        fps = _fps(r)
+        corte = int(round(recorta[i] / fps * rate)) if fps > 0 else 0
+        cabezas.append(pista[:, :corte].copy() if corte else None)
+        cuerpo = pista[:, corte:]
+        piezas.append(_estirar(cuerpo, int(round(duraciones[i] * rate))))
+
+    for i in range(1, len(piezas)):
+        cab = cabezas[i]
+        if cab is None or cab.shape[-1] < 8:
+            continue
+        w = min(cab.shape[-1], piezas[i - 1].shape[-1])
+        if w < 8:
+            continue
+        # La cola anterior baja y la cabeza descartada sube, en la MISMA ventana.
+        piezas[i - 1][:, -w:] *= _curva(w, False)
+        piezas[i - 1][:, -w:] += cab[:, :w] * _curva(w, True)
+
+    return np.concatenate(piezas, axis=-1), rate
+
+
+def _escribir_audio(sal, flujo, pista, rate):
+    """Mete la pista en el contenedor en bloques del tamaño del codificador."""
+    bloque = flujo.codec_context.frame_size or 1024
+    total = pista.shape[-1]
+    pts = 0
+    for ini in range(0, total, bloque):
+        trozo = np.ascontiguousarray(pista[:, ini:ini + bloque])
+        if trozo.shape[-1] < bloque:
+            relleno = np.zeros((trozo.shape[0], bloque - trozo.shape[-1]), np.float32)
+            trozo = np.concatenate([trozo, relleno], axis=-1)
+        f = av.AudioFrame.from_ndarray(trozo, format="fltp", layout="stereo")
+        f.rate = rate
+        f.pts = pts
+        f.time_base = Fraction(1, rate)
+        pts += bloque
+        for p in flujo.encode(f):
+            sal.mux(p)
+    for p in flujo.encode():
+        sal.mux(p)
+
+
+# -- el montaje --------------------------------------------------------------
+
+def _montar(rutas, destino, latent_frames, crf, log):
+    """Une los clips corrigiendo las tres costuras, sin salir del proceso."""
+    dec = _medir(rutas, latent_frames, log)
     recorta = [0] + [d[0] for d in dec]
 
-    # La correccion ACUMULA: cada clip se iguala al anterior, que ya viene
-    # igualado al suyo. Corrigiendo solo contra el vecino inmediato, una deriva
-    # lenta se colaria entera sin que ninguna costura pareciera mala.
+    # La correccion de exposicion se ACUMULA: cada clip se iguala al anterior,
+    # que a su vez ya viene igualado al suyo. Corrigiendo solo contra el vecino
+    # inmediato, una deriva lenta se colaria entera a lo largo del montaje sin
+    # que ninguna costura pareciera mala por separado.
     gan = [[1.0, 1.0, 1.0]]
     for d in dec:
         gan.append([gan[-1][c] * d[1][c] for c in range(3)])
 
-    entradas, filtros, vs = [], [], []
+    info0 = _info(rutas[0])
+    fps = info0[0]
+    duraciones = []
     for i, r in enumerate(rutas):
-        entradas += ["-i", r]
-        sel = r"select=gte(n\,{}),".format(recorta[i]) if recorta[i] else ""
-        g = gan[i]
-        col = ("" if max(abs(x - 1.0) for x in g) < 0.005 else
-               "colorchannelmixer=rr={:.4f}:gg={:.4f}:bb={:.4f},".format(g[0], g[1], g[2]))
-        filtros.append("[{i}:v]{s}{c}setpts=PTS-STARTPTS[v{i}]".format(i=i, s=sel, c=col))
-        vs.append("[v{}]".format(i))
-    filtros.append("{}concat=n={}:v=1:a=0[v]".format("".join(vs), len(rutas)))
+        n = _n_fotogramas(r) - recorta[i]
+        duraciones.append(max(n, 1) / fps)
 
-    cortes = [1.0 / _fps(fp, r) for r in rutas]
-    ventanas = [cortes[i] * recorta[i] for i in range(len(rutas))]
-
-    # O lo tienen TODOS o no se toca el audio. Con unos cuantos mudos por medio,
-    # la pista concatenada duraria menos que el video y todo lo que viene detras
-    # de ese hueco quedaria descuadrado; mas vale entregar el montaje mudo y
-    # decirlo que entregarlo desincronizado sin avisar.
-    #
-    # ALL of them or none. With a few silent clips in between, the concatenated
-    # track would run shorter than the picture and everything after that gap
-    # would drift; better to hand over a silent cut and say so.
-    con_audio = [_tiene_audio(fp, r) for r in rutas]
+    con_audio = [_tiene_audio(r) for r in rutas]
     hay_audio = all(con_audio)
     if not hay_audio and any(con_audio):
         log.append("   some clips have no audio track: joining the picture only")
     elif not hay_audio:
         log.append("   no audio tracks: joining the picture only")
 
-    aes, colas, inicio = [], [], 0.0
-    for i, r in enumerate(rutas):
-        corte, n_rec = cortes[i], recorta[i]
-        dur = _duracion(fp, r) - corte * n_rec
-        if dur <= 0:
-            dur = max(0.04, _duracion(fp, r))
-        if not hay_audio:
-            inicio += dur
-            continue
-        dur_a = _duracion_audio(fp, r) - corte * n_rec
-        # Los clips salen del generador con el audio ~26 ms MAS CORTO que el
-        # video, y eso se acumula. Se estira con atempo, NO se rellena con
-        # silencio: rellenar deja un agujero a digital cero antes de cada
-        # costura, medido en -89,9 dBFS, que es el corte seco que se oye.
-        tempo = max(0.5, min(2.0, dur_a / dur)) if dur > 0 else 1.0
-        pre = ("[{i}:a]".format(i=i) if not n_rec else
-               "[{i}:a]atrim=start={t},asetpts=PTS-STARTPTS,".format(i=i, t=corte * n_rec))
-        v_sal = ventanas[i + 1] if i + 1 < len(rutas) else 0.0
-        baja = ("" if v_sal <= 0.005 else
-                ",afade=t=out:st={st}:d={v}:curve={c}".format(
-                    st=max(0.0, dur - v_sal), v=v_sal, c=CRUCE_CURVA))
-        filtros.append(
-            "{p}atempo={t:.9f},apad,atrim=0:{d},asetpts=PTS-STARTPTS{b}[fa{i}]".format(
-                p=pre, t=tempo, d=dur, b=baja, i=i))
-        aes.append("[fa{}]".format(i))
-
-        ventana = ventanas[i]
-        if i > 0 and ventana > 0.005:
-            # La parte descartada, subiendo, sobre la cola anterior: cubren el
-            # mismo instante, asi que el cruce no desplaza nada.
-            filtros.append(
-                "[{i}:a]atrim=0:{v},asetpts=PTS-STARTPTS,"
-                "afade=t=in:st=0:d={v}:curve={c},adelay={ms}|{ms}[cr{i}]".format(
-                    i=i, v=ventana, c=CRUCE_CURVA,
-                    ms=int(round((inicio - ventana) * 1000))))
-            colas.append("[cr{}]".format(i))
-        inicio += dur
-
-    mapas = ["-map", "[v]"]
+    pista, rate = (None, 0)
     if hay_audio:
-        filtros.append("{}concat=n={}:v=0:a=1[abase]".format("".join(aes), len(rutas)))
-        if colas:
-            # normalize=0: sumar sin atenuar. Con normalize=1 ffmpeg bajaria TODO
-            # el montaje para hacer sitio a unas ventanas de decimas de segundo.
-            filtros.append(
-                "[abase]{}amix=inputs={}:normalize=0:dropout_transition=0[a]".format(
-                    "".join(colas), len(colas) + 1))
-        else:
-            filtros.append("[abase]anull[a]")
-        mapas += ["-map", "[a]", "-c:a", "aac", "-b:a", "192k"]
+        pista, rate = _pista_montada(rutas, recorta, duraciones, log)
+        if pista is None:
+            log.append("   audio tracks do not match: joining the picture only")
 
-    r = _correr([ff, "-v", "error", "-y"] + entradas +
-                ["-filter_complex", ";".join(filtros)] + mapas +
-                ["-c:v", "libx264", "-crf", str(int(crf)), "-preset", "medium",
-                 "-pix_fmt", "yuv420p", destino])
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr or "ffmpeg failed").strip().splitlines()[-1])
+    primera = _abrir(rutas[0])
+    if primera is None:
+        raise RuntimeError("cannot open {}".format(os.path.basename(rutas[0])))
+    try:
+        v0 = primera.streams.video[0]
+        ancho, alto = v0.codec_context.width, v0.codec_context.height
+    finally:
+        primera.close()
+
+    tmp = destino + ".tmp.mp4"
+    sal = av.open(tmp, "w")
+    try:
+        ritmo = Fraction(fps).limit_denominator(1000)
+        vo = sal.add_stream("libx264", rate=ritmo)
+        vo.width, vo.height, vo.pix_fmt = ancho, alto, "yuv420p"
+        # La base de tiempos se fija a mano: el codec no la tiene hasta que se
+        # abre el flujo, y los fotogramas se numeran antes de eso.
+        # Set by hand: the codec has none until the stream is opened, and frames
+        # are numbered before that happens.
+        base_t = Fraction(1, 1) / ritmo
+        vo.codec_context.time_base = base_t
+        vo.options = {"crf": str(int(crf)), "preset": "medium"}
+        ao = None
+        if pista is not None:
+            ao = sal.add_stream("aac", rate=rate)
+            ao.layout = "stereo"
+
+        escritos = 0
+        for i, r in enumerate(rutas):
+            g = gan[i]
+            toca = max(abs(x - 1.0) for x in g) >= 0.005
+            c = _abrir(r)
+            if c is None:
+                continue
+            try:
+                v = c.streams.video[0]
+                v.thread_type = "AUTO"
+                for idx, f in enumerate(c.decode(v)):
+                    if idx < recorta[i]:
+                        continue
+                    if toca:
+                        arr = f.to_ndarray(format="rgb24").astype(np.float32)
+                        arr[..., 0] *= g[0]
+                        arr[..., 1] *= g[1]
+                        arr[..., 2] *= g[2]
+                        f = av.VideoFrame.from_ndarray(
+                            np.clip(arr, 0, 255).astype(np.uint8), format="rgb24")
+                    else:
+                        f = av.VideoFrame.from_ndarray(
+                            f.to_ndarray(format="rgb24"), format="rgb24")
+                    f.pts = escritos
+                    f.time_base = base_t
+                    escritos += 1
+                    for p in vo.encode(f):
+                        sal.mux(p)
+            finally:
+                c.close()
+        for p in vo.encode():
+            sal.mux(p)
+
+        if ao is not None:
+            _escribir_audio(sal, ao, pista, rate)
+    finally:
+        sal.close()
+
+    # A un temporal y luego os.replace: un montaje a medio escribir no debe
+    # quedarse con el nombre bueno.
+    os.replace(tmp, destino)
     return destino
 
-
-# -- el proyecto en disco ----------------------------------------------------
 
 def _nombres(path):
     """(carpeta, base, prefijo de video, prefijo de interpolado).
@@ -1051,14 +1164,7 @@ def _informe(path, latent_frames=None):
 
 def _editar(path, latent_frames, crf):
     """Une los clips de cada pista. Devuelve las lineas de consola."""
-    ff, fp = _herramientas()
     log = []
-    if not ff:
-        return ["ffmpeg not found. Install it or add it to PATH."], None
-    if not fp:
-        return ["ffprobe not found. It ships next to ffmpeg; "
-                "the editor needs it to measure the seams."], None
-
     carpeta, base, pre_v, pre_i = _nombres(path)
     titulo = _titulo(carpeta, base)
     hecho = []
@@ -1078,7 +1184,7 @@ def _editar(path, latent_frames, crf):
         log.append("{}: joining {} clips ({} seams)".format(
             etiqueta, len(rutas), len(rutas) - 1))
         try:
-            _montar(ff, fp, rutas, destino, latent_frames, crf, log)
+            _montar(rutas, destino, latent_frames, crf, log)
         except Exception as exc:
             log.append("{}: FAILED -- {}".format(etiqueta, exc))
             continue
