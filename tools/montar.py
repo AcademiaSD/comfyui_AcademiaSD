@@ -41,6 +41,8 @@ CRUCE_AUDIO = 0.25          # segundos de desvanecimiento en la cola de cada cli
 FPS = 48.0                  # solo de respaldo; los fps reales se leen de cada clip
 CRF = 16                    # visualmente indistinguible del original
 UMBRAL_RECORTE = 0.6        # por debajo de esto hay fotograma repetido
+VENTANA_BUSQUEDA = 20       # cuantos fotogramas del clip nuevo se exploran
+HUNDIMIENTO = 0.6           # el minimo debe bajar a esto de los hombros de la V
 GANANCIA_COLA = 1.0         # compensa la rampa de entrada del clip siguiente
 RAMPA_ENTRADA = 0.08        # MUCHO mas corta que la cola: solo doma el golpe inicial
 
@@ -174,90 +176,206 @@ def _ganancia(a, b):
     return g
 
 
-def _medir_costuras(rutas, tmp, forzado=None):
-    """Decide costura a costura si sobra el primer fotograma del clip siguiente.
+def _fotogramas(ruta, desde, cuantos, tmp, etq):
+    """Varios fotogramas seguidos en UNA llamada a ffmpeg.
 
-    El recorte NO puede ser incondicional. Cuando el modelo reproduce el ancla muy
-    de cerca, el primer fotograma del clip nuevo es casi identico al ultimo del
-    viejo y el movimiento se para: medido, la union cambia 4 o 5 veces MENOS que el
-    movimiento normal del clip. Pero cuando el ancla agarra flojo eso no ocurre, la
-    union ya es normal, y recortar entonces no quita un fotograma sobrante: quita
-    uno bueno y abre un salto donde no lo habia (medido, de 0,96 a 1,20).
-
-    The trim cannot be unconditional. When the model reproduces the anchor closely
-    the new clip's first frame nearly repeats the old one's last and the motion
-    stalls -- the seam changes 4-5x LESS than the clip's normal motion. But when the
-    anchor holds loosely that does not happen, the seam is already normal, and
-    trimming then removes a good frame and opens a gap that was not there.
+    Con veinte fotogramas por costura y nueve costuras, pedirlos de uno en uno
+    son casi doscientas aperturas del mismo fichero. / Consecutive frames in ONE
+    ffmpeg call: one-at-a-time means ~200 reopenings of the same file.
     """
-    decisiones = []
-    for i in range(len(rutas) - 1):
-        a, b = rutas[i], rutas[i + 1]
-        na = _n_fotogramas(a)
-        f = {}
-        for etq, ruta, idx in (("a_penu", a, na - 2), ("a_fin", a, na - 1),
-                               ("b_1", b, 0), ("b_2", b, 1)):
-            f[etq] = os.path.join(tmp, "m{}_{}.png".format(i, etq))
-            _fotograma(ruta, idx, f[etq])
-        normal = (_dif(f["a_penu"], f["a_fin"]) + _dif(f["b_1"], f["b_2"])) / 2.0
-        union = _dif(f["a_fin"], f["b_1"])
-        prop = union / normal if normal > 1e-6 else 1.0
-        # La exposicion se mide contra el fotograma QUE VA A QUEDAR tras el recorte,
-        # no contra el primero del clip. Con un recorte de 8, comparar con el
-        # fotograma 0 calcula la ganancia de una imagen que luego se tira, y el
-        # cambio de tono sobrevive a la correccion.
-        #
-        # Exposure is measured against the frame that SURVIVES the trim, not the
-        # clip's first. With a trim of 8, comparing frame 0 computes the gain of an
-        # image that is then discarded, and the tone shift outlives the correction.
-        n_rec = forzado if forzado is not None else (1 if prop < UMBRAL_RECORTE else 0)
-        sup = os.path.join(tmp, "m{}_sup.png".format(i))
-        _fotograma(b, n_rec, sup)
-        gan = _ganancia(f["a_fin"], sup)
-        try:
-            os.remove(sup)
-        except OSError:
-            pass
-        decisiones.append((prop < UMBRAL_RECORTE, prop, gan))
-        for r in f.values():
+    patron = os.path.join(tmp, "{}_%03d.png".format(etq))
+    ffmpeg(["-i", ruta, "-vf", r"select=gte(n\,{})".format(desde),
+            "-vsync", "0", "-frames:v", str(cuantos), patron])
+    return [os.path.join(tmp, "{}_{:03d}.png".format(etq, k + 1)) for k in range(cuantos)]
+
+
+def _perfil(a, b, tmp, etq):
+    """Diferencia del ultimo fotograma de A contra los primeros de B.
+
+    El clip nuevo no empieza donde acabo el viejo: empieza ANTES. El ancla es la
+    ultima latente, y cada latente salvo la primera codifica cuatro fotogramas
+    reales, asi que con `latent_frames = 2` el modelo recibe ocho fotogramas de
+    trayectoria y los vuelve a dibujar antes de continuar. El solape no es un
+    fotograma repetido: es un rebobinado.
+
+    Comparar solo el fotograma 0 no lo ve. Medido contra los veinte primeros, el
+    perfil sale en V y el minimo cae justo donde el rebobinado alcanza al clip
+    anterior:
+
+        615->616   24 25 26 24 23 21 18 12 [3] 11 15 17 19
+        618->619   29 43 50 52 51 43 33 21 [4] 21 35 45 52
+
+    The new clip does not start where the old one ended: it starts EARLIER. The
+    anchor is the last latent and every latent but the first encodes four real
+    frames, so with `latent_frames = 2` the model gets eight frames of trajectory
+    and redraws them before carrying on. The overlap is a rewind, not a repeated
+    frame, and looking only at frame 0 cannot see it.
+    """
+    na = _n_fotogramas(a)
+    fa = _fotogramas(a, na - 2, 2, tmp, etq + "a")
+    fb = _fotogramas(b, 0, VENTANA_BUSQUEDA + 1, tmp, etq + "b")
+    difs = [_dif(fa[1], x) for x in fb]
+    k = min(range(len(difs)), key=lambda i: difs[i])
+    mov = (_dif(fa[0], fa[1]) + _dif(fb[k], fb[min(k + 1, len(fb) - 1)])) / 2.0
+    # Una V de verdad se hunde muy por debajo de sus dos hombros. Si no lo hace,
+    # el perfil es plano y el minimo es ruido -- ver _decidir_recortes.
+    hombros = min(difs[0], difs[-1])
+    clara = difs[k] < HUNDIMIENTO * hombros
+    return {"k": k, "dif": difs[k], "mov": mov, "clara": clara, "fa": fa, "fb": fb}
+
+
+def _decidir_recortes(perfiles, forzado=None):
+    """Cuantos fotogramas quita cada costura.
+
+    El rebobinado dura lo mismo en TODA la serie: lo fija `latent_frames`, que no
+    cambia entre tomas. Eso permite rescatar las costuras donde el perfil sale
+    plano.
+
+    Sale plano cuando la toma esta casi quieta. Medido en una serie de diez: ocho
+    costuras dieron su minimo en 8 con movimiento normal de 3 a 21, y la novena
+    salio plana (4,6 a 5,5 de punta a punta) porque el plano apenas se movia, con
+    movimiento normal 1,16. Ahi el rebobinado sigue siendo de ocho fotogramas --
+    simplemente no se ve, porque no hay nada que se mueva. Preguntarle a esa
+    costura donde esta el corte es preguntarselo al ruido; se lo copia a sus
+    vecinas, que si lo saben.
+
+    Si NINGUNA costura tiene V, no hay rebobinado que medir y se vuelve al
+    criterio antiguo: un solo fotograma si la union cambia mucho menos de lo
+    normal, y nada si no.
+
+    The rewind lasts the same across the WHOLE series -- `latent_frames` sets it
+    and it does not change between takes -- which is what rescues the seams whose
+    profile comes out flat. It comes out flat when the shot is nearly still:
+    measured over ten clips, eight seams put their minimum at 8 with normal motion
+    of 3 to 21, and the ninth was flat (4.6 to 5.5 end to end) because the shot
+    barely moved, normal motion 1.16. The rewind is still eight frames there, it
+    just cannot be seen. Asking that seam where the cut is means asking the noise,
+    so it copies its neighbours, which do know. With no clear V anywhere there is
+    no rewind to measure and the old single-frame rule applies.
+    """
+    if forzado is not None:
+        return [forzado] * len(perfiles)
+
+    claras = [p["k"] for p in perfiles if p["clara"]]
+    if not claras:
+        return [1 if (p["dif"] / p["mov"] if p["mov"] > 1e-6 else 1.0) < UMBRAL_RECORTE
+                else 0 for p in perfiles]
+
+    # El minimo NO es donde hay que cortar: es el fotograma que REPITE. Es el que
+    # mas se parece al ultimo del clip anterior, asi que conservarlo enseña ese
+    # instante dos veces y el movimiento se para un fotograma. El corte va en el
+    # siguiente.
+    #
+    # Medido sobre nueve costuras: cortando EN el minimo, siete de ellas cambiaban
+    # entre 0,18 y 0,49 veces el movimiento normal -- el paron. Cortando un
+    # fotograma despues, seis se quedan entre 1,10 y 1,21, que es justo lo que se
+    # espera de un corte: un poco mas de cambio que un paso normal, no menos.
+    #
+    # The minimum is NOT where to cut: it is the frame that REPEATS. It is the one
+    # closest to the previous clip's last frame, so keeping it shows that instant
+    # twice and the motion stalls. Measured over nine seams: cutting AT the
+    # minimum left seven of them changing 0.18-0.49x normal motion -- the stall.
+    # Cutting one frame later puts six at 1.10-1.21x, which is what a cut should
+    # look like: slightly more change than a normal step, not less.
+    claras.sort()
+    comun = claras[len(claras) // 2] + 1      # mediana: inmune a una costura rara
+    return [p["k"] + 1 if p["clara"] else comun for p in perfiles]
+
+
+def _medir_costuras(rutas, tmp, forzado=None):
+    """Recorte y ganancia de exposicion de cada costura.
+
+    Dos pasadas obligatoriamente: la ganancia se mide contra el fotograma que va a
+    SOBREVIVIR al recorte, asi que no se puede calcular hasta saber cuanto se
+    recorta. Medirla contra el fotograma 0 cuando se van a tirar ocho calcula la
+    ganancia de una imagen que se descarta, y el cambio de tono sobrevive a la
+    correccion -- medido, la ganancia real paso de 0,775 a 0,954 al arreglarlo.
+
+    Two passes by necessity: the gain is measured against the frame that SURVIVES
+    the trim, so it cannot be computed before the trim is known.
+    """
+    perfiles = [_perfil(rutas[i], rutas[i + 1], tmp, "s{}".format(i))
+                for i in range(len(rutas) - 1)]
+    recortes = _decidir_recortes(perfiles, forzado)
+
+    salida = []
+    for p, n_rec in zip(perfiles, recortes):
+        sup = p["fb"][n_rec] if n_rec < len(p["fb"]) else p["fb"][-1]
+        gan = _ganancia(p["fa"][1], sup)
+        prop = p["dif"] / p["mov"] if p["mov"] > 1e-6 else 1.0
+        salida.append((n_rec, prop, gan, p["clara"], p["k"]))
+        for r in p["fa"] + p["fb"]:
             try:
                 os.remove(r)
             except OSError:
                 pass
-    return decisiones
+    return salida
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("primero", type=int)
-    p.add_argument("ultimo", type=int)
+    p.add_argument("primero", type=int, nargs="?")
+    p.add_argument("ultimo", type=int, nargs="?")
+    p.add_argument("--carpeta", default=None,
+                   help="monta TODOS los clips de esa carpeta, por orden de numero "
+                        "/ montage every clip in that folder, in number order")
     p.add_argument("-o", "--salida", default=None)
     p.add_argument("--recortar", type=int, default=None,
                    help="fuerza N fotogramas de recorte en cada union "
                         "/ force N frames trimmed at every seam")
+    p.add_argument("--crf", type=int, default=CRF,
+                   help="calidad de x264; sube el numero para pesar menos "
+                        "/ x264 quality; raise it for a smaller file")
     p.add_argument("--sin-igualar", action="store_true",
                    help="no igualar la exposicion entre clips / do not match exposure")
     p.add_argument("--sin-corregir", action="store_true",
                    help="concatenacion cruda, para comparar / raw concat, to compare")
     a = p.parse_args()
 
-    if a.ultimo < a.primero:
-        a.primero, a.ultimo = a.ultimo, a.primero
-    numeros = list(range(a.primero, a.ultimo + 1))
+    # Con una CARPETA se monta lo que haya dentro, por orden de numero y sin mas
+    # preguntas. Es lo que hace falta al descartar una toma del medio: el hueco
+    # que deja no es un fallo, es la seleccion, y abortar por el seria estorbar.
+    # Ademas acota la busqueda, que recorriendo `output` entero compite con
+    # cientos de mp4 ajenos.
+    #
+    # A FOLDER montages whatever is inside, in number order, no questions asked --
+    # which is what you want after discarding a take from the middle, since the gap
+    # it leaves is the selection, not a fault. It also bounds the search, which
+    # over all of `output` competes with hundreds of unrelated mp4s.
+    if a.carpeta:
+        import glob, re
+        hallados = []
+        for f in glob.glob(os.path.join(a.carpeta, "*.mp4")):
+            cifras = re.findall(r"(\d{4,6})", os.path.basename(f))
+            if cifras:
+                hallados.append((int(cifras[-1]), f))
+        hallados.sort()
+        numeros = [n for n, _ in hallados]
+        rutas = [f for _, f in hallados]
+        if not rutas:
+            print("\n  No hay ningun mp4 en {}\n".format(a.carpeta))
+            return 1
+    else:
+        if a.primero is None or a.ultimo is None:
+            print("\n  Hacen falta dos numeros de clip, o --carpeta.\n")
+            return 1
+        if a.ultimo < a.primero:
+            a.primero, a.ultimo = a.ultimo, a.primero
+        numeros = list(range(a.primero, a.ultimo + 1))
 
-    # Se comprueban TODOS antes de empezar: mejor no hacer nada que entregar un
-    # montaje al que le falta un clip por el medio sin avisar.
-    # Every clip is checked before starting: better to do nothing than hand over a
-    # cut with a clip silently missing from the middle.
-    rutas, faltan = [], []
-    for n in numeros:
-        r = _buscar_clip(n)
-        (rutas if r else faltan).append(r if r else n)
-    if faltan:
-        print("\n  No existen estos clips: {}".format(
-            ", ".join(str(x) for x in faltan)))
-        print("  Buscados por su numero en: {}\n".format(ORIGEN_DIR))
-        return 1
+        # Se comprueban TODOS antes de empezar: mejor no hacer nada que entregar
+        # un montaje al que le falta un clip por el medio sin avisar.
+        # Every clip is checked before starting: better to do nothing than hand
+        # over a cut with a clip silently missing from the middle.
+        rutas, faltan = [], []
+        for n in numeros:
+            r = _buscar_clip(n)
+            (rutas if r else faltan).append(r if r else n)
+        if faltan:
+            print("\n  No existen estos clips: {}".format(
+                ", ".join(str(x) for x in faltan)))
+            print("  Buscados por su numero en: {}\n".format(ORIGEN_DIR))
+            return 1
     if len(rutas) < 2:
         print("\n  Hacen falta al menos dos clips para que haya una union.\n")
         return 1
@@ -293,13 +411,15 @@ def main():
                 pass
         print()
         igualar = not a.sin_igualar
-        for k, (rec, prop, g) in enumerate(dec):
-            print("   union {} -> {}   proporcion {:.2f}   ganancia {:.3f}/{:.3f}/{:.3f}   {}".format(
-                numeros[k], numeros[k + 1], prop, g[0], g[1], g[2],
-                "recorta" if rec else "empalma ya"))
+        for k, (rec, prop, g, clara, kmin) in enumerate(dec):
+            print("   union {} -> {}   minimo en {:>2}{}   ganancia {:.3f}/{:.3f}/{:.3f}   {}".format(
+                numeros[k], numeros[k + 1], kmin,
+                "   " if clara else " (?)",
+                g[0], g[1], g[2],
+                "recorta {}".format(rec) if rec else "empalma ya"))
         print()
         # recorta[i]: si el clip i entra sin su primer fotograma
-        recorta = [0] + [(a.recortar if a.recortar is not None else (1 if d[0] else 0)) for d in dec]
+        recorta = [0] + [d[0] for d in dec]
 
         # La correccion de exposicion se ACUMULA: cada clip se iguala al anterior,
         # que a su vez ya viene igualado al suyo. Corrigiendo solo contra el vecino
@@ -317,7 +437,7 @@ def main():
         entradas, filtros, vs = [], [], []
         for i, r in enumerate(rutas):
             entradas += ["-i", r]
-            sel = "select=gte(n\,{}),".format(recorta[i]) if recorta[i] else ""
+            sel = r"select=gte(n\,{}),".format(recorta[i]) if recorta[i] else ""
             g = gan[i]
             col = "" if (not igualar or max(abs(x - 1.0) for x in g) < 0.005) else                   "colorchannelmixer=rr={:.4f}:gg={:.4f}:bb={:.4f},".format(g[0], g[1], g[2])
             filtros.append("[{i}:v]{s}{c}setpts=PTS-STARTPTS[v{i}]".format(i=i, s=sel, c=col))
@@ -386,36 +506,58 @@ def main():
         # with a fade-up while the previous one fades down across the same window.
         # They genuinely cross, like acrossfade, without shortening anything, because
         # the overlap is not invented: it was already there.
+        # La bajada del clip anterior se hace SOBRE SU PROPIA pista, no anadiendo
+        # encima una copia invertida. Restar una copia desvanecida de la cola a la
+        # cola misma deja `cola x (1 - desvanecido)`, que es un fundido de ENTRADA:
+        # el clip anterior se calla al empezar la ventana y vuelve a tope justo en
+        # el corte, al reves de lo que se quiere. Medido, el resultado era un hoyo
+        # de 180 ms seguido de un golpe. (`volume=-1.0` invierte la fase de verdad:
+        # sumar una senal con esa copia da -91 dB, silencio digital.)
+        #
+        # The previous clip comes down ON ITS OWN track rather than by adding an
+        # inverted copy on top. Subtracting a faded copy of the tail from the tail
+        # leaves `tail x (1 - fadeout)`, which is a fade IN: the outgoing clip goes
+        # silent as the window opens and returns to full exactly at the cut, the
+        # wrong way round. (`volume=-1.0` really does invert: summing a signal with
+        # that copy gives -91 dB.)
+        cortes = [1.0 / _fps(r) for r in rutas]        # por clip, no global
+        ventanas = [cortes[i] * recorta[i] for i in range(len(rutas))]
+
         aes, colas, inicio = [], [], 0.0
         for i, r in enumerate(rutas):
-            corte = 1.0 / _fps(r)            # por clip, no global
+            corte = cortes[i]
             n_rec = recorta[i]
             dur = _duracion(r) - corte * n_rec                    # duracion de VIDEO
             dur_a = _duracion_audio(r) - corte * n_rec
             tempo = max(0.5, min(2.0, dur_a / dur)) if dur > 0 else 1.0
             pre = ("[{i}:a]".format(i=i) if not n_rec else
                    "[{i}:a]atrim=start={t},asetpts=PTS-STARTPTS,".format(i=i, t=corte * n_rec))
-            filtros.append("{p}atempo={t:.9f},apad,atrim=0:{d},asetpts=PTS-STARTPTS[fa{i}]".format(
-                p=pre, t=tempo, d=dur, i=i))
+
+            # curve=qsin (potencia constante). Las dos mitades del cruce son dos
+            # generaciones del mismo instante: se parecen, pero no coinciden
+            # muestra a muestra, asi que un cruce lineal dejaria un hoyo de 3 dB en
+            # mitad de la ventana.
+            # qsin (constant power): the two halves of the crossfade are two
+            # generations of the same instant -- alike but not sample-identical --
+            # so a linear cross would dip ~3 dB mid-window.
+            v_sal = ventanas[i + 1] if i + 1 < len(rutas) else 0.0
+            baja = ("" if v_sal <= 0.005 else
+                    ",afade=t=out:st={st}:d={v}:curve=qsin".format(st=dur - v_sal, v=v_sal))
+            filtros.append(
+                "{p}atempo={t:.9f},apad,atrim=0:{d},asetpts=PTS-STARTPTS{b}[fa{i}]".format(
+                    p=pre, t=tempo, d=dur, b=baja, i=i))
             aes.append("[fa{}]".format(i))
 
-            ventana = corte * n_rec
+            ventana = ventanas[i]
             if i > 0 and ventana > 0.005:
                 # la parte descartada, subiendo, colocada sobre la cola anterior
                 # the discarded head, fading up, laid over the previous tail
                 filtros.append(
-                    "[{i}:a]atrim=0:{v},asetpts=PTS-STARTPTS,afade=t=in:st=0:d={v},"
+                    "[{i}:a]atrim=0:{v},asetpts=PTS-STARTPTS,"
+                    "afade=t=in:st=0:d={v}:curve=qsin,"
                     "adelay={ms}|{ms}[cr{i}]".format(
                         i=i, v=ventana, ms=int(round((inicio - ventana) * 1000))))
                 colas.append("[cr{}]".format(i))
-                # y la cola anterior bajando en esa misma ventana
-                # and the previous tail coming down across the same window
-                filtros.append(
-                    "[{j}:a]atrim=start={st},asetpts=PTS-STARTPTS,afade=t=out:st=0:d={v},"
-                    "volume=-1.0,adelay={ms}|{ms}[cb{i}]".format(
-                        j=i - 1, st=_duracion_audio(rutas[i - 1]) - ventana, v=ventana,
-                        ms=int(round((inicio - ventana) * 1000)), i=i))
-                colas.append("[cb{}]".format(i))
             inicio += dur
 
         filtros.append("{}concat=n={}:v=0:a=1[abase]".format("".join(aes), len(rutas)))
@@ -431,7 +573,7 @@ def main():
 
         ffmpeg(entradas + ["-filter_complex", ";".join(filtros),
                            "-map", "[v]", "-map", "[a]",
-                           "-c:v", "libx264", "-crf", str(CRF), "-preset", "medium",
+                           "-c:v", "libx264", "-crf", str(a.crf), "-preset", "medium",
                            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
                            destino])
         print("  {} union(es), {} recortada(s), exposicion {}, audio {:.0f} ms".format(

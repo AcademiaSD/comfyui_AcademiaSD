@@ -10,3 +10,9 @@ nodes/gemini_api_key.txt
 # Copias de trabajo
 *_bak.py
 *_bak.js
+
+# Datos del usuario, no del repo: lo que se guarda desde los nodos.
+# prompt_projects/ lo crea Multi-Prompt al salvar un proyecto, y ahi van los
+# prompts de quien lo use. / User data written by the nodes, not repo content.
+prompt_lists/
+prompt_projects/

@@ -58,23 +58,37 @@ union 608->609   22 23 24 21 19 17 14 8 [3] 9 13 15 17 19
 union 609->610   30 37 40 42 42 39 33 21 [7] 22 34 42 51 58
 ```
 
-**No recortar a ciegas.** Cuando el ancla agarra flojo no hay solape, y recortar
-entonces quita un fotograma bueno: medido, una unión pasó de 0,96 a 1,20 al
-recortarla sin necesidad.
+**El corte va en el mínimo MÁS UNO.** Corregido el 15 sep 2026: el mínimo es el
+fotograma que **repite** —el que más se parece al último del clip anterior—, no
+dónde cortar. Conservarlo enseña ese instante dos veces y el movimiento se para.
 
-**Criterio con un solo fotograma de referencia** (lo que hace hoy el script):
+Medido sobre nueve costuras de una serie de diez:
+
+| se corta en | resultado en la costura |
+|---|---|
+| el mínimo | 7 de 9 cambian **0,18–0,49 ×** el movimiento normal — el parón |
+| el mínimo + 1 | 6 de 9 quedan en **1,10–1,21 ×**, que es lo que da un corte |
+
+Un corte cambia algo **más** que un paso normal, nunca menos. Si sale por debajo,
+sobra un fotograma.
+
+**Si el perfil sale plano, el mínimo es ruido.** Pasa cuando el plano está casi
+quieto: en esa misma serie, ocho costuras dieron su V con movimiento normal de 3
+a 21, y la novena salió plana de punta a punta (4,6 a 5,5) con movimiento 1,16.
+El rebobinado seguía siendo de ocho fotogramas, solo que no se veía porque no
+había nada que se moviera. Como su duración la fija `latent_frames` y no cambia
+entre tomas, esa costura copia la mediana de las que sí tienen V.
+
+**Criterio antiguo, de un solo fotograma** (por qué se abandonó):
 
 ```
 proporcion = |A_ultimo - B_primero| / movimiento_normal
-movimiento_normal = media(|A_penultimo - A_ultimo|, |B_primero - B_segundo|)
-
 proporcion < 0,6   ->  fotograma repetido, recortar
-proporcion >= 0,6  ->  no tocar
 ```
 
-Esto **falla con `latent_frames >= 2`**: con 8 fotogramas de rebobinado la
-proporción sale alta (2,57) y concluye que no hay que recortar, justo al revés.
-La búsqueda del mínimo lo resuelve para cualquier valor.
+Falla con `latent_frames >= 2`: con 8 fotogramas de rebobinado la proporción sale
+alta (2,57) y concluye que no hay que recortar, justo al revés. La búsqueda del
+mínimo lo resuelve para cualquier valor.
 
 ### 3.2 Exposición
 
@@ -134,6 +148,32 @@ intacta: 21 ms constantes con 2, 4 y 7 clips.
 
 **Cuanto mayor el rebobinado, mejor el cruce.** Lo que parecía el precio de dar
 más trayectoria al modelo también paga el audio.
+
+**La bajada se hace en la propia pista del clip**, con `afade=t=out:curve=qsin`.
+Corregido el 15 sep 2026. La versión anterior sumaba encima una copia de la cola
+con `volume=-1.0`, y eso está mal por dos motivos:
+
+- `volume=-1.0` **invierte la fase**, no baja 1 dB. Comprobado: sumar una señal
+  con esa copia da −91 dB, silencio digital.
+- Restarle a la cola una copia desvanecida deja `cola × (1 − desvanecido)`, que
+  es un fundido **de entrada**: el clip saliente se callaba al abrirse la ventana
+  y volvía a tope justo en el corte. Al revés de lo que se quiere. Medido, un
+  hoyo de 180 ms seguido de un golpe.
+
+`qsin` y no lineal porque las dos mitades del cruce son **dos generaciones del
+mismo instante**: se parecen pero no coinciden muestra a muestra, así que un
+cruce lineal dejaría unos 3 dB de hoyo en mitad de la ventana.
+
+### 3.4 Audio opcional
+
+`-audio` es una convención del guardador de vídeo, no un hecho: quien no guarde
+el proyecto con sonido tendrá `vid_loop_00001.mp4` a secas. Nunca se deduce del
+nombre, se le pregunta al fichero — lo que rompe el montaje es referenciar
+`[i:a]` de un clip mudo, porque ffmpeg no encuentra el flujo y se cae entero.
+
+Y **o lo tienen todos o no se toca el audio**: con unos cuantos mudos por medio
+la pista concatenada duraría menos que la imagen y todo lo posterior al hueco
+quedaría descuadrado. Mejor entregarlo mudo y decirlo.
 
 ---
 
