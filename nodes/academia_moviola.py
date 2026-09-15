@@ -120,7 +120,7 @@ def _ruta_latente(carpeta, nombre, n):
 
 # -- latentes e imagenes -----------------------------------------------------
 
-def _ultima_latente(samples):
+def _ultima_latente(samples, cuantos=1):
     """El ultimo fotograma latente, venga con la forma que venga.
 
     H3 empaqueta video y audio en un NestedTensor y aqui solo interesa el video,
@@ -134,7 +134,8 @@ def _ultima_latente(samples):
     if getattr(samples, "is_nested", False):
         samples = samples.tensors[0]
     if samples.ndim == 5:
-        return samples[:, :, -1:, :, :].clone()
+        n = max(1, min(int(cuantos), int(samples.shape[2])))
+        return samples[:, :, -n:, :, :].clone()
     return samples.clone()
 
 
@@ -303,6 +304,7 @@ class AcademiaMoviolaOut:
         return {
             "required": {
                 "project_path": ("STRING", {"default": "moviola/toma"}),
+                "latent_frames": ("INT", {"default": 1, "min": 1, "max": 8}),
             },
             "optional": {
                 "images": ("IMAGE",),
@@ -320,7 +322,7 @@ class AcademiaMoviolaOut:
     def IS_CHANGED(s, **kwargs):
         return float("NaN")
 
-    def guardar(self, project_path, images=None, latent=None):
+    def guardar(self, project_path, latent_frames=1, images=None, latent=None):
         if images is None and latent is None:
             raise ValueError("[Moviola Out] Conecta images, latent o ambos. "
                              "/ Connect images, latent or both.")
@@ -345,7 +347,29 @@ class AcademiaMoviolaOut:
                 print("[Moviola Out] safetensors no disponible; la latente no se guarda "
                       "/ safetensors unavailable, latent not saved")
             else:
-                z = _ultima_latente(latent["samples"])
+                # CUANTOS fotogramas latentes se guardan, y por que importa.
+                #
+                # El VAE de video de H3 comprime en el tiempo con FRAME_PER_TOKEN =
+                # (1, 4, 4, 4, 4): salvo el primero, cada fotograma latente codifica
+                # CUATRO fotogramas reales. Asi que el ultimo no es una imagen fija,
+                # lleva dentro la direccion y la velocidad del movimiento -- que es
+                # justo lo que una imagen codificada no tiene, y por lo que anclar
+                # con un PNG deja que la camara arranque en sentido contrario.
+                #
+                # Guardar mas de uno da mas trayectoria, a cambio de que el clip
+                # nuevo empiece reproduciendo mas pasado: cada fotograma latente son
+                # ~4 fotogramas reales que hay que recortar luego en el montaje.
+                #
+                # HOW MANY latent frames get saved, and why it matters. H3's video
+                # VAE compresses time as FRAME_PER_TOKEN = (1, 4, 4, 4, 4): every
+                # latent frame but the first encodes FOUR real frames. So the last
+                # one is not a still, it carries the direction and speed of the
+                # motion -- exactly what an encoded image lacks, which is why
+                # anchoring with a PNG lets the camera start off the wrong way.
+                # Saving more gives more trajectory, at the cost of the new clip
+                # opening by replaying more of the past: roughly 4 real frames per
+                # latent frame, to be trimmed later in the edit.
+                z = _ultima_latente(latent["samples"], latent_frames)
                 # A un temporal y luego os.replace: un fichero a medio escribir lo
                 # leeria Guide en la vuelta siguiente y reventaria.
                 # Temp file then os.replace: a half-written file would be read by
