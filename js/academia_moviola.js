@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
 const ANCHO_MIN = 380;
 
@@ -54,6 +55,15 @@ app.registerExtension({
                 .asd-mv-undo { background: #7a4a25; } .asd-mv-undo:hover:enabled { background: #96591f; }
                 .asd-mv-wipe { background: #7a2a2a; } .asd-mv-wipe:hover:enabled { background: #99302f; }
                 .asd-mv-refresh { background: #3d5a4a; } .asd-mv-refresh:hover:enabled { background: #4a6e5a; }
+                .asd-mv-player { display: flex; flex-direction: column; gap: 6px; }
+                .asd-mv-tabs { display: flex; gap: 6px; }
+                .asd-mv-tab { flex: 1; cursor: pointer; padding: 5px 8px; border-radius: 5px;
+                    border: 1px solid #3a3a3a; background: #1c1c1c; color: #9a9a9a;
+                    font-size: 10.5px; font-weight: 600; transition: .15s; }
+                .asd-mv-tab:hover { border-color: #55606e; color: #ccc; }
+                .asd-mv-tab.sel { background: #22303f; border-color: #4a8fe0; color: #cfe3ff; }
+                .asd-mv-video { width: 100%; display: block; border-radius: 6px;
+                    background: #000; border: 1px solid #333; }
                 .asd-mv-console { background: #0d0d0d; border: 1px solid #444; border-radius: 6px;
                     padding: 8px; color: #b8d8b8; font-family: Consolas, monospace; font-size: 11px;
                     line-height: 1.45; white-space: pre-wrap; word-break: break-word;
@@ -90,6 +100,69 @@ app.registerExtension({
             consola.innerText = "Ready.";
             inner.appendChild(consola);
             this._consola = consola;
+
+            // ---- reproductor ----
+            //
+            // Aparece solo cuando el montaje existe. Terminar el proceso mandando
+            // a buscar el fichero por el explorador es una barrera tonta justo en
+            // el ultimo paso, y no todo el mundo se maneja ahi.
+            //
+            // Shows up only when the cut exists. Ending the process by sending
+            // people to hunt for the file in the file manager is a silly barrier
+            // at the very last step.
+            const cajaVideo = document.createElement("div");
+            cajaVideo.className = "asd-mv-player";
+            cajaVideo.hidden = true;
+            const pestanas = document.createElement("div");
+            pestanas.className = "asd-mv-tabs";
+            const video = document.createElement("video");
+            video.className = "asd-mv-video";
+            video.controls = true;
+            video.preload = "metadata";
+            cajaVideo.append(pestanas, video);
+            inner.appendChild(cajaVideo);
+
+            let finales = [];
+            let cualVideo = 0;
+
+            const pintarVideo = () => {
+                if (!finales.length) {
+                    cajaVideo.hidden = true;
+                    // Parar la descarga de un mp4 que ya no se muestra.
+                    video.removeAttribute("src");
+                    video.load();
+                    ajustar();
+                    return;
+                }
+                if (cualVideo >= finales.length) cualVideo = 0;
+                cajaVideo.hidden = false;
+
+                pestanas.innerHTML = "";
+                finales.forEach((f, i) => {
+                    const b = document.createElement("button");
+                    b.className = "asd-mv-tab" + (i === cualVideo ? " sel" : "");
+                    b.innerText = `${f.label}  ·  ${f.mb} MB`;
+                    b.addEventListener("click", () => {
+                        if (i === cualVideo) return;
+                        cualVideo = i;
+                        pintarVideo();
+                    });
+                    pestanas.appendChild(b);
+                });
+
+                const f = finales[cualVideo];
+                // `mtime` en la URL: sin el, rehacer el montaje deja al navegador
+                // sirviendo de cache el video anterior, con el mismo nombre.
+                // `mtime` in the URL: without it, re-cutting leaves the browser
+                // serving the previous video from cache under the same name.
+                const url = api.apiURL(`/view?filename=${encodeURIComponent(f.filename)}`
+                    + `&subfolder=${encodeURIComponent(f.subfolder)}&type=output&t=${f.mtime}`);
+                if (video.getAttribute("src") !== url) {
+                    video.setAttribute("src", url);
+                    video.load();
+                }
+                ajustar();
+            };
 
             // ---- tamaño ----
             //
@@ -271,6 +344,12 @@ app.registerExtension({
                     const r = await pedirJSON(url, Object.assign(await cuerpo(), extra || {}));
                     if (r.status === "success") {
                         escribir((r.log || [r.text || ""]).join("\n").trim() || "Done.");
+                        // Toda respuesta trae los montajes que existan, asi que el
+                        // reproductor aparece y desaparece solo: tras montar, y
+                        // tras borrarlo todo. / Every response carries whatever
+                        // cuts exist, so the player appears and vanishes on its own.
+                        finales = Array.isArray(r.finals) ? r.finals : [];
+                        pintarVideo();
                     } else {
                         escribir("Error: " + (r.message || "unknown"));
                     }

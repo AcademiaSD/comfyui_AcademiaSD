@@ -420,6 +420,16 @@ refused.
 One prompt per pass, indexed by Moviola In's `next_index`. Past the last one it
 holds on the last prompt rather than going blank.
 
+A **filmstrip** on top and one wide editor below, rather than a stack of boxes
+that grows without end. Each card carries the frame its take *starts from* — the
+previous take's last — so the anchor sits next to the prompt written for it.
+Click to switch, `+` to add, and the wheel scrolls the strip sideways.
+
+The split is deliberate. A row of side-by-side cards looks tidy until a
+1,500-character prompt goes in one: navigating and editing want opposite shapes,
+so each gets its own. The node's height no longer depends on how many loops
+there are.
+
 *   **Global Prompt** — written once, placed **in front of** every pass. It is the
     header a series shares: who the subject is, the look. Holding ten copies of it
     means holding it wrong the moment one gets edited.
@@ -445,6 +455,10 @@ whole cut nine times to throw eight away.
 *   **🗑 Delete Last Loop** — removes the highest take: its latent, its videos and
     **every file numbered with it**. Press again to walk further back.
 *   **🗑 Delete All Loops** / **🔄 Refresh**.
+
+A **player** appears once a cut exists, with tabs for the plain and the
+interpolated file when both are there. Finishing the process by sending people to
+hunt for the file in a folder is a silly barrier at the very last step.
 
 Both delete buttons name the project in the confirmation, and the console reports
 what actually remains after the fact, read back from disk.
@@ -490,6 +504,7 @@ approaches that did **not** work and why, which is the part usually lost.
 
 ```
 output/<project>/
+    loop_00000_.png             the base image         (Moviola In)
     loop_00001_.safetensors     latent anchor          (Moviola Out)
     loop_00001_.png             last frame             (Moviola Out)
     vid_loop_00001.mp4          the take               (video saver)
@@ -499,6 +514,17 @@ output/<project>/
 
 Numbering is read as an **integer**, not alphabetically — `_00010_` would sort
 before `_00009_` as soon as the loop passed nine.
+
+**Zero is the base image**, written the first time Moviola In serves it. It
+completes the strip — take 1 starts from *something* too — and records which
+image the series was made from, which nothing did before. It is inert: `_ultimo`
+starts at 0 and demands a higher number, so it is never served as an anchor, and
+deleting takes walks `while n > 0` and never touches it.
+
+A series can also start with **no image at all**: Moviola In then serves nothing
+and the first take is plain text-to-video. `None` is valid downstream —
+ReferenceToVideo skips null references and ImageToVideo's `first_frame` is
+optional — so only the first card of the strip stays empty.
 
 > **This is a dev branch.** Measured and working end to end, but young.
 

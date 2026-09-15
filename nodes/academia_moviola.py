@@ -146,6 +146,45 @@ def _ultima_latente(samples, cuantos=1):
     return samples.clone()
 
 
+def _guardar_base(carpeta, nombre, imagen):
+    """Deja la imagen de partida como `nombre_00000_.png`.
+
+    El fotograma que arranca la vuelta N es el ultimo de la N-1, y esa cadena se
+    corta en la primera: la imagen base no vive en la carpeta del proyecto. Con
+    el cero la cadena queda completa y ademas queda constancia de CON QUE imagen
+    se hizo la serie, que hoy no consta en ningun sitio -- si se cambia la
+    referencia y se regenera, no hay forma de saber cual uso la serie anterior.
+
+    El cero no estorba a nadie: `_ultimo` exige `n > mejor_n` partiendo de 0, asi
+    que nunca se sirve como ancla, y `_borrar` recorre `while n > 0`, asi que
+    tampoco se lo lleva por delante al deshacer una toma.
+
+    Saves the starting image as `name_00000_.png`. Frame N starts from take N-1's
+    last, and that chain breaks at the first take because the base image does not
+    live in the project folder. Zero completes it and records WHICH image the
+    series was made from, which nothing does today. It is inert: `_ultimo` starts
+    at 0 and demands `n > best`, so it is never served as an anchor, and `_borrar`
+    walks `while n > 0`, so undoing takes never removes it.
+    """
+    destino = os.path.join(carpeta, "{}_{:05}_.png".format(nombre, 0))
+    if os.path.exists(destino):
+        return
+    try:
+        os.makedirs(carpeta, exist_ok=True)
+        # `format` explicito: PIL deduce el formato de la extension y aqui se
+        # escribe a un `.tmp`, que no le dice nada.
+        # Explicit `format`: PIL infers it from the extension and this writes to
+        # a `.tmp` first, which tells it nothing.
+        tmp = destino + ".tmp"
+        _tensor_a_pil(imagen).save(tmp, format="PNG", compress_level=4)
+        os.replace(tmp, destino)
+    except Exception as exc:
+        # Es documentacion, no parte del bucle: si falla, la serie sigue.
+        # Documentation, not part of the loop: a failure must not stop the run.
+        print("[Moviola In] no se pudo guardar la base / could not save the base: "
+              "{}".format(exc))
+
+
 def _tensor_a_pil(imagen):
     x = imagen[0] if imagen.ndim == 4 else imagen
     x = (x.detach().cpu().float().clamp(0.0, 1.0).numpy() * 255.0).astype(np.uint8)
@@ -209,14 +248,28 @@ class AcademiaMoviolaIn:
 
         if n == 0:
             if base_image is None:
-                raise ValueError(
-                    "[Moviola In] Primera vuelta: no hay fotogramas en '{}' y falta "
-                    "base_image. / First pass: no frames in '{}' and base_image is "
-                    "missing.".format(carpeta, carpeta))
-            imagen = base_image
-            origen = "base"
-            print("[Moviola In v{}] carpeta vacia, sirviendo la base "
-                  "/ empty folder, serving the base".format(ACADEMIASD_VERSION))
+                # Primera vuelta SIN imagen: texto a video puro, sin ancla. Esto
+                # antes era un error, pero nada impide arrancar una serie solo con
+                # el prompt -- y `None` es valido aguas abajo: ReferenceToVideo
+                # hace `if img is None: continue` al recorrer ref_images, y en
+                # ImageToVideo `first_frame` es opcional. De la segunda vuelta en
+                # adelante ya hay fotograma y todo sigue igual.
+                #
+                # First pass with NO image: plain text-to-video, no anchor. This
+                # used to raise, but nothing stops a series starting from the
+                # prompt alone, and `None` is valid downstream: ReferenceToVideo
+                # skips null refs and ImageToVideo's `first_frame` is optional.
+                imagen = None
+                origen = "text only"
+                print("[Moviola In v{}] primera vuelta sin imagen base: texto a "
+                      "video / first pass, no base image: text to video".format(
+                          ACADEMIASD_VERSION))
+            else:
+                imagen = base_image
+                origen = "base"
+                _guardar_base(carpeta, nombre, base_image)
+                print("[Moviola In v{}] carpeta vacia, sirviendo la base "
+                      "/ empty folder, serving the base".format(ACADEMIASD_VERSION))
         else:
             img = Image.open(fichero).convert("RGB")
             imagen = torch.from_numpy(np.array(img).astype(np.float32) / 255.0).unsqueeze(0)
@@ -224,7 +277,8 @@ class AcademiaMoviolaIn:
             print("[Moviola In v{}] sirviendo {} / serving {}".format(
                 ACADEMIASD_VERSION, origen, origen))
 
-        return {"ui": {"images": _vista_previa(imagen, nombre + "_in")},
+        vista = _vista_previa(imagen, nombre + "_in") if imagen is not None else []
+        return {"ui": {"images": vista},
                 "result": (imagen, n + 1, origen, project_path)}
 
 
@@ -1039,8 +1093,75 @@ async def moviola_status(request):
     try:
         datos = await request.json()
         lf = int(datos.get("latent_frames") or 0)
+        path = _path_de(datos)
+        return web.json_response({
+            "status": "success",
+            "text": await _en_hilo(_informe, path, lf),
+            "finals": await _en_hilo(_montajes, path),
+        })
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+def _frames(path):
+    """Los fotogramas del proyecto, en orden, para la tira del Multi-Prompt.
+
+    Se devuelven `filename` y `subfolder` en vez de una URL montada: quien pinta
+    es ComfyUI, que ya sirve `output/` por `/view`, y armar aqui la ruta seria
+    fijar en el servidor un detalle del cliente.
+
+    El cero entra como el resto. Es el fotograma con el que arranca la vuelta 1
+    cuando hubo imagen base; si no lo hay, esa vuelta empezo solo con el prompt.
+
+    Returns `filename` and `subfolder` rather than a built URL: ComfyUI already
+    serves `output/` through `/view`, and assembling the path here would pin a
+    client detail into the server. Zero is included like any other -- it is what
+    take 1 starts from when there was a base image.
+    """
+    carpeta, base, _, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return []
+    raiz = os.path.abspath(folder_paths.get_output_directory())
+    sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
+    if sub == ".":
+        sub = ""
+    pat = re.compile(PATRON.format(re.escape(base), "png"))
+    salida = []
+    for f in sorted(os.listdir(carpeta)):
+        m = pat.match(f)
+        if m:
+            salida.append({"n": int(m.group(1)), "filename": f, "subfolder": sub})
+    salida.sort(key=lambda x: x["n"])
+    return salida
+
+
+def _montajes(path):
+    """Los ficheros ya montados que existan, para el reproductor."""
+    carpeta, base, _, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return []
+    raiz = os.path.abspath(folder_paths.get_output_directory())
+    sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
+    if sub == ".":
+        sub = ""
+    titulo = _titulo(carpeta, base)
+    salida = []
+    for etiqueta, sufijo in (("Video", "_final"), ("Interpolated", "_final_int")):
+        f = "{}{}.mp4".format(titulo, sufijo)
+        completo = os.path.join(carpeta, f)
+        if os.path.exists(completo):
+            salida.append({"label": etiqueta, "filename": f, "subfolder": sub,
+                           "mb": round(os.path.getsize(completo) / 1048576.0, 1),
+                           "mtime": int(os.path.getmtime(completo))})
+    return salida
+
+
+@PromptServer.instance.routes.post("/academia/moviola/frames")
+async def moviola_frames(request):
+    try:
+        datos = await request.json()
         return web.json_response({"status": "success",
-                                  "text": await _en_hilo(_informe, _path_de(datos), lf)})
+                                  "frames": await _en_hilo(_frames, _path_de(datos))})
     except Exception as exc:
         return web.json_response({"status": "error", "message": str(exc)}, status=400)
 
@@ -1055,7 +1176,8 @@ async def moviola_edit(request):
         log, _ = await _en_hilo(_editar, path, lf, crf)
         log.append("")
         log.append(await _en_hilo(_informe, path, lf))
-        return web.json_response({"status": "success", "log": log})
+        return web.json_response({"status": "success", "log": log,
+                                  "finals": await _en_hilo(_montajes, path)})
     except Exception as exc:
         return web.json_response({"status": "error", "message": str(exc)}, status=400)
 
@@ -1067,7 +1189,8 @@ async def moviola_delete(request):
         path = _path_de(datos)
         todos = bool(datos.get("all"))
         log, _ = await _en_hilo(_borrar, path, todos)
-        return web.json_response({"status": "success", "log": log})
+        return web.json_response({"status": "success", "log": log,
+                                  "finals": await _en_hilo(_montajes, path)})
     except Exception as exc:
         return web.json_response({"status": "error", "message": str(exc)}, status=400)
 

@@ -1,21 +1,30 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
-const MIN_WIDTH = 440;
+const MIN_WIDTH = 480;
 const DEFAULT_TEXT = "[VISUAL]:\n[SPEECH]:\n[SOUNDS]:";
+
+// El widget DOM no ocupa todo lo que se le asigna. El frontend hace
+//     let t = n.margin;            // margin = 10
+//     r.pos  = [x + t, y + t + n.y];
+//     r.size = [..., computedHeight - t * 2];
+// o sea que lo baja 10 px y le recorta 20 de alto. Sin devolver esos 20, el
+// contenido se sale por debajo del borde del nodo.
+//
+// The DOM widget does not get all the height it is assigned: the frontend
+// offsets it by `margin` and takes 2 * margin off its size.
+const MARGEN_DOM = 10;
 
 // Oculta un widget nativo sin dejar su wrapper flotando sobre el canvas.
 //
 // El frontend moderno decide la visibilidad por la propiedad `hidden`, NO por
-// `type`. Y la altura NUNCA puede ser negativa: LiteGraph calcula
-// computedHeight = computeSize()[1] + 4 y ComfyUI escribe
-// style.height = (computedHeight - 2 * margin) + "px". Un valor negativo es CSS
+// `type`. Y la altura NUNCA puede ser negativa: un valor negativo es CSS
 // invalido, el navegador lo descarta y el wrapper cae a height: 100%, o sea un
 // rectangulo invisible a pantalla completa que se come todos los clics.
 //
-// Hides a native widget without leaving its wrapper floating over the canvas.
-// Visibility is decided by `hidden`, not by `type`, and the height can NEVER be
-// negative: that is invalid CSS, the browser drops it and the wrapper falls back
-// to height: 100% -- a full-screen invisible rectangle that eats every click.
+// Hides a native widget without leaving its wrapper over the canvas. Visibility
+// is decided by `hidden`, not `type`, and the height can NEVER be negative:
+// that is invalid CSS and the wrapper falls back to a full-screen rectangle.
 function ocultarWidget(node, nombre) {
     const w = node.widgets ? node.widgets.find((x) => x.name === nombre) : null;
     if (!w) return null;
@@ -31,10 +40,79 @@ function ocultarWidget(node, nombre) {
     return w;
 }
 
-async function pedirJSON(url, opciones) {
-    const r = await fetch(url, opciones);
+async function pedirJSON(url, cuerpo) {
+    const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cuerpo),
+    });
     return await r.json();
 }
+
+const CSS = `
+.asd-pm-wrap { display: flex; flex-direction: column; gap: 8px; }
+.asd-pm-box { background: #1f1f1f; border: 1px solid #3a3a3a; border-radius: 8px;
+    padding: 9px 10px; display: flex; flex-direction: column; gap: 7px; }
+.asd-pm-head { display: flex; justify-content: space-between; align-items: center;
+    color: #cfcfcf; font-size: 11px; font-weight: 700; letter-spacing: .3px;
+    text-transform: uppercase; }
+.asd-pm-note { color: #7b7b7b; font-size: 10px; font-weight: 400; text-transform: none;
+    letter-spacing: 0; }
+.asd-pm-ta { width: 100%; padding: 9px 10px; box-sizing: border-box; border: 1px solid #454545;
+    border-radius: 6px; background: #121212; color: #e8e8e8; outline: none; resize: vertical;
+    font-family: Consolas, "SF Mono", monospace; font-size: 12.5px; line-height: 1.5; }
+.asd-pm-ta:focus { border-color: #4a8fe0; box-shadow: 0 0 0 2px rgba(74,143,224,.15); }
+.asd-pm-ta::placeholder { color: #555; }
+
+.asd-pm-btnrow { display: flex; gap: 7px; }
+.asd-pm-btn { flex: 1; cursor: pointer; padding: 8px; color: #fff; border: none;
+    border-radius: 6px; font-weight: 700; font-size: 11.5px; transition: background .15s; }
+.asd-pm-save { background: #2f7d43; } .asd-pm-save:hover { background: #389751; }
+.asd-pm-load { background: #4c5563; } .asd-pm-load:hover { background: #626c7d; }
+
+/* --- tira de fotogramas --- */
+.asd-pm-strip { display: flex; gap: 7px; overflow-x: auto; overflow-y: hidden;
+    padding: 2px 2px 8px 2px; scroll-behavior: smooth; }
+.asd-pm-strip::-webkit-scrollbar { height: 7px; }
+.asd-pm-strip::-webkit-scrollbar-track { background: #191919; border-radius: 4px; }
+.asd-pm-strip::-webkit-scrollbar-thumb { background: #454545; border-radius: 4px; }
+.asd-pm-strip::-webkit-scrollbar-thumb:hover { background: #5a5a5a; }
+
+.asd-pm-card { flex: 0 0 auto; width: 108px; cursor: pointer; border-radius: 7px;
+    border: 2px solid transparent; background: #171717; overflow: hidden;
+    transition: border-color .15s, transform .12s; }
+.asd-pm-card:hover { border-color: #55606e; transform: translateY(-1px); }
+.asd-pm-card.sel { border-color: #4a8fe0; }
+.asd-pm-thumb { width: 100%; height: 61px; display: block; object-fit: cover;
+    background: #0e0e0e; }
+.asd-pm-vacio { width: 100%; height: 61px; display: flex; align-items: center;
+    justify-content: center; background: #131313;
+    border-bottom: 1px dashed #3a3a3a; color: #4d4d4d; font-size: 15px; }
+.asd-pm-pie { display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 6px; font-size: 10.5px; color: #9a9a9a; font-family: Consolas, monospace; }
+.asd-pm-card.sel .asd-pm-pie { color: #cfe3ff; background: #22303f; }
+.asd-pm-aviso { color: #6f6f6f; font-size: 9px; }
+
+.asd-pm-add { flex: 0 0 auto; width: 44px; border-radius: 7px; border: 2px dashed #3f3f3f;
+    background: #171717; color: #7b7b7b; cursor: pointer; font-size: 19px;
+    display: flex; align-items: center; justify-content: center; transition: .15s; }
+.asd-pm-add:hover { border-color: #4a8fe0; color: #4a8fe0; background: #1b2531; }
+
+/* --- editor --- */
+.asd-pm-edhead { display: flex; align-items: baseline; gap: 9px; }
+.asd-pm-loop { color: #eaeaea; font-size: 13px; font-weight: 700; }
+.asd-pm-desde { color: #7b7b7b; font-size: 10.5px; font-family: Consolas, monospace; }
+.asd-pm-del { margin-left: auto; background: transparent; border: 1px solid #4a3030;
+    color: #9a6a6a; cursor: pointer; font-size: 10.5px; border-radius: 5px; padding: 3px 9px;
+    transition: .15s; }
+.asd-pm-del:hover { background: #3a2222; color: #e07a7a; border-color: #7a3a3a; }
+.asd-pm-del:disabled { opacity: .3; cursor: default; }
+.asd-pm-cuenta { text-align: right; color: #666; font-size: 10px;
+    font-family: Consolas, monospace; margin-top: -3px; }
+.asd-pm-mini { background: transparent; border: none; color: #7b7b7b; cursor: pointer;
+    font-size: 11px; padding: 0 3px; }
+.asd-pm-mini:hover { color: #4a8fe0; }
+`;
 
 app.registerExtension({
     name: "AcademiaSD.MultiPrompt",
@@ -50,13 +128,25 @@ app.registerExtension({
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function (o) {
             if (onConfigure) onConfigure.apply(this, arguments);
-            const dataWidget = this.widgets ? this.widgets.find((w) => w.name === "prompt_data") : null;
-            if (dataWidget && dataWidget.value) {
+            const w = this.widgets ? this.widgets.find((x) => x.name === "prompt_data") : null;
+            if (w && w.value) {
                 try {
-                    this.promptState = JSON.parse(dataWidget.value);
+                    this.promptState = JSON.parse(w.value);
                 } catch (e) {}
             }
             if (this.renderUI) this.renderUI();
+        };
+
+        // El Multi-Prompt se ejecuta al principio de cada vuelta, asi que al
+        // terminar ya existe el fotograma de la vuelta anterior: es el momento
+        // exacto en el que la tira tiene algo nuevo que enseñar.
+        // Multi-Prompt runs at the start of every pass, so by the time it
+        // finishes the previous take's frame exists: exactly when the strip has
+        // something new to show.
+        const onExecuted = nodeType.prototype.onExecuted;
+        nodeType.prototype.onExecuted = function () {
+            if (onExecuted) onExecuted.apply(this, arguments);
+            if (this.cargarFrames) this.cargarFrames();
         };
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -64,205 +154,153 @@ app.registerExtension({
             if (onNodeCreated) onNodeCreated.apply(this, arguments);
 
             const _this = this;
-
-            if (!this.promptState) {
-                this.promptState = [{ text: DEFAULT_TEXT }];
-            }
+            if (!this.promptState) this.promptState = [{ text: DEFAULT_TEXT }];
+            if (this.loopSel == null) this.loopSel = 0;
+            this.frames = {};
 
             const dataWidget = ocultarWidget(this, "prompt_data");
-            // `project_name` se queda VISIBLE a proposito. Un widget nativo trae
-            // su zocalo de entrada y puede recibir el enlace de Project Paths;
-            // escondiendolo detras de una caja mia del DOM no habria donde
-            // conectar, y el nombre habria que escribirlo dos veces.
-            // Left VISIBLE on purpose: a native widget carries its own input
-            // socket and can take the link from Project Paths. Hidden behind a
-            // DOM box of mine there would be nothing to connect to.
+            // `project_name` se queda VISIBLE: un widget nativo trae su zocalo de
+            // entrada y puede recibir el enlace de Project Paths. Escondido
+            // detras de una caja del DOM no habria donde conectar.
             const projWidget = this.widgets
                 ? this.widgets.find((w) => w.name === "project_name")
                 : null;
             const globalWidget = ocultarWidget(this, "global_prompt");
 
-            this.size = [MIN_WIDTH, 320];
+            this.size = [MIN_WIDTH, 420];
 
-            // DOS capas, y la separacion importa.
+            // DOS capas. `container` es lo que recibe addDOMWidget y lo que el
+            // frontend redimensiona en cada redibujado desde el tamaño del nodo;
+            // medir SU altura para decidir la del nodo es circular y el nodo
+            // crece solo al hacer zoom. `inner` es mio, a altura automatica.
             //
-            // `container` es el elemento que recibe addDOMWidget, y el frontend le
-            // escribe en cada redibujado `width`/`height` en pixeles a partir del
-            // tamaño del nodo (con transformOrigin 0 0 y transform: scale(zoom)).
-            // Medir su scrollHeight para decidir el alto del nodo es circular: ese
-            // valor nunca baja de la altura que le acaban de imponer, asi que cada
-            // medida sale mas alta que la anterior y el nodo crece solo.
-            //
-            // `inner` es mio, va a altura automatica y nadie de fuera lo toca: su
-            // scrollHeight es contenido puro y no depende ni del zoom ni del
-            // tamaño del nodo. Es lo unico que se mide.
-            //
-            // TWO layers, and the split matters. `container` is what addDOMWidget
-            // gets, and the frontend writes width/height on it every redraw from
-            // the node's size. Measuring ITS scrollHeight to decide the node's
-            // height is circular -- the value never drops below the height just
-            // imposed on it, so every measurement comes out taller than the last
-            // and the node grows on its own. `inner` is mine, auto-height, touched
-            // by nobody: its scrollHeight is pure content.
+            // TWO layers: measuring the element the frontend itself sizes is
+            // circular and makes the node grow on every zoom. `inner` is mine.
             const container = document.createElement("div");
-            container.style.cssText = "width: 100%; box-sizing: border-box; overflow: visible;";
-
+            container.style.cssText = "width:100%;box-sizing:border-box;overflow:visible;";
             const inner = document.createElement("div");
-            inner.style.cssText = `
-                width: 100%; display: flex; flex-direction: column; gap: 4px;
-                font-family: sans-serif; box-sizing: border-box; margin-top: 10px;
-                padding-bottom: 6px;
-            `;
+            inner.className = "asd-pm-wrap";
+            inner.style.cssText += ";width:100%;box-sizing:border-box;margin-top:8px;"
+                + "padding-bottom:6px;font-family:'Segoe UI',system-ui,sans-serif;";
             container.appendChild(inner);
 
-            // Se declara aqui porque computeSize lo consulta y se asigna mas
-            // abajo, al anadir el widget. / Declared here because computeSize
-            // reads it and it is assigned further down.
-            // El widget DOM no ocupa todo lo que se le asigna. El frontend hace
-            //     let t = n.margin;            // margin = 10
-            //     r.pos  = [x + t, y + t + n.y];
-            //     r.size = [..., computedHeight - t * 2];
-            // o sea que lo baja 10 px y le recorta 20 de alto. Sin devolver esos
-            // 20, el contenido se sale por debajo del borde del nodo.
-            //
-            // The DOM widget does not get all the height it is assigned: the
-            // frontend offsets it by `margin` and takes 2 * margin off its size.
-            // Without giving those 20 px back the content spills past the node.
-            const MARGEN_DOM = 10;
             let domW = null;
 
             const style = document.createElement("style");
-            style.innerHTML = `
-                .asd-pm-box { background: #222; border: 1px solid #444; border-radius: 6px; padding: 8px; display: flex; flex-direction: column; gap: 6px;}
-                .asd-pm-header { display: flex; justify-content: space-between; align-items: center; color: #ccc; font-size: 12px; font-weight: bold;}
-                .asd-pm-textarea { width: 100%; min-height: 80px; padding: 8px; box-sizing: border-box; border: 1px solid #555; border-radius: 4px; background: #111; color: white; outline: none; resize: vertical; font-family: monospace; font-size: 13px;}
-                .asd-pm-textarea:focus { border-color: #4a6ee0; }
-                .asd-del-btn { background: transparent; border: none; color: #888; cursor: pointer; transition: 0.2s; font-size: 12px;}
-                .asd-del-btn:hover { color: #ff4444; }
-                .asd-pm-input { width: 100%; padding: 7px 8px; box-sizing: border-box; border: 1px solid #555; border-radius: 4px; background: #111; color: white; outline: none; font-family: sans-serif; font-size: 13px;}
-                .asd-pm-input:focus { border-color: #4a6ee0; }
-                .asd-pm-btnrow { display: flex; gap: 6px; }
-                .asd-pm-btn { flex: 1; cursor: pointer; padding: 8px; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; transition: background 0.2s; }
-                .asd-pm-save { background: #2f7d43; } .asd-pm-save:hover { background: #389751; }
-                .asd-pm-load { background: #555d6b; } .asd-pm-load:hover { background: #697282; }
-                .asd-pm-note { color: #777; font-size: 11px; font-weight: normal; }
-                .asd-pm-menu { position: fixed; z-index: 10000; background: #1b1b1b; border: 1px solid #555; border-radius: 6px; padding: 4px; max-height: 260px; overflow-y: auto; box-shadow: 0 6px 18px rgba(0,0,0,0.6); min-width: 180px; }
-                .asd-pm-menu div { padding: 7px 10px; color: #ddd; font-size: 12px; cursor: pointer; border-radius: 4px; font-family: sans-serif; }
-                .asd-pm-menu div:hover { background: #33415e; }
-                .asd-pm-menu .asd-pm-vacio { color: #777; cursor: default; }
-                .asd-pm-menu .asd-pm-vacio:hover { background: transparent; }
-            `;
+            style.innerHTML = CSS;
             inner.appendChild(style);
 
-            // ---- Proyecto -------------------------------------------------
+            // ---------- proyecto ----------
             const cajaProy = document.createElement("div");
             cajaProy.className = "asd-pm-box";
-
             const cabProy = document.createElement("div");
-            cabProy.className = "asd-pm-header";
+            cabProy.className = "asd-pm-head";
             const titProy = document.createElement("span");
             titProy.innerText = "📁 Project";
-            cabProy.appendChild(titProy);
             const notaProy = document.createElement("span");
             notaProy.className = "asd-pm-note";
-            cabProy.appendChild(notaProy);
-            cajaProy.appendChild(cabProy);
-
-
-            const filaBotones = document.createElement("div");
-            filaBotones.className = "asd-pm-btnrow";
+            cabProy.append(titProy, notaProy);
+            const filaBtn = document.createElement("div");
+            filaBtn.className = "asd-pm-btnrow";
             const btnSave = document.createElement("button");
             btnSave.className = "asd-pm-btn asd-pm-save";
             btnSave.innerText = "💾 Save Project";
             const btnLoad = document.createElement("button");
             btnLoad.className = "asd-pm-btn asd-pm-load";
             btnLoad.innerText = "📂 Load Project";
-            filaBotones.appendChild(btnSave);
-            filaBotones.appendChild(btnLoad);
-            cajaProy.appendChild(filaBotones);
+            filaBtn.append(btnSave, btnLoad);
+            cajaProy.append(cabProy, filaBtn);
             inner.appendChild(cajaProy);
 
-            // ---- Prompt global --------------------------------------------
+            // ---------- prompt global ----------
             const cajaGlobal = document.createElement("div");
             cajaGlobal.className = "asd-pm-box";
             const cabGlobal = document.createElement("div");
-            cabGlobal.className = "asd-pm-header";
-            const titGlobal = document.createElement("span");
-            titGlobal.innerText = "🌐 Global Prompt";
-            cabGlobal.appendChild(titGlobal);
-            const notaGlobal = document.createElement("span");
-            notaGlobal.className = "asd-pm-note";
-            notaGlobal.innerText = "va delante de cada loop";
-            cabGlobal.appendChild(notaGlobal);
-            cajaGlobal.appendChild(cabGlobal);
-
+            cabGlobal.className = "asd-pm-head";
+            const tg = document.createElement("span");
+            tg.innerText = "🌐 Global Prompt";
+            const ng = document.createElement("span");
+            ng.className = "asd-pm-note";
+            ng.innerText = "goes in front of every loop";
+            cabGlobal.append(tg, ng);
             const areaGlobal = document.createElement("textarea");
-            areaGlobal.className = "asd-pm-textarea";
-            areaGlobal.style.minHeight = "60px";
+            areaGlobal.className = "asd-pm-ta";
+            areaGlobal.style.minHeight = "56px";
+            areaGlobal.style.height = "56px";
             areaGlobal.placeholder = "subject_definitions:\n...";
             areaGlobal.value = globalWidget ? globalWidget.value || "" : "";
-            cajaGlobal.appendChild(areaGlobal);
+            cajaGlobal.append(cabGlobal, areaGlobal);
             inner.appendChild(cajaGlobal);
 
-            // ---- Prompts por loop ------------------------------------------
-            this.rowsContainer = document.createElement("div");
-            this.rowsContainer.style.display = "flex";
-            this.rowsContainer.style.flexDirection = "column";
-            this.rowsContainer.style.gap = "8px";
-            inner.appendChild(this.rowsContainer);
+            // ---------- tira ----------
+            const cajaTira = document.createElement("div");
+            cajaTira.className = "asd-pm-box";
+            const cabTira = document.createElement("div");
+            cabTira.className = "asd-pm-head";
+            const tt = document.createElement("span");
+            tt.innerText = "🎞 Loops";
+            const derTira = document.createElement("span");
+            derTira.className = "asd-pm-note";
+            const btnRecargar = document.createElement("button");
+            btnRecargar.className = "asd-pm-mini";
+            btnRecargar.innerText = "⟳";
+            btnRecargar.title = "reload the frames from disk";
+            derTira.appendChild(btnRecargar);
+            cabTira.append(tt, derTira);
+            const tira = document.createElement("div");
+            tira.className = "asd-pm-strip";
+            cajaTira.append(cabTira, tira);
+            inner.appendChild(cajaTira);
 
-            const btnAdd = document.createElement("button");
-            btnAdd.innerText = "➕ Add Prompt Keyframe";
-            btnAdd.style.cssText = "cursor: pointer; padding: 10px; background: #225588; color: white; border: none; border-radius: 4px; font-weight: bold; font-size: 12px; margin-top: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: background 0.2s;";
-            btnAdd.onmouseover = () => (btnAdd.style.background = "#2b6cb0");
-            btnAdd.onmouseout = () => (btnAdd.style.background = "#225588");
-            inner.appendChild(btnAdd);
+            // ---------- editor ----------
+            const cajaEd = document.createElement("div");
+            cajaEd.className = "asd-pm-box";
+            const cabEd = document.createElement("div");
+            cabEd.className = "asd-pm-edhead";
+            const etqLoop = document.createElement("span");
+            etqLoop.className = "asd-pm-loop";
+            const etqDesde = document.createElement("span");
+            etqDesde.className = "asd-pm-desde";
+            const btnDel = document.createElement("button");
+            btnDel.className = "asd-pm-del";
+            // "Selected Prompt" y no "loop": el nodo Moviola tiene al lado un
+            // "Delete Last Loop" que borra ficheros generados. Esto solo quita
+            // el texto de la tarjeta seleccionada, y confundirlos sale caro.
+            // Not "loop": the Moviola node has a "Delete Last Loop" next door
+            // that removes generated files. This only drops the selected card's
+            // text, and mixing them up is expensive.
+            btnDel.innerText = "Delete Selected Prompt";
+            btnDel.title = "removes this prompt only, nothing on disk";
+            cabEd.append(etqLoop, etqDesde, btnDel);
+            const areaLoop = document.createElement("textarea");
+            areaLoop.className = "asd-pm-ta";
+            areaLoop.style.minHeight = "150px";
+            areaLoop.style.height = "170px";
+            const cuenta = document.createElement("div");
+            cuenta.className = "asd-pm-cuenta";
+            cajaEd.append(cabEd, areaLoop, cuenta);
+            inner.appendChild(cajaEd);
 
-            // ---- Tamaño ----------------------------------------------------
-            // El alto es "donde empieza el widget DOM" + "lo que mide su
-            // contenido". Lo primero NO se estima: LiteGraph lo escribe en
-            // `last_y` al dibujar, con el titulo, los zocalos y los widgets
-            // nativos ya descontados. Calcularlo a ojo lo cuenta dos veces y deja
-            // un hueco muerto al final del nodo.
-            //
-            // Height is "where the DOM widget starts" plus "how tall its content
-            // is". The first half is NOT estimated: LiteGraph writes it into
-            // `last_y` while drawing. Guessing it counts things twice and leaves
-            // dead space at the bottom.
+            // ---------- tamaño ----------
             this.computeSize = function () {
-                let htmlH = inner.scrollHeight;
-                if (!htmlH) {
-                    // Antes de que el DOM tenga medidas reales.
-                    const N = _this.promptState ? _this.promptState.length : 0;
-                    htmlH = 250 + N * 140;
-                }
-                htmlH += 2 * MARGEN_DOM + 6;   // ver MARGEN_DOM
+                const h = (inner.scrollHeight || 380) + 2 * MARGEN_DOM + 6;
                 if (domW && typeof domW.last_y === "number" && domW.last_y > 0) {
-                    return [MIN_WIDTH, domW.last_y + htmlH];
+                    return [MIN_WIDTH, domW.last_y + h];
                 }
                 const nIn = this.inputs ? this.inputs.length : 0;
                 const nOut = this.outputs ? this.outputs.length : 0;
-                return [MIN_WIDTH, 60 + Math.max(nIn, nOut) * 22 + htmlH];
+                return [MIN_WIDTH, 60 + Math.max(nIn, nOut) * 22 + h];
             };
 
             const originalOnResize = this.onResize;
             this.onResize = function (size) {
                 if (originalOnResize) originalOnResize.apply(this, arguments);
-                const minSize = this.computeSize();
-                if (size[1] < minSize[1]) size[1] = minSize[1];
-                if (size[0] < minSize[0]) size[0] = minSize[0];
+                const m = this.computeSize();
+                if (size[1] < m[1]) size[1] = m[1];
+                if (size[0] < m[0]) size[0] = m[0];
             };
 
-            // Un solo punto de ajuste, con guarda de reentrada: el observador de
-            // abajo dispara en cuanto cambia la altura del contenido, y cambiar el
-            // tamaño del nodo cambia el ancho del contenedor, que puede cambiar la
-            // altura otra vez. Sin la guarda y sin el umbral, eso se realimenta.
-            //
-            // One resize path with a reentry guard: the observer below fires as
-            // soon as the content height changes, and resizing the node changes
-            // the container width, which can change the height again. Without the
-            // guard and the threshold that feeds back on itself.
-            const forceResize = () => {
+            const ajustar = () => {
                 if (_this._ajustando) return;
                 _this._ajustando = true;
                 requestAnimationFrame(() => {
@@ -278,44 +316,23 @@ app.registerExtension({
                     }
                 });
             };
-            this.ajustarAltura = forceResize;
-
-            // Cubre TODO de una vez: añadir, borrar, abrir, escribir, y el tirador
-            // de la esquina de cualquier textarea.
-            // Covers everything at once: add, delete, open, type, and the resize
-            // handle of any textarea.
             if (typeof ResizeObserver !== "undefined") {
-                this._ro = new ResizeObserver(() => forceResize());
+                this._ro = new ResizeObserver(() => ajustar());
                 this._ro.observe(inner);
             }
 
-            // ---- Estado ----------------------------------------------------
+            // ---------- estado ----------
             this.volcarEstado = () => {
                 if (dataWidget) dataWidget.value = JSON.stringify(_this.promptState);
                 if (globalWidget) globalWidget.value = areaGlobal.value;
             };
-
-            const updateData = () => {
+            const guardar = () => {
                 _this.volcarEstado();
                 app.graph.setDirtyCanvas(true, false);
             };
+            areaGlobal.addEventListener("input", guardar);
 
-            areaGlobal.addEventListener("input", updateData);
-
-            // ---- Guardar / cargar proyecto ---------------------------------
-
-            // `project_name` puede venir enlazado desde Project Paths, que es el
-            // montaje recomendado: el nombre se escribe una sola vez y de ahi
-            // salen tanto las carpetas de salida como el .json del proyecto.
-            // Cuando esta enlazado, el valor de verdad es el del nodo de arriba,
-            // asi que la caja se bloquea -- dejarla escribible seria ofrecer un
-            // campo que no hace nada.
-            //
-            // `project_name` can be linked from Project Paths, which is the
-            // recommended wiring: the name is typed once and drives both the
-            // output folders and the project's .json. While it is linked the
-            // real value lives upstream, so the box is locked -- leaving it
-            // editable would offer a field that does nothing.
+            // ---------- de que proyecto se trata ----------
             const ranuraProyecto = () => {
                 const ent = _this.inputs || [];
                 for (let i = 0; i < ent.length; i++) {
@@ -326,137 +343,243 @@ app.registerExtension({
                 }
                 return -1;
             };
-
-            const nombreDeArriba = () => {
+            const nodoArriba = () => {
                 const i = ranuraProyecto();
                 if (i < 0 || !_this.inputs[i] || _this.inputs[i].link == null) return null;
                 try {
-                    const origen = _this.getInputNode(i);
-                    const w = origen && origen.widgets
-                        ? origen.widgets.find((x) => x.name === "project_name")
-                        : null;
-                    return w && w.value ? String(w.value) : null;
+                    return _this.getInputNode(i);
                 } catch (e) {
                     return null;
                 }
             };
-
-            const refrescarEnlace = () => {
-                const arriba = nombreDeArriba();
-                titProy.innerText = arriba !== null
-                    ? "📁 Project  ⇠ " + arriba
-                    : "📁 Project";
+            const nombreDeArriba = () => {
+                const n = nodoArriba();
+                const w = n && n.widgets ? n.widgets.find((x) => x.name === "project_name") : null;
+                return w && w.value ? String(w.value) : null;
             };
-            this.refrescarEnlace = refrescarEnlace;
-
-            const onConnectionsChange = this.onConnectionsChange;
-            this.onConnectionsChange = function () {
-                if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
-                refrescarEnlace();
-            };
-
-            // Cambiar el NOMBRE aguas arriba no cambia ninguna conexion, asi que
-            // `onConnectionsChange` no se entera y la cabecera se queda enseñando
-            // el proyecto anterior -- que es peor que no enseñar nada, porque el
-            // boton de guardar de al lado escribe en el proyecto nuevo.
-            //
-            // Se comprueba en el redibujado: leer un widget no cuesta nada y solo
-            // se repinta cuando el valor ha cambiado de verdad.
-            //
-            // Changing the NAME upstream changes no connection, so
-            // `onConnectionsChange` never fires and the header keeps showing the
-            // previous project -- worse than showing nothing, because the save
-            // button next to it writes to the new one. Checked on redraw: reading
-            // a widget is free and it only repaints when the value really changed.
-            const onDraw = this.onDrawForeground;
-            this.onDrawForeground = function (ctx) {
-                if (onDraw) onDraw.apply(this, arguments);
-                if (this.flags && this.flags.collapsed) return;
-                const ahora = String(nombreDeArriba() || "");
-                if (ahora !== this._ultimoArriba) {
-                    this._ultimoArriba = ahora;
-                    refrescarEnlace();
-                }
-            };
-
-            // El nombre que se usa al guardar: el de arriba si lo hay, y si no el
-            // de la caja. / The name used when saving: upstream if there is one.
             const nombreProyecto = () =>
                 String(nombreDeArriba() || (projWidget && projWidget.value) || "").trim();
 
+            const refrescarEnlace = () => {
+                const a = nombreDeArriba();
+                titProy.innerText = a !== null ? "📁 Project  ⇠ " + a : "📁 Project";
+            };
+            this.refrescarEnlace = refrescarEnlace;
+
+            // ---------- fotogramas ----------
+            //
+            // La ruta no se guarda: Project Paths la CALCULA y no la deja en
+            // ningun widget, asi que el navegador no puede leerla. Se le pide al
+            // servidor, que aplica la regla de verdad. Una sola copia de la regla.
+            //
+            // The path is never cached: Project Paths computes it and stores it
+            // in no widget. The server is asked instead -- one copy of the rule.
+            const resolverPath = async () => {
+                const nom = nombreProyecto();
+                if (!nom) return "";
+                try {
+                    const r = await pedirJSON("/academia/projectpaths/resolve",
+                                              { project_name: nom });
+                    if (r.status === "success" && r.path) return r.path;
+                } catch (e) {}
+                return "";
+            };
+
+            this.cargarFrames = async () => {
+                const path = await resolverPath();
+                if (!path) {
+                    _this.frames = {};
+                    _this.renderTira();
+                    return;
+                }
+                try {
+                    const r = await pedirJSON("/academia/moviola/frames", { path });
+                    const m = {};
+                    if (r.status === "success") {
+                        for (const f of r.frames || []) m[f.n] = f;
+                    }
+                    _this.frames = m;
+                } catch (e) {
+                    _this.frames = {};
+                }
+                _this.renderTira();
+            };
+
+            // ---------- pintar ----------
+            const clamp = () => {
+                const n = _this.promptState.length;
+                if (_this.loopSel >= n) _this.loopSel = n - 1;
+                if (_this.loopSel < 0) _this.loopSel = 0;
+            };
+
+            this.renderTira = () => {
+                clamp();
+                tira.innerHTML = "";
+                _this.promptState.forEach((item, idx) => {
+                    // El fotograma que ARRANCA la vuelta N es el ultimo de la N-1.
+                    // El de la vuelta 1 es el cero, que solo existe si hubo imagen
+                    // base; sin ella la serie empezo solo con el prompt.
+                    // Take N starts from take N-1's last frame. Take 1 starts from
+                    // zero, which only exists when there was a base image.
+                    const f = _this.frames[idx];
+                    const card = document.createElement("div");
+                    card.className = "asd-pm-card" + (idx === _this.loopSel ? " sel" : "");
+                    card.title = f ? f.filename : (idx === 0 ? "starts from the prompt alone"
+                                                             : "not generated yet");
+                    if (f) {
+                        const img = document.createElement("img");
+                        img.className = "asd-pm-thumb";
+                        img.loading = "lazy";
+                        img.src = api.apiURL(`/view?filename=${encodeURIComponent(f.filename)}`
+                            + `&subfolder=${encodeURIComponent(f.subfolder)}&type=output`
+                            + `&t=${Date.now()}`);
+                        card.appendChild(img);
+                    } else {
+                        const hueco = document.createElement("div");
+                        hueco.className = "asd-pm-vacio";
+                        hueco.innerText = idx === 0 ? "✎" : "▦";
+                        card.appendChild(hueco);
+                    }
+                    const pie = document.createElement("div");
+                    pie.className = "asd-pm-pie";
+                    const num = document.createElement("span");
+                    num.innerText = idx + 1;
+                    const av = document.createElement("span");
+                    av.className = "asd-pm-aviso";
+                    av.innerText = f ? "" : (idx === 0 ? "t2v" : "—");
+                    pie.append(num, av);
+                    card.appendChild(pie);
+                    card.addEventListener("click", () => {
+                        _this.loopSel = idx;
+                        _this.renderTira();
+                        _this.renderEditor();
+                    });
+                    tira.appendChild(card);
+                });
+
+                const mas = document.createElement("div");
+                mas.className = "asd-pm-add";
+                mas.innerText = "+";
+                mas.title = "add a loop";
+                mas.addEventListener("click", () => {
+                    const ult = _this.promptState.length
+                        ? _this.promptState[_this.promptState.length - 1].text.trim()
+                        : "";
+                    _this.promptState.push({ text: ult || DEFAULT_TEXT });
+                    _this.loopSel = _this.promptState.length - 1;
+                    guardar();
+                    _this.renderTira();
+                    _this.renderEditor();
+                    tira.scrollLeft = tira.scrollWidth;
+                });
+                tira.appendChild(mas);
+
+                const sel = tira.children[_this.loopSel];
+                if (sel && sel.scrollIntoView) {
+                    sel.scrollIntoView({ block: "nearest", inline: "nearest" });
+                }
+            };
+
+            this.renderEditor = () => {
+                clamp();
+                const i = _this.loopSel;
+                const item = _this.promptState[i];
+                etqLoop.innerText = `🎬 Loop ${i + 1}`;
+                const f = _this.frames[i];
+                etqDesde.innerText = f ? `starts from ${f.filename}`
+                    : (i === 0 ? "starts from the prompt alone" : "previous take not generated yet");
+                btnDel.disabled = _this.promptState.length <= 1;
+                if (document.activeElement !== areaLoop) areaLoop.value = item ? item.text : "";
+                cuenta.innerText = `${(item ? item.text : "").length} chars`;
+            };
+
+            areaLoop.addEventListener("input", function () {
+                const item = _this.promptState[_this.loopSel];
+                if (!item) return;
+                item.text = this.value;
+                cuenta.innerText = `${this.value.length} chars`;
+                guardar();
+            });
+
+            btnDel.addEventListener("click", () => {
+                if (_this.promptState.length <= 1) return;
+                _this.promptState.splice(_this.loopSel, 1);
+                guardar();
+                _this.renderTira();
+                _this.renderEditor();
+            });
+
+            btnRecargar.addEventListener("click", () => _this.cargarFrames());
+
+            this.renderUI = () => {
+                if (_this.widgets) {
+                    const g = _this.widgets.find((w) => w.name === "global_prompt");
+                    if (g && document.activeElement !== areaGlobal) {
+                        areaGlobal.value = g.value || "";
+                    }
+                }
+                refrescarEnlace();
+                _this.renderTira();
+                _this.renderEditor();
+                ajustar();
+            };
+
+            // ---------- guardar / cargar proyecto ----------
             btnSave.addEventListener("click", async () => {
                 const nombre = nombreProyecto();
                 if (!nombre) {
-                    notaProy.innerText = "⚠ ponle nombre primero";
+                    notaProy.innerText = "⚠ name it first";
                     return;
                 }
                 _this.volcarEstado();
                 try {
                     // Guardar con un nombre que ya existe PISA el guion entero de
                     // una serie, asi que se pregunta antes.
-                    // Saving over an existing name replaces a whole series' script.
-                    const lista = await pedirJSON("/academia/multiprompt/list");
+                    const lista = await (await fetch("/academia/multiprompt/list")).json();
                     if (lista.status === "success" && (lista.files || []).includes(nombre)) {
-                        if (!confirm(`El proyecto "${nombre}" ya existe.\n\n¿Sobrescribirlo con los ${_this.promptState.length} prompts actuales?`)) {
+                        if (!confirm(`Project "${nombre}" already exists.\n\n`
+                            + `Overwrite it with the current ${_this.promptState.length} prompts?`)) {
                             notaProy.innerText = "";
                             return;
                         }
                     }
                     const r = await pedirJSON("/academia/multiprompt/save", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            name: nombre,
-                            global_prompt: areaGlobal.value,
-                            prompts: _this.promptState,
-                        }),
+                        name: nombre,
+                        global_prompt: areaGlobal.value,
+                        prompts: _this.promptState,
                     });
                     notaProy.innerText = r.status === "success"
-                        ? `✔ guardado (${r.count})`
-                        : `⚠ ${r.message || "no se pudo guardar"}`;
+                        ? `✔ saved (${r.count})` : `⚠ ${r.message || "could not save"}`;
                 } catch (e) {
-                    notaProy.innerText = "⚠ sin respuesta del servidor";
+                    notaProy.innerText = "⚠ no answer from the server";
                 }
                 setTimeout(() => (notaProy.innerText = ""), 4000);
             });
 
             const cargarProyecto = async (nombre) => {
                 try {
-                    const r = await pedirJSON(
-                        "/academia/multiprompt/load?name=" + encodeURIComponent(nombre));
+                    const r = await (await fetch("/academia/multiprompt/load?name="
+                        + encodeURIComponent(nombre))).json();
                     if (r.status !== "success") {
-                        notaProy.innerText = `⚠ ${r.message || "no se pudo leer"}`;
+                        notaProy.innerText = `⚠ ${r.message || "could not read it"}`;
                         return;
                     }
                     const d = r.data || {};
                     const lista = Array.isArray(d.prompts) ? d.prompts : [];
                     _this.promptState = lista.length ? lista : [{ text: DEFAULT_TEXT }];
+                    _this.loopSel = 0;
+                    areaGlobal.value = d.global_prompt || "";
+
                     // Cargar un proyecto cambia el PROYECTO, no solo los prompts.
+                    // Con el nombre enlazado, el de verdad vive en Project Paths y
+                    // de ahi salen las carpetas de salida y la ruta del montador:
+                    // escribirlo aqui abajo dejaria los prompts de un proyecto
+                    // apuntando a las carpetas de otro.
                     //
-                    // Con `project_name` enlazado, el nombre de verdad vive en
-                    // Project Paths, y de ahi salen las carpetas de salida y la
-                    // ruta que usa el montador. Escribir aqui abajo dejaria los
-                    // prompts de un proyecto apuntando a las carpetas de otro, que
-                    // es justo la clase de discrepancia que sacar el nombre a un
-                    // solo sitio venia a evitar. Asi que se escribe ARRIBA y el
-                    // grafo entero se mueve con el.
-                    //
-                    // Loading a project switches the PROJECT, not just the
-                    // prompts. With `project_name` linked the real name lives in
-                    // Project Paths, and the output folders and the editor's path
-                    // come from there. Writing it down here would leave one
-                    // project's prompts pointing at another's folders.
-                    const i = ranuraProyecto();
-                    const enlazado = i >= 0 && _this.inputs[i] && _this.inputs[i].link != null;
-                    let arriba = null;
-                    if (enlazado) {
-                        try {
-                            arriba = _this.getInputNode(i);
-                        } catch (e) {}
-                    }
+                    // Loading switches the PROJECT, not just the prompts.
+                    const arriba = nodoArriba();
                     const wArriba = arriba && arriba.widgets
-                        ? arriba.widgets.find((x) => x.name === "project_name")
-                        : null;
+                        ? arriba.widgets.find((x) => x.name === "project_name") : null;
                     if (wArriba) {
                         wArriba.value = nombre;
                         if (typeof wArriba.callback === "function") wArriba.callback(nombre);
@@ -464,56 +587,56 @@ app.registerExtension({
                     } else if (projWidget) {
                         projWidget.value = nombre;
                     }
-                    areaGlobal.value = d.global_prompt || "";
-                    updateData();
+
+                    guardar();
                     _this.renderUI();
+                    await _this.cargarFrames();
                     notaProy.innerText = `✔ ${_this.promptState.length} prompts`;
                     setTimeout(() => (notaProy.innerText = ""), 4000);
                 } catch (e) {
-                    notaProy.innerText = "⚠ sin respuesta del servidor";
+                    notaProy.innerText = "⚠ no answer from the server";
                 }
             };
 
-            // El menu cuelga de document.body, no del nodo: dentro del contenedor
-            // lo recortaria el overflow del wrapper del widget DOM.
-            // The menu hangs off document.body: inside the container the DOM
-            // widget's own overflow would clip it.
-            let menuAbierto = null;
+            // El menu cuelga de document.body: dentro del contenedor lo recortaria
+            // el overflow del wrapper del widget DOM.
+            let menu = null;
             const cerrarMenu = () => {
-                if (menuAbierto) {
-                    menuAbierto.remove();
-                    menuAbierto = null;
-                    document.removeEventListener("mousedown", alClicFuera, true);
+                if (menu) {
+                    menu.remove();
+                    menu = null;
+                    document.removeEventListener("mousedown", fuera, true);
                 }
             };
-            const alClicFuera = (e) => {
-                if (menuAbierto && !menuAbierto.contains(e.target) && e.target !== btnLoad) {
-                    cerrarMenu();
-                }
+            const fuera = (e) => {
+                if (menu && !menu.contains(e.target) && e.target !== btnLoad) cerrarMenu();
             };
 
             btnLoad.addEventListener("click", async () => {
-                if (menuAbierto) {
-                    cerrarMenu();
-                    return;
-                }
-                let ficheros = [];
+                if (menu) return cerrarMenu();
+                let files = [];
                 try {
-                    const r = await pedirJSON("/academia/multiprompt/list");
-                    if (r.status === "success") ficheros = r.files || [];
+                    const r = await (await fetch("/academia/multiprompt/list")).json();
+                    if (r.status === "success") files = r.files || [];
                 } catch (e) {}
-
-                const menu = document.createElement("div");
-                menu.className = "asd-pm-menu";
-                if (!ficheros.length) {
-                    const vacio = document.createElement("div");
-                    vacio.className = "asd-pm-vacio";
-                    vacio.innerText = "no hay proyectos guardados";
-                    menu.appendChild(vacio);
+                menu = document.createElement("div");
+                menu.style.cssText = "position:fixed;z-index:10000;background:#1b1b1b;"
+                    + "border:1px solid #4a4a4a;border-radius:8px;padding:5px;max-height:280px;"
+                    + "overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.65);min-width:190px;"
+                    + "font-family:'Segoe UI',system-ui,sans-serif;";
+                if (!files.length) {
+                    const v = document.createElement("div");
+                    v.style.cssText = "padding:8px 11px;color:#777;font-size:12px;";
+                    v.innerText = "no saved projects";
+                    menu.appendChild(v);
                 } else {
-                    ficheros.forEach((f) => {
+                    files.forEach((f) => {
                         const fila = document.createElement("div");
+                        fila.style.cssText = "padding:8px 11px;color:#ddd;font-size:12px;"
+                            + "cursor:pointer;border-radius:5px;";
                         fila.innerText = "📂 " + f;
+                        fila.onmouseover = () => (fila.style.background = "#33415e");
+                        fila.onmouseout = () => (fila.style.background = "transparent");
                         fila.addEventListener("click", () => {
                             cerrarMenu();
                             cargarProyecto(f);
@@ -521,20 +644,36 @@ app.registerExtension({
                         menu.appendChild(fila);
                     });
                 }
-                // El menu cuelga de body, asi que la rueda encima llegaria al
-                // canvas y haria zoom en vez de desplazar la lista.
-                // The menu hangs off body, so the wheel over it would reach the
-                // canvas and zoom instead of scrolling the list.
                 menu.addEventListener("wheel", (e) => e.stopPropagation());
-
                 const r = btnLoad.getBoundingClientRect();
                 menu.style.left = r.left + "px";
                 menu.style.top = r.bottom + 4 + "px";
                 menu.style.minWidth = r.width + "px";
                 document.body.appendChild(menu);
-                menuAbierto = menu;
-                document.addEventListener("mousedown", alClicFuera, true);
+                document.addEventListener("mousedown", fuera, true);
             });
+
+            // ---------- eventos del lienzo ----------
+            container.addEventListener("mousedown", (e) => e.stopPropagation());
+            container.addEventListener("wheel", (e) => {
+                const t = e.target;
+                if (t && t.tagName === "TEXTAREA") {
+                    e.stopPropagation();
+                    return;
+                }
+                // Sobre la tira, la rueda vertical desplaza en HORIZONTAL: es lo
+                // que espera cualquiera delante de una fila de miniaturas, y sin
+                // esto el gesto se lo queda el zoom del grafo.
+                // Over the strip the vertical wheel scrolls HORIZONTALLY, which is
+                // what anyone expects facing a row of thumbnails.
+                if (t && (t === tira || tira.contains(t))) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    tira.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+                }
+            }, { passive: false });
+
+            domW = this.addDOMWidget("UI", "HTML", container);
 
             const onRemoved = this.onRemoved;
             this.onRemoved = function () {
@@ -543,97 +682,37 @@ app.registerExtension({
                 if (onRemoved) onRemoved.apply(this, arguments);
             };
 
-            // ---- Filas ------------------------------------------------------
-            this.renderUI = () => {
-                _this.rowsContainer.innerHTML = "";
-
-                _this.promptState.forEach((item, idx) => {
-                    const box = document.createElement("div");
-                    box.className = "asd-pm-box";
-
-                    const header = document.createElement("div");
-                    header.className = "asd-pm-header";
-
-                    const title = document.createElement("span");
-                    title.innerText = `🎬 Prompt loop ${idx + 1}`;
-                    header.appendChild(title);
-
-                    if (idx > 0) {
-                        const btnDelete = document.createElement("button");
-                        btnDelete.className = "asd-del-btn";
-                        btnDelete.innerText = "❌";
-                        btnDelete.addEventListener("click", () => {
-                            _this.promptState.splice(idx, 1);
-                            updateData();
-                            _this.renderUI();
-                        });
-                        header.appendChild(btnDelete);
-                    } else {
-                        const ghost = document.createElement("div");
-                        ghost.style.width = "16px";
-                        header.appendChild(ghost);
-                    }
-
-                    box.appendChild(header);
-
-                    const textarea = document.createElement("textarea");
-                    textarea.className = "asd-pm-textarea";
-                    textarea.value = item.text;
-
-                    textarea.addEventListener("input", function () {
-                        _this.promptState[idx].text = this.value;
-                        updateData();
-                    });
-                    textarea.addEventListener("mouseup", forceResize);
-
-                    box.appendChild(textarea);
-                    _this.rowsContainer.appendChild(box);
-                });
-
-                const g = _this.widgets
-                    ? _this.widgets.find((w) => w.name === "global_prompt")
-                    : null;
-                if (g && document.activeElement !== areaGlobal) areaGlobal.value = g.value || "";
-                refrescarEnlace();
-
-                forceResize();
+            // Cambiar el NOMBRE aguas arriba no cambia ninguna conexion, asi que
+            // `onConnectionsChange` no se entera. Se mira en el redibujado: leer
+            // un widget no cuesta nada y solo se repinta cuando cambio de verdad.
+            const onDraw = this.onDrawForeground;
+            this.onDrawForeground = function () {
+                if (onDraw) onDraw.apply(this, arguments);
+                if (this.flags && this.flags.collapsed) return;
+                const ahora = String(nombreDeArriba() || "");
+                if (ahora !== this._ultimoArriba) {
+                    this._ultimoArriba = ahora;
+                    refrescarEnlace();
+                    if (this._vistoUnaVez) this.cargarFrames();
+                    this._vistoUnaVez = true;
+                }
             };
 
-            btnAdd.addEventListener("click", () => {
-                let newText = DEFAULT_TEXT;
-                if (_this.promptState.length > 0) {
-                    const lastText = _this.promptState[_this.promptState.length - 1].text.trim();
-                    if (lastText !== "") {
-                        newText = lastText;
-                    }
-                }
-                _this.promptState.push({ text: newText });
-                updateData();
-                _this.renderUI();
-            });
-
-            container.addEventListener("mousedown", (e) => e.stopPropagation());
-            // Sin esto, girar la rueda dentro de un textarea largo hace zoom en el
-            // grafo en vez de desplazar el texto.
-            // Without this, the wheel inside a long textarea zooms the graph
-            // instead of scrolling the text.
-            container.addEventListener("wheel", (e) => {
-                const t = e.target;
-                if (t && (t.tagName === "TEXTAREA" || t.classList.contains("asd-pm-menu"))) {
-                    e.stopPropagation();
-                }
-            });
-
-            domW = this.addDOMWidget("UI", "HTML", container);
+            const onConnectionsChange = this.onConnectionsChange;
+            this.onConnectionsChange = function () {
+                if (onConnectionsChange) onConnectionsChange.apply(this, arguments);
+                refrescarEnlace();
+            };
 
             setTimeout(() => {
-                if (dataWidget && dataWidget.value && dataWidget.value !== "[]" && dataWidget.value !== "") {
+                if (dataWidget && dataWidget.value && dataWidget.value !== "[]") {
                     try {
                         _this.promptState = JSON.parse(dataWidget.value);
                     } catch (e) {}
                 }
                 _this.renderUI();
-            }, 100);
+                _this.cargarFrames();
+            }, 120);
         };
     },
 });

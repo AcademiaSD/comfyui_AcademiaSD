@@ -16,3 +16,8 @@ nodes/gemini_api_key.txt
 # prompts de quien lo use. / User data written by the nodes, not repo content.
 prompt_lists/
 prompt_projects/
+
+# Copias antes de un rediseno. La extension evita que el cargador las vea:
+# recorre *.py, asi que un .py_bak no se importa dos veces.
+*.py_bak
+*.js_bak
