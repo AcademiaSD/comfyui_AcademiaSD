@@ -109,6 +109,10 @@ const CSS = `
 .asd-pm-del:disabled { opacity: .3; cursor: default; }
 .asd-pm-cuenta { text-align: right; color: #666; font-size: 10px;
     font-family: Consolas, monospace; margin-top: -3px; }
+.asd-pm-zoom { color: #8a8a8a; font-size: 10px; font-family: Consolas, monospace;
+    min-width: 30px; display: inline-block; text-align: center; }
+.asd-pm-mini:disabled { opacity: .3; cursor: default; }
+.asd-pm-mini:disabled:hover { color: #7b7b7b; }
 .asd-pm-mini { background: transparent; border: none; color: #7b7b7b; cursor: pointer;
     font-size: 11px; padding: 0 3px; }
 .asd-pm-mini:hover { color: #4a8fe0; }
@@ -119,10 +123,27 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name !== "AcademiaSD_MultiPrompt") return;
 
+        // Las medidas que el usuario ajusta a mano -- el alto de las dos cajas de
+        // texto y el zoom de la tira -- viajan con el nodo en `asd_ui`. No son
+        // adorno: quien estira el editor o agranda las miniaturas lo hace porque
+        // a ese tamaño ve lo que necesita, y perderlo en cada recarga obliga a
+        // rehacerlo siempre. Van fuera de `widgets_values` a proposito, que es
+        // posicional y lo comparte el Python.
+        //
+        // The hand-set measurements -- both textarea heights and the strip zoom --
+        // travel with the node in `asd_ui`. Losing them on every reload means
+        // redoing them every time. Kept out of `widgets_values`, which is
+        // positional and shared with the Python side.
         const onSerialize = nodeType.prototype.onSerialize;
         nodeType.prototype.onSerialize = function (o) {
             if (onSerialize) onSerialize.apply(this, arguments);
             if (this.volcarEstado) this.volcarEstado();
+            o.asd_ui = {
+                zoom: this.tiraZoom,
+                globalH: this.altoGlobal,
+                loopH: this.altoLoop,
+                sel: this.loopSel,
+            };
         };
 
         const onConfigure = nodeType.prototype.onConfigure;
@@ -134,6 +155,14 @@ app.registerExtension({
                     this.promptState = JSON.parse(w.value);
                 } catch (e) {}
             }
+            const u = o && o.asd_ui;
+            if (u) {
+                if (typeof u.zoom === "number") this.tiraZoom = u.zoom;
+                if (u.globalH) this.altoGlobal = u.globalH;
+                if (u.loopH) this.altoLoop = u.loopH;
+                if (typeof u.sel === "number") this.loopSel = u.sel;
+            }
+            if (this.aplicarMedidas) this.aplicarMedidas();
             if (this.renderUI) this.renderUI();
         };
 
@@ -241,11 +270,21 @@ app.registerExtension({
             tt.innerText = "🎞 Loops";
             const derTira = document.createElement("span");
             derTira.className = "asd-pm-note";
+            const btnMenos = document.createElement("button");
+            btnMenos.className = "asd-pm-mini";
+            btnMenos.innerText = "−";
+            btnMenos.title = "smaller thumbnails";
+            const etqZoom = document.createElement("span");
+            etqZoom.className = "asd-pm-zoom";
+            const btnMas = document.createElement("button");
+            btnMas.className = "asd-pm-mini";
+            btnMas.innerText = "+";
+            btnMas.title = "bigger thumbnails";
             const btnRecargar = document.createElement("button");
             btnRecargar.className = "asd-pm-mini";
             btnRecargar.innerText = "⟳";
             btnRecargar.title = "reload the frames from disk";
-            derTira.appendChild(btnRecargar);
+            derTira.append(btnMenos, etqZoom, btnMas, btnRecargar);
             cabTira.append(tt, derTira);
             const tira = document.createElement("div");
             tira.className = "asd-pm-strip";
@@ -284,12 +323,27 @@ app.registerExtension({
             // ---------- tamaño ----------
             this.computeSize = function () {
                 const h = (inner.scrollHeight || 380) + 2 * MARGEN_DOM + 6;
+                // El ancho que se DEVUELVE es el actual, no el minimo. computeSize
+                // dice "cuanto necesito", y devolver siempre MIN_WIDTH afirma que
+                // no necesito mas: cualquiera que use ese valor para dimensionar
+                // -- incluido el widget DOM -- deja el contenido clavado en el
+                // minimo por ancho que se ponga el nodo. El minimo sigue siendo un
+                // suelo, no una talla unica.
+                //
+                // The width RETURNED is the current one, not the minimum.
+                // computeSize states "how much I need", and always answering
+                // MIN_WIDTH claims I never need more: anything sizing from it --
+                // the DOM widget included -- pins the content to the minimum
+                // however wide the node gets. The minimum stays a floor, not a
+                // fixed size.
+                const ancho = Math.max(
+                    (this.size && this.size[0]) || MIN_WIDTH, MIN_WIDTH);
                 if (domW && typeof domW.last_y === "number" && domW.last_y > 0) {
-                    return [MIN_WIDTH, domW.last_y + h];
+                    return [ancho, domW.last_y + h];
                 }
                 const nIn = this.inputs ? this.inputs.length : 0;
                 const nOut = this.outputs ? this.outputs.length : 0;
-                return [MIN_WIDTH, 60 + Math.max(nIn, nOut) * 22 + h];
+                return [ancho, 60 + Math.max(nIn, nOut) * 22 + h];
             };
 
             const originalOnResize = this.onResize;
@@ -297,7 +351,12 @@ app.registerExtension({
                 if (originalOnResize) originalOnResize.apply(this, arguments);
                 const m = this.computeSize();
                 if (size[1] < m[1]) size[1] = m[1];
-                if (size[0] < m[0]) size[0] = m[0];
+                // Aqui MIN_WIDTH, no m[0]: m[0] ya es el ancho actual, asi que
+                // compararlo consigo mismo impediria estrechar el nodo nunca.
+                // MIN_WIDTH here, not m[0]: m[0] is already the current width, so
+                // comparing it with itself would make the node impossible to
+                // narrow again.
+                if (size[0] < MIN_WIDTH) size[0] = MIN_WIDTH;
             };
 
             const ajustar = () => {
@@ -320,6 +379,29 @@ app.registerExtension({
                 this._ro = new ResizeObserver(() => ajustar());
                 this._ro.observe(inner);
             }
+
+            // ---------- medidas que el usuario fija a mano ----------
+            //
+            // Se apuntan al SOLTAR el tirador, no en cada `input`: durante el
+            // arrastre el alto cambia decenas de veces por segundo y no hace
+            // falta guardar ninguno de los pasos intermedios.
+            // Recorded on mouse-up, not on every event: during the drag the height
+            // changes dozens of times a second and no intermediate step matters.
+            this.aplicarMedidas = () => {
+                if (_this.altoGlobal) areaGlobal.style.height = _this.altoGlobal;
+                if (_this.altoLoop) areaLoop.style.height = _this.altoLoop;
+            };
+            const recordarAlto = (el, campo) => {
+                el.addEventListener("mouseup", () => {
+                    const h = el.style.height;
+                    if (h && h !== _this[campo]) {
+                        _this[campo] = h;
+                        app.graph.setDirtyCanvas(true, false);
+                    }
+                });
+            };
+            recordarAlto(areaGlobal, "altoGlobal");
+            recordarAlto(areaLoop, "altoLoop");
 
             // ---------- estado ----------
             this.volcarEstado = () => {
@@ -412,6 +494,38 @@ app.registerExtension({
                 if (_this.loopSel < 0) _this.loopSel = 0;
             };
 
+            // El zoom se guarda con el nodo: quien agranda las miniaturas lo hace
+            // porque a ese tamaño ve lo que necesita, y perderlo al recargar el
+            // workflow obliga a repetirlo cada vez. Igual que las alturas que se
+            // arrastran a mano. / The zoom is saved with the node: losing it on
+            // reload means redoing it every time.
+            const ZOOM_MIN = 0.7, ZOOM_MAX = 2.6, ANCHO_CARTA = 108, ALTO_THUMB = 61;
+            if (typeof this.tiraZoom !== "number") this.tiraZoom = 1;
+
+            const aplicarZoom = () => {
+                const z = _this.tiraZoom;
+                etqZoom.innerText = Math.round(z * 100) + "%";
+                btnMenos.disabled = z <= ZOOM_MIN + 0.001;
+                btnMas.disabled = z >= ZOOM_MAX - 0.001;
+                for (const card of tira.querySelectorAll(".asd-pm-card")) {
+                    card.style.width = Math.round(ANCHO_CARTA * z) + "px";
+                    const vis = card.querySelector(".asd-pm-thumb, .asd-pm-vacio");
+                    if (vis) vis.style.height = Math.round(ALTO_THUMB * z) + "px";
+                }
+                const mas = tira.querySelector(".asd-pm-add");
+                if (mas) mas.style.width = Math.round(44 * z) + "px";
+            };
+
+            const cambiarZoom = (paso) => {
+                const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, _this.tiraZoom + paso));
+                if (z === _this.tiraZoom) return;
+                _this.tiraZoom = z;
+                aplicarZoom();
+                ajustar();
+            };
+            btnMenos.addEventListener("click", () => cambiarZoom(-0.2));
+            btnMas.addEventListener("click", () => cambiarZoom(0.2));
+
             this.renderTira = () => {
                 clamp();
                 tira.innerHTML = "";
@@ -473,6 +587,7 @@ app.registerExtension({
                     tira.scrollLeft = tira.scrollWidth;
                 });
                 tira.appendChild(mas);
+                aplicarZoom();
 
                 const sel = tira.children[_this.loopSel];
                 if (sel && sel.scrollIntoView) {
@@ -710,6 +825,7 @@ app.registerExtension({
                         _this.promptState = JSON.parse(dataWidget.value);
                     } catch (e) {}
                 }
+                _this.aplicarMedidas();
                 _this.renderUI();
                 _this.cargarFrames();
             }, 120);

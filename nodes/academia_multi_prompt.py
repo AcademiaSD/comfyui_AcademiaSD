@@ -208,6 +208,11 @@ class AcademiaMultiPrompt:
 NODE_CLASS_MAPPINGS = {
     "AcademiaSD_MultiPrompt": AcademiaMultiPrompt
 }
+# Solo cambia el nombre VISIBLE. La clave `AcademiaSD_MultiPrompt` es lo que
+# guardan los workflows, asi que tocarla dejaria sin cargar todos los que ya
+# existen ahi fuera.
+# Display name only. The `AcademiaSD_MultiPrompt` key is what workflows store,
+# so renaming it would break every one already out there.
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AcademiaSD_MultiPrompt": "Academia SD Multi-Prompt 📝"
+    "AcademiaSD_MultiPrompt": "Academia SD Moviola Multi-prompts 📝"
 }
