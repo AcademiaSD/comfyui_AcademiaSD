@@ -360,9 +360,72 @@ function registerPromptNode(nodeName, defaultFileName) {
                         app.graph?.setDirtyCanvas(true, true);
                     };
 
+                    // Con `prompt` conectado manda el nodo de arriba y lo que haya
+                    // en esta caja no se usa. Sin avisarlo, uno escribe aqui, no ve
+                    // ningun cambio en la generacion y no hay nada que se lo
+                    // explique -- asi que la caja se atenua y lo dice en su hueco.
+                    // El texto NO se borra: sigue ahi para cuando se desconecte.
+                    //
+                    // With `prompt` wired the upstream node decides and whatever is
+                    // in this box goes unused. Unannounced, you type here, see no
+                    // change in the output, and nothing explains why. The text is
+                    // not cleared: it waits for the link to go away.
+                    // NO basta con mirar si hay cable: un cable que sale de un nodo
+                    // en bypass o silenciado no trae nada, asi que la caja vuelve a
+                    // mandar y tiene que poder editarse. Un enlace presente no es
+                    // lo mismo que un enlace VIVO.
+                    //
+                    // A wire is not enough: one coming out of a bypassed or muted
+                    // node carries nothing, so the box is back in charge and has to
+                    // be editable. A link being there is not the same as it being
+                    // LIVE.
+                    const NUNCA = 2, BYPASS = 4;
+                    const marcadorPropio = textarea.placeholder;
+
+                    const estadoEntrada = () => {
+                        const ent = _this.inputs || [];
+                        let idx = -1;
+                        for (let i = 0; i < ent.length; i++) {
+                            if (ent[i] && ent[i].name === "prompt") { idx = i; break; }
+                        }
+                        if (idx < 0 || ent[idx].link == null) return "libre";
+
+                        let n;
+                        try { n = _this.getInputNode(idx); } catch (e) { return "libre"; }
+                        // Un Reroute es un cable con forma de nodo: se atraviesa. En
+                        // bypass se comporta igual que normal, asi que solo corta si
+                        // esta silenciado. / A Reroute is a cable shaped like a node.
+                        let salto = 0;
+                        while (n && /reroute/i.test(n.type || "") && salto++ < 8) {
+                            if (n.mode === NUNCA) return "apagado";
+                            try { n = n.getInputNode(0); } catch (e) { return "libre"; }
+                        }
+                        if (!n) return "libre";
+                        return (n.mode === NUNCA || n.mode === BYPASS) ? "apagado" : "vivo";
+                    };
+
+                    const refrescarEntrada = () => {
+                        const est = estadoEntrada();
+                        if (est === _this._promptEstado) return;   // salida barata
+                        _this._promptEstado = est;
+                        const fantasma = est === "vivo";
+                        textarea.readOnly = fantasma;
+                        textarea.style.opacity = fantasma ? "0.4" : "1";
+                        textarea.style.borderStyle = fantasma ? "dashed" : "solid";
+                        textarea.title = fantasma
+                            ? "driven by the connected prompt input; this text is unused"
+                            : (est === "apagado"
+                                ? "the connected node is bypassed, so this text is used"
+                                : "");
+                        textarea.placeholder = fantasma
+                            ? "⇠ driven by the connected prompt"
+                            : marcadorPropio;
+                    };
+
                     const originalDrawForeground = this.onDrawForeground;
                     this.onDrawForeground = function(ctx) {
                         hideNativeTextWidget(_this);
+                        refrescarEntrada();
                         adjustContainerHeight();
                         if (originalDrawForeground) originalDrawForeground.apply(this, arguments);
                     };
