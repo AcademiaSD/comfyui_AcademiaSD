@@ -48,7 +48,15 @@ import glob
 import os
 import re
 import shutil
-import subprocess
+# subprocess: el montaje llama a ffmpeg y ffprobe, que son binarios externos --
+# no hay forma de unir clips ni de medir una costura dentro del proceso. Se usa
+# siempre con `shell=False`, lista de argumentos y ejecutable absoluto; ver
+# `_correr` para el detalle de por que eso no abre una via de ejecucion.
+#
+# subprocess: joining clips and measuring a seam means ffmpeg and ffprobe, which
+# are external binaries. Always shell=False, argument list, absolute executable;
+# see `_correr` for why that is not an execution path.
+import subprocess  # nosec B404
 import tempfile
 
 import numpy as np
@@ -63,7 +71,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.3"
+    ACADEMIASD_VERSION = "2.4.4"
 
 try:
     from safetensors.torch import load_file as _st_load
@@ -510,33 +518,77 @@ FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 PATRON_VIDEO = r"^{}_(\d+)(?:__\d+)?([^.]*)\.(mp4|mkv|mov|webm)$"
 
 
+def _binario(ruta):
+    """La ruta, solo si es un ejecutable ABSOLUTO que existe. Si no, None.
+
+    Nunca se invoca un programa por su nombre suelto. Con un nombre relativo es
+    el sistema quien decide cual se ejecuta recorriendo el PATH, y ahi cualquier
+    `ffmpeg` colocado en el directorio equivocado gana la carrera. Resolviendo la
+    ruta completa antes, lo que se lanza queda fijado aqui.
+
+    Only an ABSOLUTE, existing executable. A bare program name leaves the choice
+    to the system's PATH search, where any `ffmpeg` dropped in the wrong folder
+    wins the race; resolving the full path first pins down what runs.
+    """
+    if not ruta:
+        return None
+    completa = os.path.abspath(ruta)
+    return completa if os.path.isfile(completa) else None
+
+
 def _herramientas():
-    """(ffmpeg, ffprobe). Cualquiera puede ser None.
+    """(ffmpeg, ffprobe), ambos absolutos. Cualquiera puede ser None.
 
     Se prefiere el del sistema porque trae ffprobe al lado; el de imageio_ffmpeg
     es solo ffmpeg, asi que sirve para codificar pero no para medir.
     System first because it ships ffprobe alongside; imageio_ffmpeg is ffmpeg
     only, enough to encode but not to measure.
     """
-    ff = shutil.which("ffmpeg")
-    fp = shutil.which("ffprobe")
+    ff = _binario(shutil.which("ffmpeg"))
+    fp = _binario(shutil.which("ffprobe"))
     if ff and not fp:
-        vecino = os.path.join(os.path.dirname(ff), "ffprobe.exe" if os.name == "nt" else "ffprobe")
-        fp = vecino if os.path.exists(vecino) else None
+        fp = _binario(os.path.join(os.path.dirname(ff),
+                                   "ffprobe.exe" if os.name == "nt" else "ffprobe"))
     if not ff:
         try:
             from imageio_ffmpeg import get_ffmpeg_exe
-            ff = get_ffmpeg_exe()
+            ff = _binario(get_ffmpeg_exe())
         except Exception:
             ff = None
     return ff, fp
 
 
 def _correr(cmd):
-    kw = {"capture_output": True, "text": True}
+    """Lanza ffmpeg o ffprobe con su lista de argumentos.
+
+    Tres cosas hacen que esto no sea una via de ejecucion:
+
+    - `shell=False` explicito y `cmd` SIEMPRE una lista. Sin shell no hay quien
+      interprete `;`, `|` ni `&&`: cada elemento llega al proceso como un unico
+      argumento, venga el texto de donde venga.
+    - El ejecutable es una ruta absoluta ya comprobada (`_binario`), nunca un
+      nombre que resuelva el PATH.
+    - Los argumentos no son texto de nadie de fuera. Las rutas salen de
+      `_partes()`, que resuelve bajo `output/` y rechaza lo que se escape; los
+      numeros pasan por `int()`; y el filtro se arma con medidas.
+
+    Three things keep this from being an execution path: `shell=False` with `cmd`
+    always a list, so nothing interprets `;`, `|` or `&&` and every element
+    arrives as a single argument; an absolute, already-checked executable instead
+    of a PATH lookup; and arguments that are never outside text -- paths come from
+    `_partes()`, which resolves under `output/` and refuses anything escaping it,
+    numbers go through `int()`, and the filter is built from measurements.
+    """
+    if not isinstance(cmd, (list, tuple)) or not cmd:
+        raise ValueError("[Moviola] el comando debe ser una lista "
+                         "/ the command must be a list")
+    if not _binario(cmd[0]):
+        raise ValueError("[Moviola] ejecutable no valido / invalid executable")
+
+    kw = {"capture_output": True, "text": True, "shell": False}
     if os.name == "nt":
         kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    return subprocess.run(cmd, **kw)
+    return subprocess.run([str(x) for x in cmd], **kw)  # nosec B603
 
 
 def _sondear(fp, ruta, flujo, campos):
