@@ -310,7 +310,7 @@ The switch itself, and the part that moves everything else.
 
 ---
 
-# 🎞️ Moviola Nodes — *dev*
+# 🎞️ Moviola Nodes
 
 A chained-generation system for MiniMax-H3: each take starts where the last one
 ended, every take gets its own prompt, and the finished takes cut together into
@@ -526,7 +526,11 @@ and the first take is plain text-to-video. `None` is valid downstream —
 ReferenceToVideo skips null references and ImageToVideo's `first_frame` is
 optional — so only the first card of the strip stays empty.
 
-> **This is a dev branch.** Measured and working end to end, but young.
+> **New in 2.4.1.** Measured and working end to end, but young: the numbers above
+> come from around fifteen series of clips, not from one lucky run. Updating from
+> an earlier version needs a ComfyUI restart and *Fix node (recreate)* on
+> Multi-Prompt, Moviola Out and the CLIP Text Encode nodes — all three changed
+> their inputs or outputs, and nodes already saved in a workflow do not know it.
 
 ---
 
