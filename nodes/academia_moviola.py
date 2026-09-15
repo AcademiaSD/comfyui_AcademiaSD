@@ -43,8 +43,13 @@ but it takes IMAGE and calls `vae.encode()` internally, forcing a trip through a
 saved, and the VAE round trip leaves the loop.
 """
 
+import asyncio
+import glob
 import os
 import re
+import shutil
+import subprocess
+import tempfile
 
 import numpy as np
 import torch
@@ -52,11 +57,13 @@ from PIL import Image
 
 import folder_paths
 import node_helpers
+from aiohttp import web
+from server import PromptServer
 
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.0"
+    ACADEMIASD_VERSION = "2.4.1"
 
 try:
     from safetensors.torch import load_file as _st_load
@@ -139,6 +146,45 @@ def _ultima_latente(samples, cuantos=1):
     return samples.clone()
 
 
+def _guardar_base(carpeta, nombre, imagen):
+    """Deja la imagen de partida como `nombre_00000_.png`.
+
+    El fotograma que arranca la vuelta N es el ultimo de la N-1, y esa cadena se
+    corta en la primera: la imagen base no vive en la carpeta del proyecto. Con
+    el cero la cadena queda completa y ademas queda constancia de CON QUE imagen
+    se hizo la serie, que hoy no consta en ningun sitio -- si se cambia la
+    referencia y se regenera, no hay forma de saber cual uso la serie anterior.
+
+    El cero no estorba a nadie: `_ultimo` exige `n > mejor_n` partiendo de 0, asi
+    que nunca se sirve como ancla, y `_borrar` recorre `while n > 0`, asi que
+    tampoco se lo lleva por delante al deshacer una toma.
+
+    Saves the starting image as `name_00000_.png`. Frame N starts from take N-1's
+    last, and that chain breaks at the first take because the base image does not
+    live in the project folder. Zero completes it and records WHICH image the
+    series was made from, which nothing does today. It is inert: `_ultimo` starts
+    at 0 and demands `n > best`, so it is never served as an anchor, and `_borrar`
+    walks `while n > 0`, so undoing takes never removes it.
+    """
+    destino = os.path.join(carpeta, "{}_{:05}_.png".format(nombre, 0))
+    if os.path.exists(destino):
+        return
+    try:
+        os.makedirs(carpeta, exist_ok=True)
+        # `format` explicito: PIL deduce el formato de la extension y aqui se
+        # escribe a un `.tmp`, que no le dice nada.
+        # Explicit `format`: PIL infers it from the extension and this writes to
+        # a `.tmp` first, which tells it nothing.
+        tmp = destino + ".tmp"
+        _tensor_a_pil(imagen).save(tmp, format="PNG", compress_level=4)
+        os.replace(tmp, destino)
+    except Exception as exc:
+        # Es documentacion, no parte del bucle: si falla, la serie sigue.
+        # Documentation, not part of the loop: a failure must not stop the run.
+        print("[Moviola In] no se pudo guardar la base / could not save the base: "
+              "{}".format(exc))
+
+
 def _tensor_a_pil(imagen):
     x = imagen[0] if imagen.ndim == 4 else imagen
     x = (x.detach().cpu().float().clamp(0.0, 1.0).numpy() * 255.0).astype(np.uint8)
@@ -202,14 +248,28 @@ class AcademiaMoviolaIn:
 
         if n == 0:
             if base_image is None:
-                raise ValueError(
-                    "[Moviola In] Primera vuelta: no hay fotogramas en '{}' y falta "
-                    "base_image. / First pass: no frames in '{}' and base_image is "
-                    "missing.".format(carpeta, carpeta))
-            imagen = base_image
-            origen = "base"
-            print("[Moviola In v{}] carpeta vacia, sirviendo la base "
-                  "/ empty folder, serving the base".format(ACADEMIASD_VERSION))
+                # Primera vuelta SIN imagen: texto a video puro, sin ancla. Esto
+                # antes era un error, pero nada impide arrancar una serie solo con
+                # el prompt -- y `None` es valido aguas abajo: ReferenceToVideo
+                # hace `if img is None: continue` al recorrer ref_images, y en
+                # ImageToVideo `first_frame` es opcional. De la segunda vuelta en
+                # adelante ya hay fotograma y todo sigue igual.
+                #
+                # First pass with NO image: plain text-to-video, no anchor. This
+                # used to raise, but nothing stops a series starting from the
+                # prompt alone, and `None` is valid downstream: ReferenceToVideo
+                # skips null refs and ImageToVideo's `first_frame` is optional.
+                imagen = None
+                origen = "text only"
+                print("[Moviola In v{}] primera vuelta sin imagen base: texto a "
+                      "video / first pass, no base image: text to video".format(
+                          ACADEMIASD_VERSION))
+            else:
+                imagen = base_image
+                origen = "base"
+                _guardar_base(carpeta, nombre, base_image)
+                print("[Moviola In v{}] carpeta vacia, sirviendo la base "
+                      "/ empty folder, serving the base".format(ACADEMIASD_VERSION))
         else:
             img = Image.open(fichero).convert("RGB")
             imagen = torch.from_numpy(np.array(img).astype(np.float32) / 255.0).unsqueeze(0)
@@ -217,7 +277,8 @@ class AcademiaMoviolaIn:
             print("[Moviola In v{}] sirviendo {} / serving {}".format(
                 ACADEMIASD_VERSION, origen, origen))
 
-        return {"ui": {"images": _vista_previa(imagen, nombre + "_in")},
+        vista = _vista_previa(imagen, nombre + "_in") if imagen is not None else []
+        return {"ui": {"images": vista},
                 "result": (imagen, n + 1, origen, project_path)}
 
 
@@ -312,8 +373,18 @@ class AcademiaMoviolaOut:
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("path",)
+    # `latent_frames` sale tal cual para que el montador no tenga que repetirlo.
+    # Es el valor que decide cuanto rebobina el modelo, o sea cuanto sobra en
+    # cada costura: tenerlo escrito en dos widgets es tenerlo mal en cuanto se
+    # cambia uno. Sacarlo por aqui no cierra ningun ciclo, porque el montador es
+    # terminal y no devuelve nada.
+    #
+    # `latent_frames` comes straight out so the editor need not repeat it. It is
+    # what decides how far the model rewinds -- how much is spare at each seam --
+    # and holding it in two widgets means holding it wrong the moment one of them
+    # changes. No cycle: the editor is terminal and returns nothing.
+    RETURN_TYPES = ("STRING", "INT")
+    RETURN_NAMES = ("path", "latent_frames")
     FUNCTION = "guardar"
     OUTPUT_NODE = True
     CATEGORY = "Academia SD/Moviola"
@@ -381,17 +452,808 @@ class AcademiaMoviolaOut:
                     ACADEMIASD_VERSION, tuple(z.shape), os.path.basename(base)))
 
         print("[Moviola Out v{}] escrito {} / wrote {}".format(ACADEMIASD_VERSION, base, base))
-        return {"ui": {"images": ui}, "result": (base,)}
+        return {"ui": {"images": ui}, "result": (base, int(latent_frames))}
+
+
+# ============================================================================
+#  Film Editor
+# ============================================================================
+#
+# Une las tomas de un proyecto y permite deshacer la ultima. Todo lo que hace
+# al montar esta medido, no estimado; los numeros salen de unas quince series.
+#
+# 1. RECORTE. El clip nuevo no empieza donde acabo el viejo: empieza ANTES. El
+#    ancla es la ultima latente y cada latente salvo la primera codifica cuatro
+#    fotogramas reales, asi que el modelo recibe esa trayectoria y la vuelve a
+#    dibujar antes de continuar. El solape es un REBOBINADO, no un fotograma
+#    repetido, y por eso mirar solo el fotograma 0 no lo ve.
+#
+# 2. EXPOSICION. Cada toma se genera aparte y el nivel deriva: medido, el mismo
+#    +2,5% por costura tanto con la escena a 22 de brillo como a 143. Eso es
+#    ganancia, no contenido, y en nueve costuras compone un 25%.
+#
+# 3. AUDIO. Los fotogramas descartados son un rebobinado, asi que su sonido
+#    cubre el MISMO instante que la cola anterior. Cruzarlos no desplaza nada,
+#    porque el solape no se inventa: ya estaba ahi.
+#
+# Joins a project's takes and lets you undo the last one. Everything the montage
+# does is measured, not guessed.
+
+CRUCE_CURVA = "qsin"        # potencia constante: las dos mitades no son identicas
+VENTANA_BUSQUEDA = 20       # fotogramas del clip nuevo que se exploran
+HUNDIMIENTO = 0.6           # el minimo debe bajar a esto de los hombros de la V
+FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
+
+# prefijo_00001<lo que sea>.mp4
+#
+# El segundo grupo de cifras lo pone el guardador de video: con el cableado
+# antiguo el prefijo salia de Moviola Out y el guardador le añadia SU contador
+# detras, dejando dos numeros en el mismo nombre. Se tolera porque aqui es
+# inequivoco: el numero va anclado justo detras del prefijo, asi que el primer
+# grupo es siempre la toma y lo de detras sobra. (Buscando por el numero suelto
+# sin anclar no lo seria -- pidiendo la toma 1, el 00001 final de
+# `toma_00011__00001` casaria igual y devolveria la vuelta 11.)
+#
+# Y lo que venga detras del numero da igual: "-audio" es una convencion del
+# guardador de video, no un requisito. Quien no guarde el proyecto con sonido
+# tendra `vid_loop_00001.mp4` a secas y tiene que encontrarse igual. El sufijo
+# solo se mira para desempatar cuando el mismo numero aparece dos veces: ahi gana
+# el que lleve audio, porque es el clip completo.
+#
+# The second number group comes from the video saver: with the old wiring the
+# prefix came from Moviola Out and the saver appended ITS counter. Tolerated
+# because it is unambiguous here -- the number is anchored right after the
+# prefix, so the first group is always the take. Whatever follows the number is
+# ignored: "-audio" is the saver's convention, not a requirement, and a project
+# saved without sound has a plain `vid_loop_00001.mp4` that must be found just
+# the same. The suffix only breaks ties when one number appears twice.
+PATRON_VIDEO = r"^{}_(\d+)(?:__\d+)?([^.]*)\.(mp4|mkv|mov|webm)$"
+
+
+def _herramientas():
+    """(ffmpeg, ffprobe). Cualquiera puede ser None.
+
+    Se prefiere el del sistema porque trae ffprobe al lado; el de imageio_ffmpeg
+    es solo ffmpeg, asi que sirve para codificar pero no para medir.
+    System first because it ships ffprobe alongside; imageio_ffmpeg is ffmpeg
+    only, enough to encode but not to measure.
+    """
+    ff = shutil.which("ffmpeg")
+    fp = shutil.which("ffprobe")
+    if ff and not fp:
+        vecino = os.path.join(os.path.dirname(ff), "ffprobe.exe" if os.name == "nt" else "ffprobe")
+        fp = vecino if os.path.exists(vecino) else None
+    if not ff:
+        try:
+            from imageio_ffmpeg import get_ffmpeg_exe
+            ff = get_ffmpeg_exe()
+        except Exception:
+            ff = None
+    return ff, fp
+
+
+def _correr(cmd):
+    kw = {"capture_output": True, "text": True}
+    if os.name == "nt":
+        kw["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    return subprocess.run(cmd, **kw)
+
+
+def _sondear(fp, ruta, flujo, campos):
+    r = _correr([fp, "-v", "error", "-select_streams", flujo,
+                 "-show_entries", campos, "-of", "csv=p=0", ruta])
+    return r.stdout.strip()
+
+
+def _fps(fp, ruta):
+    """Los fps REALES, no un valor fijo: la interpolacion se activa a voluntad y
+    un valor fijo desalinearia el audio justo en la costura."""
+    try:
+        a, b = _sondear(fp, ruta, "v:0", "stream=r_frame_rate").split("/")
+        v = float(a) / float(b)
+        return v if v > 1.0 else 24.0
+    except Exception:
+        return 24.0
+
+
+def _duracion(fp, ruta):
+    try:
+        return float(_sondear(fp, ruta, "v:0", "format=duration").splitlines()[0])
+    except Exception:
+        r = _correr([fp, "-v", "error", "-show_entries", "format=duration",
+                     "-of", "csv=p=0", ruta])
+        try:
+            return float(r.stdout.strip())
+        except ValueError:
+            return 0.0
+
+
+def _duracion_audio(fp, ruta):
+    try:
+        return float(_sondear(fp, ruta, "a:0", "stream=duration"))
+    except Exception:
+        return _duracion(fp, ruta)
+
+
+def _n_fotogramas(fp, ruta):
+    try:
+        return int(_sondear(fp, ruta, "v:0", "stream=nb_read_frames").replace("N/A", "") or 0) or \
+            int(_correr([fp, "-v", "error", "-count_frames", "-select_streams", "v:0",
+                         "-show_entries", "stream=nb_read_frames", "-of", "csv=p=0",
+                         ruta]).stdout.strip())
+    except Exception:
+        return 0
+
+
+def _tiene_audio(fp, ruta):
+    """Si el fichero trae pista de sonido de verdad.
+
+    No se deduce del nombre: "-audio" lo pone el guardador por convencion y
+    quien no guarde el proyecto con sonido no lo tendra. Lo que rompe el montaje
+    es referenciar [i:a] de un clip mudo -- ffmpeg no encuentra el flujo y se cae
+    entero, asi que se pregunta al fichero.
+
+    Not inferred from the name: "-audio" is the saver's convention. What breaks
+    the montage is referencing [i:a] of a silent clip -- ffmpeg cannot find the
+    stream and the whole run dies -- so the file is asked.
+    """
+    try:
+        return bool(_sondear(fp, ruta, "a:0", "stream=index").strip())
+    except Exception:
+        return False
+
+
+def _clips(carpeta, prefijo):
+    """Los clips de ese prefijo, ordenados por su NUMERO y no por su nombre.
+
+    Alfabeticamente _00010 iria antes que _00009 en cuanto el bucle pasara de
+    nueve vueltas. Si hay version con audio y sin ella para el mismo numero, gana
+    la de audio. / Sorted by INTEGER, not by name. The -audio variant wins.
+    """
+    if not os.path.isdir(carpeta):
+        return []
+    pat = re.compile(PATRON_VIDEO.format(re.escape(prefijo)), re.IGNORECASE)
+    mejor = {}
+    for f in sorted(os.listdir(carpeta)):
+        m = pat.match(f)
+        if not m:
+            continue
+        n = int(m.group(1))
+        cola = (m.group(2) or "").lower()
+        # Desempate para un mismo numero: primero el que lleve audio, y a
+        # igualdad el nombre mas corto. Sin la segunda parte, dos variantes sin
+        # audio dependerian del orden del sistema de ficheros.
+        # Tie-break for one number: audio first, then the shortest name. Without
+        # the second half, two soundless variants would depend on the OS order.
+        clave = (0 if "audio" in cola else 1, len(f))
+        if n not in mejor or clave < mejor[n][0]:
+            mejor[n] = (clave, os.path.join(carpeta, f))
+    return [(n, mejor[n][1]) for n in sorted(mejor)]
+
+
+def _fotogramas(ff, ruta, desde, cuantos, tmp, etq):
+    """Varios fotogramas seguidos en UNA llamada: de uno en uno son doscientas
+    aperturas del mismo fichero por montaje."""
+    patron = os.path.join(tmp, "{}_%03d.png".format(etq))
+    _correr([ff, "-v", "error", "-y", "-i", ruta,
+             "-vf", r"select=gte(n\,{})".format(desde),
+             "-vsync", "0", "-frames:v", str(cuantos), patron])
+    return [os.path.join(tmp, "{}_{:03d}.png".format(etq, k + 1)) for k in range(cuantos)]
+
+
+def _leer(p):
+    return np.asarray(Image.open(p).convert("RGB"), np.float64)
+
+
+def _dif(a, b):
+    return float(np.abs(_leer(a) - _leer(b)).mean())
+
+
+def _ganancia(a, b):
+    """Cuanto multiplicar el clip SIGUIENTE para igualar al anterior.
+
+    GANANCIA por canal y no desplazamiento: el desajuste es multiplicativo -- el
+    mismo +2,5% con la escena oscura y con la clara -- y un offset levantaria los
+    negros del fondo. / Per-channel GAIN, not offset: the mismatch is
+    multiplicative and an offset would lift the blacks.
+    """
+    A, B = _leer(a), _leer(b)
+    g = []
+    for c in range(3):
+        mb = B[..., c].mean()
+        g.append(1.0 if mb < 1e-6 else max(0.5, min(2.0, A[..., c].mean() / mb)))
+    return g
+
+
+def _perfil(ff, fp, a, b, tmp, etq):
+    """Diferencia del ultimo fotograma de A contra los primeros de B.
+
+    El perfil sale en V y el minimo cae donde el rebobinado alcanza al clip
+    anterior. Una V de verdad se hunde muy por debajo de sus dos hombros; si no
+    lo hace, el plano esta casi quieto y el minimo es ruido.
+    """
+    na = _n_fotogramas(fp, a)
+    fa = _fotogramas(ff, a, max(0, na - 2), 2, tmp, etq + "a")
+    fb = _fotogramas(ff, b, 0, VENTANA_BUSQUEDA + 1, tmp, etq + "b")
+    if len(fa) < 2 or len(fb) < 2:
+        return None
+    difs = [_dif(fa[1], x) for x in fb]
+    k = min(range(len(difs)), key=lambda i: difs[i])
+    mov = (_dif(fa[0], fa[1]) + _dif(fb[k], fb[min(k + 1, len(fb) - 1)])) / 2.0
+    hombros = min(difs[0], difs[-1])
+    return {"k": k, "dif": difs[k], "mov": mov,
+            "clara": difs[k] < HUNDIMIENTO * hombros, "fa": fa, "fb": fb}
+
+
+def _recorte_esperado(latent_frames, fps):
+    """Cuanto rebobinado cabe esperar, en fotogramas del clip ya interpolado.
+
+    Cada latente salvo la primera codifica cuatro fotogramas reales, y la
+    interpolacion a 48 fps duplica. Es una GUIA: la medida manda, esto solo
+    rescata las costuras donde no hay V que medir.
+    Each latent but the first encodes four real frames, and interpolation to
+    48 fps doubles it. A GUIDE only: the measurement wins.
+    """
+    reales = max(1, int(latent_frames)) * FRAMES_POR_LATENTE
+    return reales * 2 if fps > 36 else reales
+
+
+def _decidir_recortes(perfiles, esperado):
+    """Cuantos fotogramas quita cada costura.
+
+    El minimo NO es donde cortar: es el fotograma que REPITE, el que mas se
+    parece al ultimo del clip anterior. Conservarlo enseña ese instante dos veces
+    y el movimiento se para. Medido sobre nueve costuras: cortando EN el minimo,
+    siete cambiaban 0,18-0,49 veces el movimiento normal -- el paron. Un
+    fotograma despues, seis se quedan en 1,10-1,21, que es lo que da un corte.
+
+    El rebobinado dura lo mismo en toda la serie, asi que las costuras planas
+    copian la mediana de las que si tienen V. Si ninguna la tiene, se usa
+    `latent_frames` como guia.
+    """
+    claras = sorted(p["k"] for p in perfiles if p and p["clara"])
+    if claras:
+        comun = claras[len(claras) // 2] + 1
+    else:
+        comun = max(1, int(esperado))
+    return [((p["k"] + 1) if (p and p["clara"]) else comun) for p in perfiles]
+
+
+def _medir(ff, fp, rutas, tmp, latent_frames, log):
+    perfiles = [_perfil(ff, fp, rutas[i], rutas[i + 1], tmp, "s{}".format(i))
+                for i in range(len(rutas) - 1)]
+    esperado = _recorte_esperado(latent_frames, _fps(fp, rutas[0]))
+    recortes = _decidir_recortes(perfiles, esperado)
+
+    salida = []
+    for i, (p, n_rec) in enumerate(zip(perfiles, recortes)):
+        if p is None:
+            salida.append((n_rec, [1.0, 1.0, 1.0]))
+            continue
+        # La exposicion se mide contra el fotograma que SOBREVIVE al recorte. Con
+        # ocho descartados, medirla contra el 0 calcula la ganancia de una imagen
+        # que se tira y el cambio de tono sobrevive a la correccion.
+        sup = p["fb"][min(n_rec, len(p["fb"]) - 1)]
+        salida.append((n_rec, _ganancia(p["fa"][1], sup)))
+        log.append("   seam {} -> {}   dip at {}{}   trim {}".format(
+            i + 1, i + 2, p["k"], "" if p["clara"] else " (flat, copied)", n_rec))
+    if not claras_hay(perfiles):
+        log.append("   no clear dip anywhere: fell back to latent_frames "
+                   "({} frames)".format(esperado))
+    return salida
+
+
+def claras_hay(perfiles):
+    return any(p and p["clara"] for p in perfiles)
+
+
+def _montar(ff, fp, rutas, destino, latent_frames, crf, log):
+    """Un solo filter_complex para todo: encadenar ffmpeg clip a clip recodifica
+    en cada paso y la perdida se acumula."""
+    tmp = tempfile.mkdtemp(prefix="moviola_")
+    try:
+        dec = _medir(ff, fp, rutas, tmp, latent_frames, log)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    recorta = [0] + [d[0] for d in dec]
+
+    # La correccion ACUMULA: cada clip se iguala al anterior, que ya viene
+    # igualado al suyo. Corrigiendo solo contra el vecino inmediato, una deriva
+    # lenta se colaria entera sin que ninguna costura pareciera mala.
+    gan = [[1.0, 1.0, 1.0]]
+    for d in dec:
+        gan.append([gan[-1][c] * d[1][c] for c in range(3)])
+
+    entradas, filtros, vs = [], [], []
+    for i, r in enumerate(rutas):
+        entradas += ["-i", r]
+        sel = r"select=gte(n\,{}),".format(recorta[i]) if recorta[i] else ""
+        g = gan[i]
+        col = ("" if max(abs(x - 1.0) for x in g) < 0.005 else
+               "colorchannelmixer=rr={:.4f}:gg={:.4f}:bb={:.4f},".format(g[0], g[1], g[2]))
+        filtros.append("[{i}:v]{s}{c}setpts=PTS-STARTPTS[v{i}]".format(i=i, s=sel, c=col))
+        vs.append("[v{}]".format(i))
+    filtros.append("{}concat=n={}:v=1:a=0[v]".format("".join(vs), len(rutas)))
+
+    cortes = [1.0 / _fps(fp, r) for r in rutas]
+    ventanas = [cortes[i] * recorta[i] for i in range(len(rutas))]
+
+    # O lo tienen TODOS o no se toca el audio. Con unos cuantos mudos por medio,
+    # la pista concatenada duraria menos que el video y todo lo que viene detras
+    # de ese hueco quedaria descuadrado; mas vale entregar el montaje mudo y
+    # decirlo que entregarlo desincronizado sin avisar.
+    #
+    # ALL of them or none. With a few silent clips in between, the concatenated
+    # track would run shorter than the picture and everything after that gap
+    # would drift; better to hand over a silent cut and say so.
+    con_audio = [_tiene_audio(fp, r) for r in rutas]
+    hay_audio = all(con_audio)
+    if not hay_audio and any(con_audio):
+        log.append("   some clips have no audio track: joining the picture only")
+    elif not hay_audio:
+        log.append("   no audio tracks: joining the picture only")
+
+    aes, colas, inicio = [], [], 0.0
+    for i, r in enumerate(rutas):
+        corte, n_rec = cortes[i], recorta[i]
+        dur = _duracion(fp, r) - corte * n_rec
+        if dur <= 0:
+            dur = max(0.04, _duracion(fp, r))
+        if not hay_audio:
+            inicio += dur
+            continue
+        dur_a = _duracion_audio(fp, r) - corte * n_rec
+        # Los clips salen del generador con el audio ~26 ms MAS CORTO que el
+        # video, y eso se acumula. Se estira con atempo, NO se rellena con
+        # silencio: rellenar deja un agujero a digital cero antes de cada
+        # costura, medido en -89,9 dBFS, que es el corte seco que se oye.
+        tempo = max(0.5, min(2.0, dur_a / dur)) if dur > 0 else 1.0
+        pre = ("[{i}:a]".format(i=i) if not n_rec else
+               "[{i}:a]atrim=start={t},asetpts=PTS-STARTPTS,".format(i=i, t=corte * n_rec))
+        v_sal = ventanas[i + 1] if i + 1 < len(rutas) else 0.0
+        baja = ("" if v_sal <= 0.005 else
+                ",afade=t=out:st={st}:d={v}:curve={c}".format(
+                    st=max(0.0, dur - v_sal), v=v_sal, c=CRUCE_CURVA))
+        filtros.append(
+            "{p}atempo={t:.9f},apad,atrim=0:{d},asetpts=PTS-STARTPTS{b}[fa{i}]".format(
+                p=pre, t=tempo, d=dur, b=baja, i=i))
+        aes.append("[fa{}]".format(i))
+
+        ventana = ventanas[i]
+        if i > 0 and ventana > 0.005:
+            # La parte descartada, subiendo, sobre la cola anterior: cubren el
+            # mismo instante, asi que el cruce no desplaza nada.
+            filtros.append(
+                "[{i}:a]atrim=0:{v},asetpts=PTS-STARTPTS,"
+                "afade=t=in:st=0:d={v}:curve={c},adelay={ms}|{ms}[cr{i}]".format(
+                    i=i, v=ventana, c=CRUCE_CURVA,
+                    ms=int(round((inicio - ventana) * 1000))))
+            colas.append("[cr{}]".format(i))
+        inicio += dur
+
+    mapas = ["-map", "[v]"]
+    if hay_audio:
+        filtros.append("{}concat=n={}:v=0:a=1[abase]".format("".join(aes), len(rutas)))
+        if colas:
+            # normalize=0: sumar sin atenuar. Con normalize=1 ffmpeg bajaria TODO
+            # el montaje para hacer sitio a unas ventanas de decimas de segundo.
+            filtros.append(
+                "[abase]{}amix=inputs={}:normalize=0:dropout_transition=0[a]".format(
+                    "".join(colas), len(colas) + 1))
+        else:
+            filtros.append("[abase]anull[a]")
+        mapas += ["-map", "[a]", "-c:a", "aac", "-b:a", "192k"]
+
+    r = _correr([ff, "-v", "error", "-y"] + entradas +
+                ["-filter_complex", ";".join(filtros)] + mapas +
+                ["-c:v", "libx264", "-crf", str(int(crf)), "-preset", "medium",
+                 "-pix_fmt", "yuv420p", destino])
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr or "ffmpeg failed").strip().splitlines()[-1])
+    return destino
+
+
+# -- el proyecto en disco ----------------------------------------------------
+
+def _nombres(path):
+    """(carpeta, base, prefijo de video, prefijo de interpolado).
+
+    Los tres prefijos salen del nombre base de `path`, no estan fijados: con
+    'proyecto/loop' se buscan loop_#####_.safetensors, vid_loop_#####.mp4 y
+    vid_int_loop_#####.mp4, que es justo lo que sacan Moviola Out y las dos
+    salidas de video de Project Paths. Con 'proyecto/toma' se buscarian toma,
+    vid_toma y vid_int_toma.
+
+    Lo que SI se da por supuesto es que los guardadores de video usan
+    `vid_<base>`: si estan cableados a otro sitio no aparece nada, asi que los
+    prefijos buscados se escriben en la consola para que el desajuste se lea de
+    un vistazo en vez de quedar en un "nothing found" mudo.
+
+    All three prefixes derive from `path`'s basename; none is hardcoded. What IS
+    assumed is that the video savers use `vid_<base>` -- wired elsewhere nothing
+    turns up, so the prefixes searched are printed to the console rather than
+    leaving a silent "nothing found".
+    """
+    carpeta, base = _partes(path)
+    return carpeta, base, "vid_" + base, "vid_int_" + base
+
+
+def _titulo(carpeta, base):
+    """Como se llama el montaje: el nombre del PROYECTO, no el de los ficheros.
+
+    `base` es el prefijo de las piezas ("loop") y sale igual en todos los
+    proyectos, asi que un `loop_final.mp4` no se distingue del de al lado en
+    cuanto sales de su carpeta. La pelicula terminada se llama como el proyecto.
+
+    Se coge solo el ultimo tramo de la carpeta: con un proyecto anidado,
+    'a/b' daria 'a/b_final.mp4', que no es un nombre de fichero. Y si el
+    proyecto vive en la raiz de output no hay carpeta propia de la que tirar, asi
+    que ahi se vuelve a `base`.
+
+    `base` is the pieces' prefix ("loop") and reads the same in every project, so
+    a `loop_final.mp4` is indistinguishable from the neighbour's once it leaves
+    its folder. The finished film is named after the project. Only the last path
+    component is used -- a nested 'a/b' would give 'a/b_final.mp4', which is not
+    a filename -- and a project living in output's root has no folder of its own,
+    so it falls back to `base`.
+    """
+    try:
+        raiz = os.path.abspath(folder_paths.get_output_directory())
+    except Exception:
+        raiz = None
+    if raiz and os.path.abspath(carpeta) == raiz:
+        return base
+    return os.path.basename(os.path.abspath(carpeta)) or base
+
+
+def _estado(path):
+    carpeta, base, pre_v, pre_i = _nombres(path)
+    lat, _ = _ultimo(carpeta, base, "safetensors")
+    vids = _clips(carpeta, pre_v)
+    ints = _clips(carpeta, pre_i)
+    # El nombre que identifica al proyecto es su CARPETA, no `base`: base es el
+    # prefijo de los ficheros ("loop") y sale igual en todos los proyectos, asi
+    # que escribirlo en la consola no dice a cual se esta apuntando.
+    # The project is identified by its FOLDER, not by `base`: base is the file
+    # prefix ("loop") and reads the same in every project.
+    out = os.path.abspath(folder_paths.get_output_directory())
+    try:
+        proyecto = os.path.relpath(carpeta, out).replace("\\", "/")
+    except ValueError:
+        proyecto = carpeta
+    if proyecto == ".":
+        proyecto = "(output root)"
+    return {"folder": carpeta, "base": base, "project": proyecto, "latents": lat,
+            "videos": len(vids), "interpolated": len(ints),
+            "loop": max(lat, vids[-1][0] if vids else 0, ints[-1][0] if ints else 0)}
+
+
+def _ficheros_del_loop(carpeta, n):
+    """TODO lo del proyecto numerado con n, sea del prefijo que sea.
+
+    No basta con la latente y los dos videos: quedan el png que escribe Out, el
+    del guardador de video, los .tmp de una escritura cortada. Cualquiera de
+    ellos sobrevive y la toma repetida arranca con restos de la anterior.
+    Not just the latent and the two videos: Out's png, the video saver's own, a
+    half-written .tmp. Any survivor leaves the redone take with leftovers.
+    """
+    marca = "_{:05}".format(n)
+    fuera = []
+    for f in sorted(os.listdir(carpeta)):
+        completo = os.path.join(carpeta, f)
+        if not os.path.isfile(completo):
+            continue
+        if re.search(re.escape(marca) + r"_?(?:-[A-Za-z0-9]+)?\.", f):
+            fuera.append(completo)
+    return fuera
+
+
+# -- lo que hacen los botones ------------------------------------------------
+
+# NO se cachea la ruta del ultimo run, a proposito.
+#
+# Seria comodo: `path` suele venir enlazado y un enlace solo tiene valor durante
+# la ejecucion, asi que apuntar la ruta recibida daria una respuesta siempre. El
+# problema es que deja de ser cierta en cuanto se cambia de proyecto, y quien la
+# consulta es un boton que BORRA. Una ruta caducada ahi borra las tomas del
+# proyecto anterior sin que nada lo delate.
+#
+# En su lugar la interfaz resuelve la ruta antes de cada accion preguntandole a
+# /academia/projectpaths/resolve, que aplica la regla de verdad, y el proyecto
+# al que se va a tocar aparece escrito en la consola y en la pregunta de
+# confirmacion. Lo que se borra se lee antes de borrarlo.
+#
+# The last run's path is deliberately NOT cached. It would be convenient, but it
+# stops being true the moment the project changes -- and what reads it is a
+# button that DELETES. A stale path there wipes the previous project's takes with
+# nothing to give it away. Instead the UI resolves the path before every action
+# and the target project is spelled out in the console and in the confirmation.
+
+
+def _path_de(datos):
+    return str(datos.get("path") or "").strip()
+
+
+def _informe(path, latent_frames=None):
+    e = _estado(path)
+    texto = ("Project: {}\nCurrent loop: {}\nLatents: {}   videos: {}   "
+             "interpolated: {}".format(e["project"], e["loop"], e["latents"],
+                                       e["videos"], e["interpolated"]))
+    if not (e["videos"] or e["interpolated"]):
+        _, _, pv, pi = _nombres(path)
+        texto += "\nLooking for \"{}_#####.mp4\" and \"{}_#####.mp4\"".format(pv, pi)
+    if latent_frames:
+        # "set to" y no ":" a secas: la linea cae justo debajo de las CUENTAS de
+        # ficheros, asi que un "Latent frames: 2" se lee como si hubiera dos
+        # latentes. Esto es un ajuste, no un recuento.
+        #
+        # "set to" rather than a bare colon: the line sits right under the file
+        # COUNTS, so "Latent frames: 2" reads as two latents. This is a setting.
+        #
+        # Se escribe para que se vea de donde sale: enlazado desde Moviola Out es
+        # el mismo numero con el que se guardo la latente, y ahi no puede fallar.
+        texto += "\nLatent frames set to {}".format(int(latent_frames))
+    return texto
+
+
+def _editar(path, latent_frames, crf):
+    """Une los clips de cada pista. Devuelve las lineas de consola."""
+    ff, fp = _herramientas()
+    log = []
+    if not ff:
+        return ["ffmpeg not found. Install it or add it to PATH."], None
+    if not fp:
+        return ["ffprobe not found. It ships next to ffmpeg; "
+                "the editor needs it to measure the seams."], None
+
+    carpeta, base, pre_v, pre_i = _nombres(path)
+    titulo = _titulo(carpeta, base)
+    hecho = []
+    for etiqueta, prefijo, sufijo in (("video", pre_v, "_final"),
+                                      ("interpolated", pre_i, "_final_int")):
+        clips = _clips(carpeta, prefijo)
+        if not clips:
+            log.append('{}: nothing found (looked for "{}_#####.mp4").'.format(
+                etiqueta, prefijo))
+            continue
+        if len(clips) < 2:
+            log.append("{}: only one clip, no videos to join.".format(etiqueta))
+            continue
+
+        rutas = [r for _, r in clips]
+        destino = os.path.join(carpeta, "{}{}.mp4".format(titulo, sufijo))
+        log.append("{}: joining {} clips ({} seams)".format(
+            etiqueta, len(rutas), len(rutas) - 1))
+        try:
+            _montar(ff, fp, rutas, destino, latent_frames, crf, log)
+        except Exception as exc:
+            log.append("{}: FAILED -- {}".format(etiqueta, exc))
+            continue
+        mb = os.path.getsize(destino) / 1048576.0
+        log.append("{}: -> {}  ({:.1f} MB)".format(etiqueta, os.path.basename(destino), mb))
+        hecho.append(destino)
+
+    if not hecho and not any("joining" in x for x in log):
+        log.append("No videos to join.")
+    return log, hecho
+
+
+def _borrar(path, todos=False):
+    """Quita la ultima vuelta, o todas. Devuelve consola y el loop que queda."""
+    carpeta, base, _, _ = _nombres(path)
+    log = ["Project: {}".format(_estado(path)["project"])]
+    if not os.path.isdir(carpeta):
+        return log + ["Nothing to delete: the project folder does not exist yet."], 0
+
+    quitados = 0
+    while True:
+        e = _estado(path)
+        n = e["loop"]
+        if n <= 0:
+            break
+        ficheros = _ficheros_del_loop(carpeta, n)
+        if not ficheros:
+            # El numero existe segun los indices pero no hay ficheros que casen:
+            # sin esto el bucle no avanzaria nunca.
+            log.append("Loop {}: nothing matched, stopping.".format(n))
+            break
+        for f in ficheros:
+            try:
+                os.remove(f)
+                log.append("  removed {}".format(os.path.basename(f)))
+            except OSError as exc:
+                log.append("  COULD NOT remove {} -- {}".format(os.path.basename(f), exc))
+        quitados += 1
+        log.append("Loop {} deleted.".format(n))
+        if not todos:
+            break
+
+    queda = _estado(path)["loop"]
+    if quitados == 0:
+        log.append("No loops to delete.")
+    log.append("Current loop: {}".format(queda))
+    if queda == 0:
+        log.append("The project is empty: the next take starts from the base image.")
+    return log, queda
+
+
+# -- rutas de API ------------------------------------------------------------
+
+async def _en_hilo(fn, *a):
+    """Fuera del hilo del servidor: un montaje son minutos de ffmpeg, y ahi
+    dentro dejaria la interfaz de ComfyUI congelada.
+    Off the server thread: a montage is minutes of ffmpeg, which would freeze
+    the whole ComfyUI UI from inside the event loop."""
+    return await asyncio.get_event_loop().run_in_executor(None, fn, *a)
+
+
+@PromptServer.instance.routes.post("/academia/moviola/status")
+async def moviola_status(request):
+    try:
+        datos = await request.json()
+        lf = int(datos.get("latent_frames") or 0)
+        path = _path_de(datos)
+        return web.json_response({
+            "status": "success",
+            "text": await _en_hilo(_informe, path, lf),
+            "finals": await _en_hilo(_montajes, path),
+        })
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+def _frames(path):
+    """Los fotogramas del proyecto, en orden, para la tira del Multi-Prompt.
+
+    Se devuelven `filename` y `subfolder` en vez de una URL montada: quien pinta
+    es ComfyUI, que ya sirve `output/` por `/view`, y armar aqui la ruta seria
+    fijar en el servidor un detalle del cliente.
+
+    El cero entra como el resto. Es el fotograma con el que arranca la vuelta 1
+    cuando hubo imagen base; si no lo hay, esa vuelta empezo solo con el prompt.
+
+    Returns `filename` and `subfolder` rather than a built URL: ComfyUI already
+    serves `output/` through `/view`, and assembling the path here would pin a
+    client detail into the server. Zero is included like any other -- it is what
+    take 1 starts from when there was a base image.
+    """
+    carpeta, base, _, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return []
+    raiz = os.path.abspath(folder_paths.get_output_directory())
+    sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
+    if sub == ".":
+        sub = ""
+    pat = re.compile(PATRON.format(re.escape(base), "png"))
+    salida = []
+    for f in sorted(os.listdir(carpeta)):
+        m = pat.match(f)
+        if m:
+            salida.append({"n": int(m.group(1)), "filename": f, "subfolder": sub})
+    salida.sort(key=lambda x: x["n"])
+    return salida
+
+
+def _montajes(path):
+    """Los ficheros ya montados que existan, para el reproductor."""
+    carpeta, base, _, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return []
+    raiz = os.path.abspath(folder_paths.get_output_directory())
+    sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
+    if sub == ".":
+        sub = ""
+    titulo = _titulo(carpeta, base)
+    salida = []
+    for etiqueta, sufijo in (("Video", "_final"), ("Interpolated", "_final_int")):
+        f = "{}{}.mp4".format(titulo, sufijo)
+        completo = os.path.join(carpeta, f)
+        if os.path.exists(completo):
+            salida.append({"label": etiqueta, "filename": f, "subfolder": sub,
+                           "mb": round(os.path.getsize(completo) / 1048576.0, 1),
+                           "mtime": int(os.path.getmtime(completo))})
+    return salida
+
+
+@PromptServer.instance.routes.post("/academia/moviola/frames")
+async def moviola_frames(request):
+    try:
+        datos = await request.json()
+        return web.json_response({"status": "success",
+                                  "frames": await _en_hilo(_frames, _path_de(datos))})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+@PromptServer.instance.routes.post("/academia/moviola/edit")
+async def moviola_edit(request):
+    try:
+        datos = await request.json()
+        path = _path_de(datos)
+        lf = int(datos.get("latent_frames") or 1)
+        crf = max(0, min(51, int(datos.get("crf") or 18)))
+        log, _ = await _en_hilo(_editar, path, lf, crf)
+        log.append("")
+        log.append(await _en_hilo(_informe, path, lf))
+        return web.json_response({"status": "success", "log": log,
+                                  "finals": await _en_hilo(_montajes, path)})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+@PromptServer.instance.routes.post("/academia/moviola/delete")
+async def moviola_delete(request):
+    try:
+        datos = await request.json()
+        path = _path_de(datos)
+        todos = bool(datos.get("all"))
+        log, _ = await _en_hilo(_borrar, path, todos)
+        return web.json_response({"status": "success", "log": log,
+                                  "finals": await _en_hilo(_montajes, path)})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+class AcademiaMoviola:
+    """El montador: une las tomas del proyecto y deshace la ultima.
+
+    No monta al ejecutarse. Unir diez clips son minutos de ffmpeg y no tiene
+    nada que ver con generar: dispararlo en cada vuelta del bucle rehadria el
+    montaje entero nueve veces para tirar ocho. Los botones lo lanzan cuando
+    hace falta; ejecutar el nodo solo refresca el estado.
+
+    It does not montage on execution. Joining ten clips is minutes of ffmpeg and
+    has nothing to do with generating: firing it every pass would rebuild the
+    whole cut nine times to throw eight away. The buttons run it on demand;
+    executing the node only refreshes the status.
+    """
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "path": ("STRING", {"default": "moviola/loop"}),
+                "latent_frames": ("INT", {"default": 1, "min": 1, "max": 8, "step": 1,
+                                          "tooltip": "Same value as Moviola Out. Only a "
+                                                     "guide: it is used where a seam is too "
+                                                     "still to measure."}),
+                "crf": ("INT", {"default": 18, "min": 0, "max": 51, "step": 1,
+                                "tooltip": "x264 quality of the joined file. Raise it for a "
+                                           "smaller file; 16 is near-transparent, 24 is "
+                                           "about a third of the size."}),
+            },
+            "hidden": {"unique_id": "UNIQUE_ID"},
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "refrescar"
+    CATEGORY = "Academia SD"
+    OUTPUT_NODE = True
+
+    @classmethod
+    def IS_CHANGED(s, **kwargs):
+        return float("nan")
+
+    def refrescar(self, path, latent_frames=1, crf=18, unique_id=None):
+        try:
+            texto = _informe(path, latent_frames)
+        except Exception as exc:
+            texto = "Error: {}".format(exc)
+        print("[Moviola Editor v{}] {}".format(ACADEMIASD_VERSION, texto.replace("\n", " | ")))
+        return {"ui": {"asd_moviola": [texto]}}
 
 
 NODE_CLASS_MAPPINGS = {
     "AcademiaSD_MoviolaIn": AcademiaMoviolaIn,
     "AcademiaSD_MoviolaGuide": AcademiaMoviolaGuide,
     "AcademiaSD_MoviolaOut": AcademiaMoviolaOut,
+    "AcademiaSD_Moviola": AcademiaMoviola,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "AcademiaSD_MoviolaIn": "Academia SD Moviola In",
     "AcademiaSD_MoviolaGuide": "Academia SD Moviola Guide",
     "AcademiaSD_MoviolaOut": "Academia SD Moviola Out",
+    "AcademiaSD_Moviola": "Academia SD Moviola 🎞️",
 }

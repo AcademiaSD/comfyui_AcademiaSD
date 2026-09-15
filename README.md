@@ -310,4 +310,224 @@ The switch itself, and the part that moves everything else.
 
 ---
 
+# 🎞️ Moviola Nodes — *dev*
+
+A chained-generation system for MiniMax-H3: each take starts where the last one
+ended, every take gets its own prompt, and the finished takes cut together into
+one film. Five nodes that only make sense together.
+
+| node | role |
+|---|---|
+| **Project Paths 📁** | one project name, and the output paths that derive from it |
+| **Multi-Prompt 📝** | one prompt per pass, plus a header they all share |
+| **Moviola In** | serves the previous take's last frame and the pass number |
+| **Moviola Guide** | anchors that frame at frame 0 of the new clip |
+| **Moviola Out** | saves the new take's last frame and its latent |
+| **Moviola 🎞️** | joins the takes, or deletes the last one |
+
+```
+Project Paths ──project_name──► Multi-Prompt ──prompt──► Reference/Image to Video
+              ├──path──────────► Moviola In ──next_index──► Multi-Prompt
+              │                             └──image──────► references / first_frame
+              ├──vid_path──────► video saver
+              └──vid_int_loop──► video saver (interpolated)
+
+Moviola Guide ──positive──► sampler ──► Moviola Out ──latent_frames──► Moviola 🎞️
+```
+
+---
+
+## Why the loop needs this many nodes
+
+The shape of the graph forces it. ComfyUI's graph is **acyclic**, and this
+pipeline keeps running into that wall — every split below exists because
+something would otherwise have to depend on what it helps produce.
+
+**In and Out cannot be one node.** The reference is needed *before* generating and
+the last frame only exists *after*.
+
+**Guide is separate from In.** In feeds Multi-Prompt and the references, so it
+sits upstream of the conditioning; consuming the conditioning too would close the
+loop.
+
+**The paths are not on Multi-Prompt.** Moviola In computes `next_index` from disk
+and that index feeds Multi-Prompt, so nothing Multi-Prompt produces can go back to
+Moviola In. Project Paths has **no inputs at all**, which is the point: what
+depends on nothing can feed everything.
+
+---
+
+## Why a keyframe, and why the latent
+
+Only `minimax_keyframes` carries `resolved_frame_index`. A reference —
+`ref_images`, a RefMod — tells the model what the subject *looks like* and is
+attended across the whole sequence with no temporal position. With references the
+identity holds but **the takes do not join**.
+
+And the anchor is the **latent**, not an image. H3's video VAE compresses time as
+`FRAME_PER_TOKEN = (1, 4, 4, 4, 4)`: every latent frame but the first encodes
+**four real frames**, so the last one is not a still — it carries the direction
+and the speed of the motion. An encoded PNG does not, and the difference is
+visible: a plane receding at the end of one take comes back *in reverse* at the
+start of the next. `latent_frames` extends this; at 2 the model gets about eight
+real frames of trajectory.
+
+The native `Add Guide` builds keyframes too, but takes IMAGE and calls
+`vae.encode()` internally, forcing a trip through an 8-bit PNG every pass. Moviola
+Guide passes the saved latent straight through and the VAE round trip leaves the
+loop.
+
+### References and keyframes work together
+
+`MiniMaxH3ReferenceToVideo` was ruled out early because the joins would not hold,
+but the node was never the problem: back then the anchor depended on the
+references. It works, and it is designed to — ReferenceToVideo writes only
+`minimax_refs`, Moviola Guide writes only `minimax_keyframes`, and in
+`PackedLayout` the keyframe lands at `cursor + FRAME_RESCALE *
+resolved_frame_index` where `cursor` **already includes the references' spans** —
+the same cursor the target video and audio start from. The anchor does not drift
+however many references are attached.
+
+So a chained project can use reference images, videos, audio and RefMods, and
+gets the `audio_vae` input that `MiniMaxH3ImageToVideo` does not have.
+
+> When you name a reference in the prompt, use the labels the tokenizer actually
+> emits — `<Picture 1>`, `<Video 1>`, `<Audio 1>`, 1-based **per type**. The socket
+> names (`ref_video_0`) are ComfyUI's and never reach the model.
+
+---
+
+## Project Paths 📁
+
+Type the project name once. Everything else derives from it:
+
+| output | value |
+|---|---|
+| `project_name` | sanitized name, for Multi-Prompt |
+| `path` | `project/loop` — latents and frames |
+| `vid_path` | `project/vid_loop` — the video saver |
+| `vid_int_loop` | `project/vid_int_loop` — the interpolated saver |
+
+The name is filtered through an **allow-list** (letters, digits, space, dash,
+underscore) because it lands in a disk path: `../../etc/passwd` becomes
+`etcpasswd`. Everything resolves under `output/`, and a path that escapes it is
+refused.
+
+---
+
+## Multi-Prompt 📝
+
+One prompt per pass, indexed by Moviola In's `next_index`. Past the last one it
+holds on the last prompt rather than going blank.
+
+A **filmstrip** on top and one wide editor below, rather than a stack of boxes
+that grows without end. Each card carries the frame its take *starts from* — the
+previous take's last — so the anchor sits next to the prompt written for it.
+Click to switch, `+` to add, and the wheel scrolls the strip sideways.
+
+The split is deliberate. A row of side-by-side cards looks tidy until a
+1,500-character prompt goes in one: navigating and editing want opposite shapes,
+so each gets its own. The node's height no longer depends on how many loops
+there are.
+
+*   **Global Prompt** — written once, placed **in front of** every pass. It is the
+    header a series shares: who the subject is, the look. Holding ten copies of it
+    means holding it wrong the moment one gets edited.
+*   **Save / Load Project** — stores the prompts and the global header as JSON in
+    `prompt_projects/`, next to the node rather than under `output/`: it is the
+    series' *recipe*, not generated material, and emptying `output/` should not
+    take it. Written atomically. Saving over an existing name asks first.
+*   Loading a project writes the name **upstream**, into Project Paths, so the
+    output folders follow. Switching project switches everything or nothing.
+
+---
+
+## Moviola 🎞️ — the editor
+
+Takes `path` and `latent_frames` (link it from Moviola Out so it cannot fall out
+of step) and does two jobs on demand. It does **not** montage on execution:
+joining ten clips is minutes of ffmpeg, and firing it every pass would rebuild the
+whole cut nine times to throw eight away.
+
+*   **🎬 Auto Film Edit** — joins `vid_loop_*` into `project_final.mp4` and, if
+    they exist, `vid_int_loop_*` into `project_final_int.mp4`. With one clip or
+    none it says so.
+*   **🗑 Delete Last Loop** — removes the highest take: its latent, its videos and
+    **every file numbered with it**. Press again to walk further back.
+*   **🗑 Delete All Loops** / **🔄 Refresh**.
+
+A **player** appears once a cut exists, with tabs for the plain and the
+interpolated file when both are there. Finishing the process by sending people to
+hunt for the file in a folder is a silly barrier at the very last step.
+
+Both delete buttons name the project in the confirmation, and the console reports
+what actually remains after the fact, read back from disk.
+
+> The path is re-resolved **before every action** and never remembered. It would
+> be convenient to cache it, but it stops being true the moment the project
+> changes — and what reads it is a button that deletes.
+
+### How the cut is measured
+
+The new clip does not start where the old one ended: it starts **earlier**. The
+model receives the trajectory and redraws it before carrying on, so the overlap is
+a **rewind**, not a repeated frame — which is why looking only at frame 0 cannot
+see it.
+
+1.  **Trim.** Compare the last frame of A against the first twenty of B. The
+    profile comes out as a V, and the cut goes at the **minimum plus one** — the
+    minimum is the frame that *repeats*. Measured over nine seams: cutting at the
+    minimum left seven of them changing 0.18–0.49× the normal motion (a stall);
+    one frame later, six land at 1.10–1.21×, which is what a cut looks like.
+    A seam too still to show a V copies the median of the others, since the rewind
+    lasts the same across the series. With no V anywhere, `latent_frames` is the
+    fallback — that is all it is used for.
+2.  **Exposure.** Every take is generated separately and the level drifts: the
+    same **+2.5 % per seam** whether the scene sits at 22 or at 143 of brightness.
+    That is gain, not content, so it is corrected with a per-channel gain — not an
+    offset, which would lift the blacks — measured against the frame that
+    **survives** the trim, and accumulated down the series.
+3.  **Audio.** The discarded frames are a rewind, so their sound covers the *same
+    instant* as the previous clip's tail. Crossfading them shifts nothing, because
+    the overlap was already there. Clips arrive ~26 ms shorter in audio than in
+    picture and that is absorbed with `atempo`, never by padding with silence.
+    Projects saved without sound join fine: the audio track is asked for, not
+    inferred from the filename.
+
+`tools/montar.py` is the standalone bench this grew out of, and
+`tools/DATOS_MONTAJE.md` records every measurement behind it — including the
+approaches that did **not** work and why, which is the part usually lost.
+
+---
+
+## File layout
+
+```
+output/<project>/
+    loop_00000_.png             the base image         (Moviola In)
+    loop_00001_.safetensors     latent anchor          (Moviola Out)
+    loop_00001_.png             last frame             (Moviola Out)
+    vid_loop_00001.mp4          the take               (video saver)
+    vid_int_loop_00001.mp4      interpolated take      (video saver)
+    <project>_final.mp4         the joined film        (Moviola 🎞️)
+```
+
+Numbering is read as an **integer**, not alphabetically — `_00010_` would sort
+before `_00009_` as soon as the loop passed nine.
+
+**Zero is the base image**, written the first time Moviola In serves it. It
+completes the strip — take 1 starts from *something* too — and records which
+image the series was made from, which nothing did before. It is inert: `_ultimo`
+starts at 0 and demands a higher number, so it is never served as an anchor, and
+deleting takes walks `while n > 0` and never touches it.
+
+A series can also start with **no image at all**: Moviola In then serves nothing
+and the first take is plain text-to-video. `None` is valid downstream —
+ReferenceToVideo skips null references and ImageToVideo's `first_frame` is
+optional — so only the first card of the strip stays empty.
+
+> **This is a dev branch.** Measured and working end to end, but young.
+
+---
+
 # Workflows included.

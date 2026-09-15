@@ -105,24 +105,46 @@ class AcademiaCLIPTextEncode:
             "required": {
                 "text": ("STRING", {"multiline": True}),
                 "clip": ("CLIP", ),
-            }
+            },
+            # `prompt` es un ZÓCALO puro (`forceInput`), no un segundo widget: el
+            # nodo ya tiene su caja con historial y favoritos, y otra caja en el
+            # mismo papel solo plantearía la duda de cuál manda. Conectado gana
+            # él; desconectado no existe y el nodo funciona como siempre.
+            #
+            # `prompt` is a SOCKET only (`forceInput`), not a second widget: the
+            # node already has its box with history and favourites, and another
+            # box in the same role would only raise the question of which wins.
+            "optional": {
+                "prompt": ("STRING", {"forceInput": True}),
+            },
         }
-    
+
     # 1. Definimos los tipos de salida (Añadido "STRING")
     RETURN_TYPES = ("CONDITIONING", "STRING")
     # 2. Asignamos nombres visibles a las salidas
     RETURN_NAMES = ("CONDITIONING", "STRING")
-    
+
     FUNCTION = "encode"
     CATEGORY = "Academia SD/Conditioning"
 
-    def encode(self, clip, text):
+    def encode(self, clip, text, prompt=None):
+        # Un prompt externo sustituye a la caja. La cadena VACÍA cuenta como
+        # valor legítimo: quien conecta un Multi-Prompt sin nada escrito quiere
+        # un vacío, no que reaparezca sin avisar lo que quedó en la caja. Solo un
+        # `prompt` DESCONECTADO (None) devuelve el mando al widget.
+        #
+        # An external prompt replaces the box. The empty string counts as a real
+        # value: wiring a Multi-Prompt with nothing written means empty, not a
+        # silent fallback to whatever the box still holds. Only a DISCONNECTED
+        # `prompt` (None) hands control back to the widget.
+        efectivo = text if prompt is None else str(prompt)
+
         # Mapeo idéntico al codificador nativo de ComfyUI
-        tokens = clip.tokenize(text)
+        tokens = clip.tokenize(efectivo)
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
-        
+
         # 3. Devolvemos el acondicionado junto con el texto plano en formato STRING
-        return ([[cond, {"pooled_output": pooled}]], text)
+        return ([[cond, {"pooled_output": pooled}]], efectivo)
 
 
 class AcademiaPositivePromptNode(AcademiaCLIPTextEncode):
