@@ -310,4 +310,54 @@ The switch itself, and the part that moves everything else.
 
 ---
 
+## 🎞️ Academia SD Moviola (In · Guide · Out) — *dev*
+
+Chains generations: each take starts where the last one ended. Three nodes rather
+than one, because the graph forces it — the reference is needed *before*
+generating and the last frame only exists *after*, so one node doing both would
+be a cycle ComfyUI refuses.
+
+*   **Moviola In** — upstream. Scans the project folder, serves the highest-numbered
+    frame (or a base image when empty), and hands out `next_index` for a
+    Multi-Prompt. Shows the frame it is using inside the node.
+*   **Moviola Guide** — downstream. Anchors that frame at frame 0 of the new clip by
+    injecting its **latent** as a keyframe.
+*   **Moviola Out** — terminal. Saves the clip's last frame and its latent as a
+    numbered pair.
+
+### Why a keyframe and not a reference
+
+Only `minimax_keyframes` carries `resolved_frame_index`. A reference —
+`ref_images`, a RefMod — tells the model what the subject *looks like* and is
+attended across the whole sequence with no temporal position. With references the
+identity holds but **the takes do not join**, which is the problem this solves.
+
+### Why the latent and not an image
+
+H3's video VAE compresses time as `FRAME_PER_TOKEN = (1, 4, 4, 4, 4)`: every
+latent frame but the first encodes **four real frames**. So the last latent frame
+is not a still — it carries the direction and speed of the motion. An encoded PNG
+does not, and the difference is visible: a plane receding at the end of one take
+comes back *in reverse* at the start of the next. `latent_frames` extends this;
+at 2 the model gets about eight real frames of trajectory.
+
+The native `Add Guide` builds keyframes too, but takes IMAGE and calls
+`vae.encode()` internally, forcing a trip through an 8-bit PNG on every pass.
+
+### Joining the clips
+
+The new clip opens by replaying the end of the previous one, so the takes need
+trimming before they cut together. `tools/Montar.bat` does it, and
+`tools/DATOS_MONTAJE.md` records every measurement behind it — including the
+approaches that did not work and why. In short: trim the replayed frames (measured
+at exactly 8 across four seams with `latent_frames = 2`), match exposure with a
+per-channel gain against the frame that survives the trim, and crossfade the audio
+using the discarded frames, whose sound covers the same instant as the previous
+tail because the discarded picture is a rewind.
+
+> **This is a dev branch.** The nodes work and are measured, but the trim value is
+> still passed by hand and the automatic detector reads a long replay backwards.
+
+---
+
 # Workflows included.
