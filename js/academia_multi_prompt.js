@@ -267,7 +267,13 @@ app.registerExtension({
             const cabTira = document.createElement("div");
             cabTira.className = "asd-pm-head";
             const tt = document.createElement("span");
-            tt.innerText = "🎞 Loops";
+            // "Prompt loops" y no "loops" a secas: en Moviola un loop es una vuelta
+            // YA generada, con sus ficheros en disco, y los botones de borrar de
+            // ese nodo se llevan justo eso. Aqui solo hay texto.
+            // Not plain "loops": in Moviola a loop is a take already generated,
+            // with files on disk, and that node's delete buttons remove exactly
+            // those. Here there is only text.
+            tt.innerText = "🎞 Prompt Loops";
             const derTira = document.createElement("span");
             derTira.className = "asd-pm-note";
             const btnMenos = document.createElement("button");
@@ -574,7 +580,11 @@ app.registerExtension({
                 const mas = document.createElement("div");
                 mas.className = "asd-pm-add";
                 mas.innerText = "+";
-                mas.title = "add a loop";
+                // Singular: cada clic añade uno. El plural va en la cabecera de la
+                // seccion, que sí nombra al conjunto.
+                // Singular: one per click. The plural belongs in the section
+                // header, which does name the whole set.
+                mas.title = "add prompt loop";
                 mas.addEventListener("click", () => {
                     const ult = _this.promptState.length
                         ? _this.promptState[_this.promptState.length - 1].text.trim()
@@ -599,7 +609,7 @@ app.registerExtension({
                 clamp();
                 const i = _this.loopSel;
                 const item = _this.promptState[i];
-                etqLoop.innerText = `🎬 Loop ${i + 1}`;
+                etqLoop.innerText = `🎬 Prompt Loop ${i + 1}`;
                 const f = _this.frames[i];
                 etqDesde.innerText = f ? `starts from ${f.filename}`
                     : (i === 0 ? "starts from the prompt alone" : "previous take not generated yet");
@@ -790,10 +800,31 @@ app.registerExtension({
 
             domW = this.addDOMWidget("UI", "HTML", container);
 
+            // El fotograma nuevo lo escribe Moviola Out al FINAL de la vuelta,
+            // pero este nodo se ejecuta al principio: refrescar en su `onExecuted`
+            // deja la tira siempre una vuelta por detras. `execution_success` lo
+            // emite el backend cuando termina la ejecucion entera
+            // (execution.py:824), que es cuando el fichero ya existe.
+            //
+            // The new frame is written by Moviola Out at the END of the pass while
+            // this node runs at the start, so refreshing on its own `onExecuted`
+            // leaves the strip one pass behind. `execution_success` is emitted by
+            // the backend when the whole run finishes, which is when the file is
+            // actually there.
+            const alTerminar = () => {
+                if (_this.cargarFrames) _this.cargarFrames();
+            };
+            api.addEventListener("execution_success", alTerminar);
+
             const onRemoved = this.onRemoved;
             this.onRemoved = function () {
                 cerrarMenu();
                 if (_this._ro) _this._ro.disconnect();
+                // Sin quitarlo, cada nodo borrado deja un oyente vivo pidiendo
+                // fotogramas de un proyecto que ya no se esta mirando.
+                // Left behind, every deleted node keeps a listener asking for
+                // frames of a project nobody is looking at.
+                api.removeEventListener("execution_success", alTerminar);
                 if (onRemoved) onRemoved.apply(this, arguments);
             };
 

@@ -415,9 +415,20 @@ app.registerExtension({
 
             domW = this.addDOMWidget("UI", "HTML", container);
 
+            // Mismo caso que la tira del Multi-Prompt: el recuento y el fotograma
+            // de la vuelta los escribe Moviola Out al final, asi que la consola
+            // solo dice la verdad una vez ha terminado TODA la ejecucion.
+            // Same as the Multi-Prompt strip: the counts are only true once the
+            // whole run has finished.
+            const alTerminar = () => {
+                if (_this.refrescarEstado) _this.refrescarEstado();
+            };
+            api.addEventListener("execution_success", alTerminar);
+
             const onRemoved = this.onRemoved;
             this.onRemoved = function () {
                 if (_this._ro) _this._ro.disconnect();
+                api.removeEventListener("execution_success", alTerminar);
                 if (onRemoved) onRemoved.apply(this, arguments);
             };
 
