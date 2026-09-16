@@ -55,6 +55,7 @@ app.registerExtension({
                 .asd-mv-undo { background: #7a4a25; } .asd-mv-undo:hover:enabled { background: #96591f; }
                 .asd-mv-wipe { background: #7a2a2a; } .asd-mv-wipe:hover:enabled { background: #99302f; }
                 .asd-mv-refresh { background: #3d5a4a; } .asd-mv-refresh:hover:enabled { background: #4a6e5a; }
+                .asd-mv-folder { background: #4a4468; } .asd-mv-folder:hover:enabled { background: #5d5683; }
                 .asd-mv-player { display: flex; flex-direction: column; gap: 6px; }
                 .asd-mv-tabs { display: flex; gap: 6px; }
                 .asd-mv-tab { flex: 1; cursor: pointer; padding: 5px 8px; border-radius: 5px;
@@ -91,7 +92,12 @@ app.registerExtension({
             const btnWipe = document.createElement("button");
             btnWipe.className = "asd-mv-btn asd-mv-wipe";
             btnWipe.innerText = "🗑 Delete All Loops";
+            const btnFolder = document.createElement("button");
+            btnFolder.className = "asd-mv-btn asd-mv-folder";
+            btnFolder.innerText = "\ud83d\udcc2 Open Folder";
+            btnFolder.title = "open the project folder and list what is in it";
             fila2.appendChild(btnRefresh);
+            fila2.appendChild(btnFolder);
             fila2.appendChild(btnWipe);
             inner.appendChild(fila2);
 
@@ -334,7 +340,7 @@ app.registerExtension({
             };
 
             const ocupado = (si, etiqueta) => {
-                [btnEdit, btnUndo, btnWipe, btnRefresh].forEach((b) => (b.disabled = si));
+                [btnEdit, btnUndo, btnWipe, btnRefresh, btnFolder].forEach((b) => (b.disabled = si));
                 if (si) escribir(etiqueta);
             };
 
@@ -378,6 +384,18 @@ app.registerExtension({
                 _this.refrescarEstado();
             });
 
+            // La ruta que sale aqui es la MISMA que usan los botones de borrar,
+            // resuelta por el servidor. Por eso este boton vale ademas como
+            // comprobacion: si la carpeta que aparece no es la que el usuario
+            // cree, se ve antes de darle a nada que borre.
+            //
+            // The path printed here is the SAME one the delete buttons act on,
+            // resolved by the server. So this doubles as a check: if the folder
+            // shown is not the one the user has in mind, that is visible before
+            // pressing anything destructive.
+            btnFolder.addEventListener("click", () =>
+                llamar("/academia/moviola/folder", null, "Opening the folder..."));
+
             btnEdit.addEventListener("click", () =>
                 llamar("/academia/moviola/edit", null,
                        "Measuring the seams and joining. This takes a while..."));
@@ -402,8 +420,8 @@ app.registerExtension({
 
             btnWipe.addEventListener("click", async () => {
                 const p = await resolverPath();
-                if (!confirm(`Delete EVERY loop of "${p}"?\n\nAll latents and all videos will be `
-                             + "removed and the project starts over from the base image.\n"
+                if (!confirm(`Delete EVERY loop of "${p}"?\n\nAll latents, all videos and `
+                             + "the saved base image will be removed, leaving the project empty.\n"
                              + "This cannot be undone.")) return;
                 llamar("/academia/moviola/delete", { all: true }, "Deleting every loop...");
             });

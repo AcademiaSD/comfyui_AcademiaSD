@@ -48,6 +48,7 @@ import glob
 import os
 import re
 import shutil
+import time
 from fractions import Fraction
 
 # PyAV. Enlaza libavcodec/libavformat DENTRO de este mismo proceso, asi que el
@@ -76,7 +77,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.6"
+    ACADEMIASD_VERSION = "2.4.7"
 
 try:
     from safetensors.torch import load_file as _st_load
@@ -338,8 +339,50 @@ class AcademiaMoviolaIn:
                 ACADEMIASD_VERSION, origen, origen))
 
         vista = _vista_previa(imagen, nombre + "_in") if imagen is not None else []
+        # La salida `image` va VACIA a proposito, aunque aqui arriba se haya
+        # leido el fotograma y se este ensenando en la vista previa.
+        #
+        # Lo que empalma dos tomas es el keyframe, y ese lo construye Guide
+        # leyendo la latente del disco: no necesita este cable. Mandar ademas el
+        # fotograma como REFERENCIA hace dano, porque una referencia no tiene
+        # posicion temporal -- se atiende durante todo el clip y arrastra tambien
+        # su FINAL hacia esa composicion, asi que la toma se mueve y acaba donde
+        # empezo. Y si la serie tiene referencias propias, encima les roba una
+        # ranura y cambia a que imagen apunta cada <Picture N> a partir de la
+        # segunda vuelta.
+        #
+        # El cable se deja puesto igualmente porque el BYPASS lo restaura: con
+        # este nodo puenteado, ComfyUI reenvia `base_image` a la salida del mismo
+        # tipo, y el mismo grafo pasa a ser un flujo normal con la imagen base de
+        # referencia. Un interruptor sin widget: el modo lo decide el bypass.
+        #
+        # Donde enchufarlo importa: una ranura a None NO deja hueco
+        # (`if img is None: continue` en nodes_minimax_h3.py), las demas suben y
+        # <Picture 1> pasa a ser otra. En la ULTIMA ranura eso da igual en los dos
+        # modos, y en bypass el duplicado cae al final sin mover a nadie.
+        #
+        # The `image` output is deliberately EMPTY, even though the frame was
+        # read above and is on screen in the preview.
+        #
+        # What joins two takes is the keyframe, and Guide builds that from the
+        # latent on disk -- it does not need this wire. Sending the frame as a
+        # REFERENCE actively hurts: a reference has no temporal position, it is
+        # attended across the whole clip and drags its ENDING back to that
+        # composition, so the take moves and finishes where it started. And when
+        # the series has references of its own it steals a slot and changes which
+        # image each <Picture N> points at from the second pass on.
+        #
+        # The wire stays connected because BYPASS restores it: with this node
+        # bypassed ComfyUI forwards `base_image` to the output of the same type,
+        # and the same graph becomes a plain run with the base image as a
+        # reference. A switch with no widget -- bypass picks the mode.
+        #
+        # Which slot matters: a None slot leaves NO gap (`if img is None:
+        # continue` in nodes_minimax_h3.py), the rest shift up and <Picture 1>
+        # becomes a different image. In the LAST slot that is harmless in both
+        # modes, and when bypassed the duplicate lands at the end, moving nobody.
         return {"ui": {"images": vista},
-                "result": (imagen, n + 1, origen, project_path)}
+                "result": (None, n + 1, origen, project_path)}
 
 
 # -- GUIDE -------------------------------------------------------------------
@@ -1260,6 +1303,144 @@ def _informe(path, latent_frames=None):
     return texto
 
 
+def _tamano(n):
+    """Un tamano que se lee de un vistazo, que es justo de lo que va esto."""
+    escala = float(n)
+    for unidad in ("B", "KB", "MB", "GB"):
+        if escala < 1024.0 or unidad == "GB":
+            if unidad == "B":
+                return "{:.0f} {}".format(escala, unidad)
+            return "{:.1f} {}".format(escala, unidad)
+        escala /= 1024.0
+
+
+def _abrir_carpeta(path):
+    """Abre la carpeta del proyecto en el gestor de ficheros. Devuelve que paso.
+
+    Dos limites que no son un descuido y por eso se dicen en la propia consola
+    en vez de callarlos:
+
+    Solo Windows. `os.startfile` no existe en macOS ni en Linux, y alli abrir una
+    carpeta obliga a lanzar un programa aparte. Fuera de Windows se dice y se
+    deja la ruta, que sigue estando en la linea de arriba.
+
+    Y abre en la maquina que corre COMFYUI, no en la que tiene el navegador. Con
+    ComfyUI en un servidor la carpeta se abre alla, donde no la ve nadie. Por eso
+    el listado se escribe igualmente: es lo unico que funciona en los dos casos.
+
+    La ruta esta contenida: viene de `_nombres` -> `_partes`, que resuelve bajo
+    output/ y levanta si se sale. Aqui no puede llegar una carpeta cualquiera del
+    disco.
+
+    Opens the project folder in the file manager, and says what happened. Two
+    limits, stated in the console rather than hidden: `os.startfile` is Windows
+    only, and it opens on the machine running COMFYUI, not the one with the
+    browser -- with ComfyUI on a server the folder opens there, where nobody sees
+    it. That is why the listing is printed either way. The path is contained:
+    it comes from `_nombres` -> `_partes`, which resolves under output/ and
+    raises if it escapes.
+    """
+    carpeta, _, _, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return "Nothing to open yet."
+    if not hasattr(os, "startfile"):
+        return "Opening a folder is Windows only -- the path is above."
+    try:
+        os.startfile(carpeta)
+    except OSError as exc:
+        return "Could not open it: {}".format(exc)
+    return "Opened in the file manager of the machine running ComfyUI."
+
+
+def _carpeta(path, maximo=60):
+    """Que hay DE VERDAD en la carpeta del proyecto, escrito en la consola.
+
+    El nodo sabe la ruta y el usuario no. Cuando algo no cuadra -- una vuelta
+    que no aparece, un video que no se monta, un proyecto que parece vacio -- la
+    pregunta siempre es la misma: que ficheros hay ahi. Esto la contesta sin
+    salir de ComfyUI.
+
+    No abre el gestor de ficheros del sistema, y no es un descuido. Para eso
+    habria que lanzar un programa externo desde el servidor, que es la familia
+    de llamadas que tuvo este paquete cuatro versiones marcado en el registro
+    (ver el README). Ademas solo funcionaria con ComfyUI y el navegador en la
+    MISMA maquina, y mucha gente lo tiene en un servidor. Una lista se lee
+    igual de bien en los dos casos, y la ruta de arriba se selecciona y se pega
+    en el gestor de ficheros de quien quiera abrirla.
+
+    The node knows the path and the user does not. When something looks wrong --
+    a missing pass, a cut that will not build, a project that seems empty -- the
+    question is always which files are actually there, and this answers it
+    without leaving ComfyUI.
+
+    It deliberately does not open the system file manager. That would mean
+    launching an external program from the server, the family of calls that kept
+    this pack flagged in the registry for four versions (see the README), and it
+    would only work with ComfyUI and the browser on the SAME machine, which is
+    often not the case. A listing reads the same either way, and the path on the
+    first line can be selected and pasted wherever the user likes.
+    """
+    carpeta, base, pre_v, pre_i = _nombres(path)
+    completa = os.path.abspath(carpeta)
+    log = ["Folder: " + completa]
+    if not os.path.isdir(carpeta):
+        log.append("")
+        log.append("It does not exist yet -- it is created on the first pass.")
+        return log
+
+    def clase(n):
+        if n.endswith("_final.mp4") or n.endswith("_final_int.mp4"):
+            return "cut"
+        # De prefijo mas largo a mas corto. "loop" es prefijo de nada, pero
+        # los tres salen del mismo nombre base y en cuanto uno sea prefijo de
+        # otro el orden decide, asi que se fija aqui y no en el orden en que
+        # esten escritos.
+        # Longest prefix first: all three derive from the same base name, so the
+        # moment one is a prefix of another the order decides the answer.
+        for prefijo, etiqueta in sorted(((pre_i, "interp"), (pre_v, "video"),
+                                         (base, "take")),
+                                        key=lambda x: -len(x[0])):
+            if n.startswith(prefijo + "_") or n.startswith(prefijo + "."):
+                return etiqueta
+        return ""
+
+    filas, total = [], 0
+    for nombre in sorted(os.listdir(carpeta)):
+        entero = os.path.join(carpeta, nombre)
+        if not os.path.isfile(entero):
+            continue
+        try:
+            estado = os.stat(entero)
+        except OSError:
+            continue
+        total += estado.st_size
+        filas.append((nombre, estado.st_size, estado.st_mtime, clase(nombre)))
+
+    if not filas:
+        log.append("")
+        log.append("The folder is empty.")
+        return log
+
+    ancho = min(max(len(f[0]) for f in filas), 44)
+    log.append("")
+    recortadas = filas[:maximo]
+    for nombre, bytes_, cuando, etiqueta in recortadas:
+        log.append("{}  {:>10}  {}  {}".format(
+            nombre.ljust(ancho), _tamano(bytes_),
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(cuando)), etiqueta))
+    if len(filas) > maximo:
+        log.append("... and {} more".format(len(filas) - maximo))
+
+    cuenta = {}
+    for f in filas:
+        cuenta[f[3]] = cuenta.get(f[3], 0) + 1
+    detalle = ", ".join("{} {}".format(v, k or "other")
+                        for k, v in sorted(cuenta.items()))
+    log.append("")
+    log.append("{} files, {} -- {}".format(len(filas), _tamano(total), detalle))
+    return log
+
+
 def _editar(path, latent_frames, crf):
     """Une los clips de cada pista. Devuelve las lineas de consola."""
     log = []
@@ -1325,12 +1506,45 @@ def _borrar(path, todos=False):
         if not todos:
             break
 
+    # El cero no es una vuelta: es la imagen base que escribio Moviola In, y el
+    # bucle de arriba se para en 1. Con "borrarlo todo" se va tambien.
+    #
+    # Si no, sobrevive a un borrado completo y la tira del Multi-Prompt lo sigue
+    # ensenando como primer fotograma de una serie que ya no existe. Peor aun en
+    # un proyecto SIN imagen base: ahi ese png no es el arranque de nada, es un
+    # resto de lo que hubiera antes en la carpeta, y engana.
+    #
+    # No se pierde nada: es una copia de una imagen que el usuario ya tiene, y
+    # Moviola In la vuelve a escribir en la primera vuelta si `base_image` sigue
+    # conectado. Borrar la ultima vuelta NO la toca -- solo el borrado completo.
+    #
+    # Zero is not a loop: it is the base image Moviola In wrote, and the loop
+    # above stops at 1. "Delete every loop" takes it too.
+    #
+    # Otherwise it survives a full wipe and the Multi-Prompt strip keeps showing
+    # it as the first frame of a series that no longer exists -- worse in a
+    # project with NO base image, where that png starts nothing and is simply
+    # whatever was in the folder before. Nothing is lost: it is a copy of an
+    # image the user already has, and Moviola In writes it again on the first
+    # pass while `base_image` is wired. Deleting the LAST loop never touches it.
+    if todos:
+        base_fuera = _ficheros_del_loop(carpeta, 0)
+        for f in base_fuera:
+            try:
+                os.remove(f)
+                log.append("  removed {}".format(os.path.basename(f)))
+            except OSError as exc:
+                log.append("  COULD NOT remove {} -- {}".format(os.path.basename(f), exc))
+        if base_fuera:
+            log.append("Base image deleted.")
+
     queda = _estado(path)["loop"]
     if quitados == 0:
         log.append("No loops to delete.")
     log.append("Current loop: {}".format(queda))
     if queda == 0:
-        log.append("The project is empty: the next take starts from the base image.")
+        log.append("The project is empty. Moviola In writes the base again on the "
+                   "next pass if one is wired.")
     return log, queda
 
 
@@ -1418,6 +1632,27 @@ async def moviola_frames(request):
         datos = await request.json()
         return web.json_response({"status": "success",
                                   "frames": await _en_hilo(_frames, _path_de(datos))})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=400)
+
+
+@PromptServer.instance.routes.post("/academia/moviola/folder")
+async def moviola_folder(request):
+    try:
+        datos = await request.json()
+        path = _path_de(datos)
+        log = await _en_hilo(_carpeta, path)
+        # Justo debajo de "Folder: ...", que es la linea que explica. Y el
+        # listado se arma ANTES de abrir nada: si abrir falla, la respuesta
+        # sigue trayendo lo que hay en la carpeta, que es lo util.
+        # Right under "Folder: ...". The listing is built BEFORE opening
+        # anything, so a failure to open still returns what is in there.
+        log.insert(1, await _en_hilo(_abrir_carpeta, path))
+        return web.json_response({
+            "status": "success",
+            "log": log,
+            "finals": await _en_hilo(_montajes, path),
+        })
     except Exception as exc:
         return web.json_response({"status": "error", "message": str(exc)}, status=400)
 

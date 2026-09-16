@@ -328,12 +328,31 @@ one film. Five nodes that only make sense together.
 ```
 Project Paths ──project_name──► Multi-Prompt ──prompt──► Reference/Image to Video
               ├──path──────────► Moviola In ──next_index──► Multi-Prompt
-              │                             └──image──────► references / first_frame
+              │                             └──image──────► last reference slot (empty while active)
               ├──vid_path──────► video saver
               └──vid_int_loop──► video saver (interpolated)
 
 Moviola Guide ──positive──► sampler ──► Moviola Out ──latent_frames──► Moviola 🎞️
 ```
+
+### Moviola In serves no image, and bypass is the mode switch
+
+Its `image` output is deliberately empty while the node is active. What joins
+two takes is the keyframe, and Guide builds that from the latent on disk, so the
+wire is not needed for continuity. Sending the frame on as a *reference* makes
+things worse: a reference carries no temporal position, it is attended across the
+whole clip and pulls the **ending** back to that composition too, so the take
+moves and finishes where it began.
+
+Leave the wire connected anyway. **Bypass restores it**: with Moviola In bypassed
+ComfyUI forwards `base_image` to the output of the same type, and the same graph
+becomes an ordinary run with the base image as a reference. One switch, no
+widget.
+
+Plug it into the **last** reference slot. An empty slot leaves no gap -- the
+node skips nulls, the rest shift up, and `<Picture 1>` silently becomes a
+different image. Last in the row, that cannot happen in either mode, and when
+bypassed the extra copy lands at the end without moving anything.
 
 ### `check_resolution`, when the graph upscales between passes
 
@@ -484,7 +503,20 @@ whole cut nine times to throw eight away.
     none it says so.
 *   **🗑 Delete Last Loop** — removes the highest take: its latent, its videos and
     **every file numbered with it**. Press again to walk further back.
-*   **🗑 Delete All Loops** / **🔄 Refresh**.
+*   **🗑 Delete All Loops** — walks every take back, and takes the saved
+    `loop_00000_` base image with it, leaving the folder empty. Otherwise that
+    one file survives a full wipe and the Multi-Prompt strip keeps showing it as
+    the first frame of a series that no longer exists. *Delete Last Loop* never
+    touches it.
+*   **📂 Open Folder** — opens the project folder and lists what is in it,
+    each file tagged with what it is to Moviola: `take`, `video`, `interp`,
+    `cut`, or `other` when nothing claims it. That last tag is the clue when a
+    video saver is wired under a different name and nothing appears to turn up.
+    Opening is Windows only and happens on the machine running ComfyUI, not the
+    one holding the browser — which is why the listing prints either way, and
+    why the absolute path is the first line. It resolves the same path the
+    delete buttons act on, so it doubles as a check before pressing one.
+*   **🔄 Refresh** — re-reads the whole project from disk.
 
 A **player** appears once a cut exists, with tabs for the plain and the
 interpolated file when both are there. Finishing the process by sending people to
