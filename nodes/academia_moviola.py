@@ -50,18 +50,19 @@ import re
 import shutil
 from fractions import Fraction
 
-# PyAV, no un ffmpeg externo. Enlaza libavcodec/libavformat DENTRO del proceso,
-# asi que aqui no se lanza ningun programa: se acabo el `subprocess` y, con el,
-# la necesidad de que el usuario tenga ffmpeg instalado. `av>=17` es requisito
-# del propio ComfyUI, no de un pack de terceros, asi que lo tiene todo el mundo.
+# PyAV. Enlaza libavcodec/libavformat DENTRO de este mismo proceso, asi que el
+# montaje no lanza nada ni necesita ninguna herramienta externa instalada. Y
+# `av>=17` es requisito del propio ComfyUI, no de un pack de terceros, asi que lo
+# tiene todo el mundo.
 #
-# Antes esto pedia ffmpeg Y ffprobe. `imageio-ffmpeg`, que instala
-# VideoHelperSuite, trae solo ffmpeg: quien no tuviera ffprobe en el sistema se
-# quedaba sin montaje sin saber por que.
+# Antes el montaje dependia de dos utilidades de linea de comandos que no siempre
+# estan las dos: `imageio-ffmpeg`, que instala VideoHelperSuite, solo trae una, y
+# a quien le faltaba la otra se le quedaba el montaje sin hacer y sin saber por
+# que.
 #
-# PyAV rather than an external ffmpeg. It links libavcodec/libavformat INSIDE the
-# process, so nothing is launched here: no subprocess, and no need for the user to
-# have ffmpeg installed. `av>=17` is a requirement of ComfyUI itself.
+# PyAV links libavcodec/libavformat INSIDE this process, so the montage starts
+# nothing and needs no external tool installed. `av>=17` is a requirement of
+# ComfyUI itself, so everyone already has it.
 import av
 import numpy as np
 import torch
@@ -75,7 +76,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.5"
+    ACADEMIASD_VERSION = "2.4.6"
 
 try:
     from safetensors.torch import load_file as _st_load
@@ -85,6 +86,18 @@ except Exception:                                      # pragma: no cover
 
 # nombre_00001_.png
 PATRON = r"^{}_(\d+)_?\.{}$"
+
+# comfy/ldm/minimax/model.py:30 -- salvo el primero, cada fotograma latente
+# codifica CUATRO reales. Hace falta para traducir la longitud latente del clip
+# destino a fotogramas de verdad y poder comprobar `frame_idx`.
+# Every latent frame but the first encodes FOUR real ones; needed to turn the
+# target's latent length into real frames and validate `frame_idx`.
+FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
+
+
+def _fotogramas_de(latente_t):
+    """Cuantos fotogramas reales cubren `latente_t` fotogramas latentes."""
+    return sum(FRAME_PER_TOKEN[k % 5] for k in range(int(latente_t)))
 
 
 # -- rutas y numeracion ------------------------------------------------------
@@ -197,6 +210,41 @@ def _guardar_base(carpeta, nombre, imagen):
               "{}".format(exc))
 
 
+def _encajar(z, alto, ancho):
+    """La misma latente, interpolada a `alto` x `ancho` en el espacio latente.
+
+    Existe para los flujos con reescalado por latentes. Ahi la toma se genera a
+    baja resolucion, se reescala en un segundo paso de muestreo, y lo que acaba
+    en el video es LO REESCALADO. Si el ancla es la latente base, el ultimo
+    fotograma del video y el que ancla la toma siguiente no son el mismo: el
+    segundo paso no solo anade detalle, regenera. De ahi el salto en la costura.
+
+    Guardando la reescalada y encajandola aqui, el ancla lleva el contenido que
+    de verdad se vio y la geometria en la que se va a generar. Es la operacion
+    simetrica a la que hace el reescalador, que interpola hacia arriba.
+
+    Es una aproximacion: interpolar latentes no es exacto. Para un keyframe
+    basta, porque condiciona y no se pega -- ver la cabecera del fichero.
+
+    Exists for latent-upscaling workflows, where the take is generated small,
+    upscaled by a second sampling pass, and it is the UPSCALED result that ends
+    up in the video. Anchoring on the base latent means the video's last frame
+    and the next take's anchor are not the same frame, since the second pass
+    regenerates rather than just adding detail. Symmetric to what the upscaler
+    does. An approximation, and enough for something that conditions.
+    """
+    if z.ndim == 5:
+        b, c, t, h, w = z.shape
+        plano = z.permute(0, 2, 1, 3, 4).reshape(b * t, c, h, w)
+        plano = torch.nn.functional.interpolate(
+            plano, size=(alto, ancho), mode="bilinear", align_corners=False)
+        return plano.reshape(b, t, c, alto, ancho).permute(0, 2, 1, 3, 4).contiguous()
+    if z.ndim == 4:
+        return torch.nn.functional.interpolate(
+            z, size=(alto, ancho), mode="bilinear", align_corners=False).contiguous()
+    return z
+
+
 def _tensor_a_pil(imagen):
     x = imagen[0] if imagen.ndim == 4 else imagen
     x = (x.detach().cpu().float().clamp(0.0, 1.0).numpy() * 255.0).astype(np.uint8)
@@ -306,6 +354,14 @@ class AcademiaMoviolaGuide:
                 "positive": ("CONDITIONING",),
                 "project_path": ("STRING", {"default": "moviola/toma"}),
                 "frame_idx": ("INT", {"default": 0, "min": 0, "max": 9999}),
+                "check_resolution": ("BOOLEAN", {
+                    "default": False,
+                    "label_on": "check", "label_off": "fit",
+                    "tooltip": "What to do when the saved frame and the target clip "
+                               "have different latent sizes. 'fit' rescales the frame "
+                               "to the target, which is what a latent-upscaling loop "
+                               "needs. 'check' refuses instead, to catch a resolution "
+                               "changed by mistake mid-project."}),
             },
             "optional": {
                 "av_latent": ("LATENT",),
@@ -321,7 +377,8 @@ class AcademiaMoviolaGuide:
     def IS_CHANGED(s, **kwargs):
         return float("NaN")
 
-    def anclar(self, positive, project_path, frame_idx=0, av_latent=None):
+    def anclar(self, positive, project_path, frame_idx=0, check_resolution=False,
+               av_latent=None):
         carpeta, nombre = _partes(project_path)
         n = _ultimo(carpeta, nombre, "png")[0]
         f_lat = _ruta_latente(carpeta, nombre, n)
@@ -340,24 +397,65 @@ class AcademiaMoviolaGuide:
         # process lives.
         z = _st_load(f_lat)["samples"].clone()
 
-        # La geometria tiene que coincidir con el clip destino. Si cambias la
-        # resolucion a mitad de bucle el keyframe no encaja, y el modelo falla lejos
-        # de aqui con una traza que no menciona a Moviola.
-        # The geometry has to match the target clip. Change resolution mid-loop and
-        # the keyframe does not fit, and the model fails far from here with a
-        # traceback that never mentions Moviola.
+        # La geometria del keyframe tiene que ser la del clip destino. Que hacer
+        # cuando no lo es depende de por que no lo es, y eso no lo puede adivinar
+        # el nodo:
+        #
+        #   fit   -> es un bucle con reescalado por latentes. Se guarda la latente
+        #            reescalada, que es la que corresponde al video que se monta, y
+        #            aqui se encaja a la geometria en la que se genera la toma
+        #            siguiente. Sin esto el ancla apunta a un fotograma distinto del
+        #            que se vio y la costura salta.
+        #   check -> no deberia pasar. Se para aqui, en el nodo que lo causa, en vez
+        #            de dejar que reviente dentro del muestreador con una traza que
+        #            no menciona a Moviola.
+        #
+        # Encajar NUNCA es silencioso: se escribe siempre de que a que.
+        #
+        # What to do about a mismatch depends on why it happened, which the node
+        # cannot guess. Fitting is for latent-upscaling loops, where the upscaled
+        # latent is the one matching the video that gets cut together. Checking is
+        # for the mistake the message was written for. Fitting is never silent.
         if av_latent is not None:
             dest = av_latent["samples"]
             if getattr(dest, "is_nested", False):
                 dest = dest.tensors[0]
             if dest.ndim == 5 and tuple(z.shape[3:]) != tuple(dest.shape[3:]):
-                raise ValueError(
-                    "[Moviola Guide] El fotograma guardado es {}x{} latente y el clip "
-                    "destino {}x{}. Vacia la carpeta o vuelve a la resolucion anterior. "
-                    "/ Saved frame is {}x{} in latent space and the target clip is "
-                    "{}x{}. Empty the folder or go back to the previous resolution."
-                    .format(z.shape[3], z.shape[4], dest.shape[3], dest.shape[4],
-                            z.shape[3], z.shape[4], dest.shape[3], dest.shape[4]))
+                if check_resolution:
+                    raise ValueError(
+                        "[Moviola Guide] El fotograma guardado es {}x{} latente y el "
+                        "clip destino {}x{}. Vacia la carpeta, vuelve a la resolucion "
+                        "anterior, o pon check_resolution en 'fit'. / Saved frame is "
+                        "{}x{} in latent space and the target clip is {}x{}. Empty the "
+                        "folder, go back to the previous resolution, or set "
+                        "check_resolution to 'fit'."
+                        .format(z.shape[3], z.shape[4], dest.shape[3], dest.shape[4],
+                                z.shape[3], z.shape[4], dest.shape[3], dest.shape[4]))
+                antes = (z.shape[3], z.shape[4])
+                z = _encajar(z, int(dest.shape[3]), int(dest.shape[4]))
+                print("[Moviola Guide] encajado {}x{} -> {}x{} / fitted".format(
+                    antes[0], antes[1], z.shape[3], z.shape[4]))
+
+            # Un indice fuera del clip no revienta: coloca el ancla mas alla de la
+            # linea de tiempo del destino y el keyframe simplemente NO HACE NADA.
+            # Eso es peor que un error -- la toma sale sin anclar y nada lo dice,
+            # asi que se busca la causa en el prompt o en el modelo. El nodo nativo
+            # `MiniMaxH3AddGuide` tambien lo comprueba.
+            #
+            # An out-of-range index does not crash: it places the anchor past the
+            # target's timeline and the keyframe simply DOES NOTHING. That is worse
+            # than an error -- the take comes out unanchored with nothing to say so.
+            if dest.ndim == 5:
+                cuantos = _fotogramas_de(dest.shape[2])
+                if frame_idx >= cuantos:
+                    raise ValueError(
+                        "[Moviola Guide] frame_idx {} pero el clip destino tiene {} "
+                        "fotogramas (0 a {}). Fuera de rango el ancla no hace nada y "
+                        "la toma sale sin encadenar. / frame_idx {} but the target "
+                        "clip has {} frames (0 to {}). Out of range the anchor does "
+                        "nothing and the take comes out unchained."
+                        .format(frame_idx, cuantos, cuantos - 1,
+                                frame_idx, cuantos, cuantos - 1))
 
         kfs = list((positive[0][1] or {}).get("minimax_keyframes", []))
         kfs.append({"resolved_frame_index": int(frame_idx), "latent": z})

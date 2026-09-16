@@ -46,7 +46,7 @@ An ultra-sleek, highly responsive custom CLIP Text Encode implementation for Com
 
 *   **📐 Fluid Responsive Layout (`flex: 1`):** The primary prompt text area utilizes a fully fluid layout. Stretch, widen, or scale the node manually in any direction; the editor box will dynamically expand to fill 100% of the available vertical space.
 *   **🧠 Independent State Sizing (Size Memory):** The node intelligently remembers your manually adjusted dimensions separately for *both* collapsed and expanded modes. Toggling between them fluidly snaps the node to your preferred width and height without resetting or forcing generic dimensions.
-*   **🧹 Zero-Overlap DOM Injection:** Completely isolates and overrides ComfyUI's native multiline `<textarea>` element at the DOM level (`display: none !important`). This guarantees no duplicate text render overlays, no layout breaks, and a clean interface from the millisecond the node is spawned.
+*   **🧹 Zero-Overlap DOM Injection:** Completely isolates and overrides ComfyUI's native multiline `<textarea>` element at the DOM level (`display: none !important`). This guarantees no duplicate text render overlays, no layout breaks, and a clean interface from the millisecond the node is created.
 *   **⏪ Auto-Queueing Recent Prompts (Last 10):** Generates and keeps a real-time rolling list (FIFO) of your last 10 queued prompts. Duplicate entries are automatically cleaned up and pushed to the top.
 *   **❤️ Favorites Vault:** Save your absolute best prompts directly to a dedicated Favorites list by clicking the heart button. They are styled as independent cards with quick-action utilities to load or delete them.
 *   **🔍 Scrollable Hover Preview:** Hovering a Recents or Favorites card pops up a floating panel with the **entire** prompt, line breaks intact and scrollable when it overflows. It stays open while the pointer is inside it, so long multi-line prompts can actually be read and scrolled — unlike a native tooltip, which truncates to a single strip and vanishes the moment you reach for it.
@@ -90,7 +90,7 @@ An ultra-compact, high-performance seed generator node built specifically for Co
     *   `🎲 Rand`: Automatically rolls a new seed on every queue execution.
     *   `➕ Increment`: Increments the active seed value by `+1` on every generation.
     *   `➖ Decrement`: Decrements the active seed value by `-1` on every generation.
-*   **🧹 Built-in Interface Cleanup:** Robust frontend cleaning algorithms actively remove ComfyUI's native duplicates, hidden input sockets, or extra output connectors. Only one clean, highly-compatible output port (`seed`) remains visible.
+*   **🧹 Built-in Interface Cleanup:** Robust frontend cleaning algorithms actively remove ComfyUI's native duplicates, hidden input connectors, or extra output connectors. Only one clean, highly-compatible output port (`seed`) remains visible.
 *   **💾 Session Serialization:** All seed history and configuration states are serialized natively. Your history persists even after saving, closing, or reloading your ComfyUI workflow JSON.
 
 ## Interface Layout & Button Controls
@@ -335,6 +335,36 @@ Project Paths ──project_name──► Multi-Prompt ──prompt──► Ref
 Moviola Guide ──positive──► sampler ──► Moviola Out ──latent_frames──► Moviola 🎞️
 ```
 
+### `check_resolution`, when the graph upscales between passes
+
+A common workflow generates at low resolution, upscales the latent, and saves
+**the upscaled** take. From the next pass on, the anchor Guide receives no longer
+matches the geometry the sampler is about to work at, and the pass fails.
+
+The switch on Guide decides what happens then, and it is **off** by default:
+
+| position | behaviour |
+|---|---|
+| `fit` (default) | the anchor is interpolated to the target geometry and the pass continues |
+| `check` | a mismatch raises, naming both geometries |
+
+`fit` is the default because the alternative ends up worse. Anchoring the
+pre-upscale latent removes the error too, but the montage joins the *upscaled*
+clips, so the anchor no longer matches what came before and the seam jumps.
+Re-rendering a long video at the low resolution just to anchor it costs more
+than the interpolation does. Turn `check` on when a geometry mismatch means
+something is wired wrong and you want to hear about it rather than have it
+quietly smoothed over.
+
+### Emptying the Multi-Prompt
+
+**Delete All Prompts** sits next to **Delete Selected Prompt**, deliberately the
+same size and shape: the pair is one decision, and hiding the destructive half
+behind a smaller control does not make it safer, only harder to find. It clears
+the global prompt as well -- a new series rarely wants the previous series'
+header -- and touches nothing on disk. Deleting **takes** is Moviola's job and
+lives on the other node.
+
 ---
 
 ## Why the loop needs this many nodes
@@ -392,7 +422,7 @@ So a chained project can use reference images, videos, audio and RefMods, and
 gets the `audio_vae` input that `MiniMaxH3ImageToVideo` does not have.
 
 > When you name a reference in the prompt, use the labels the tokenizer actually
-> emits — `<Picture 1>`, `<Video 1>`, `<Audio 1>`, 1-based **per type**. The socket
+> emits — `<Picture 1>`, `<Video 1>`, `<Audio 1>`, 1-based **per type**. The connector
 > names (`ref_video_0`) are ComfyUI's and never reach the model.
 
 ---

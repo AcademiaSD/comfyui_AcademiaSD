@@ -250,7 +250,7 @@ app.registerExtension({
             // `path` almost always arrives LINKED from Project Paths, and a link
             // only has a value during execution. What can be read is its
             // `project_name`, so the UI reads that and asks the server for the
-            // path the socket would carry -- the rule lives in one place.
+            // path the connector would carry -- the rule lives in one place.
             // Resolved BEFORE EVERY ACTION and never remembered: switching
             // project has to change the target at once, because one of these
             // buttons deletes.

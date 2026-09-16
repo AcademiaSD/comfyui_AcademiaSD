@@ -15,7 +15,7 @@ async def resolver_rutas(request):
     So nobody has to reimplement the rule in JavaScript. The Film Editor needs to
     know which project it points at BEFORE deleting anything, and its `path`
     input usually comes from here; a link only has a value during execution, so
-    the UI asks and this answers exactly what the socket would carry.
+    the UI asks and this answers exactly what the connector would carry.
     """
     try:
         datos = await request.json()

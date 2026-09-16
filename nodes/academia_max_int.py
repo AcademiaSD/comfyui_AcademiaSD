@@ -16,7 +16,7 @@ the two that are.
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.5"
+    ACADEMIASD_VERSION = "2.4.6"
 
 RANURAS = 8
 
@@ -29,7 +29,7 @@ class AcademiaMaxInt:
             # forceInput hace que sea un puerto y no un widget con valor por
             # defecto. Sin esto una entrada vacia valdria 0 y participaria en la
             # comparacion, que es justo lo que no se quiere.
-            # forceInput makes it a socket rather than a widget with a default.
+            # forceInput makes it a connector rather than a widget with a default.
             # Without it an empty input would read as 0 and take part in the
             # comparison, which is exactly what should not happen.
             entradas["in{}".format(i)] = ("INT", {"forceInput": True})

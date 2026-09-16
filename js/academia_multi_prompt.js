@@ -2,7 +2,12 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
 const MIN_WIDTH = 480;
-const DEFAULT_TEXT = "[VISUAL]:\n[SPEECH]:\n[SOUNDS]:";
+// Las tres secciones que espera MiniMax-H3. La plantilla anterior era la de
+// LTX y no encajaba con nada de lo que hay aqui.
+// The three sections MiniMax-H3 expects. The previous template was the LTX one.
+const DEFAULT_TEXT = "integrated_multimodal_description:\n\n"
+    + "overall_soundscape:\n\n"
+    + "non_diegetic_music:\nN/A";
 
 // El widget DOM no ocupa todo lo que se le asigna. El frontend hace
 //     let t = n.margin;            // margin = 10
@@ -102,11 +107,12 @@ const CSS = `
 .asd-pm-edhead { display: flex; align-items: baseline; gap: 9px; }
 .asd-pm-loop { color: #eaeaea; font-size: 13px; font-weight: 700; }
 .asd-pm-desde { color: #7b7b7b; font-size: 10.5px; font-family: Consolas, monospace; }
-.asd-pm-del { margin-left: auto; background: transparent; border: 1px solid #4a3030;
+.asd-pm-del { background: transparent; border: 1px solid #4a3030;
     color: #9a6a6a; cursor: pointer; font-size: 10.5px; border-radius: 5px; padding: 3px 9px;
     transition: .15s; }
 .asd-pm-del:hover { background: #3a2222; color: #e07a7a; border-color: #7a3a3a; }
 .asd-pm-del:disabled { opacity: .3; cursor: default; }
+.asd-pm-primero { margin-left: auto; margin-right: 6px; }
 .asd-pm-cuenta { text-align: right; color: #666; font-size: 10px;
     font-family: Consolas, monospace; margin-top: -3px; }
 .asd-pm-zoom { color: #8a8a8a; font-size: 10px; font-family: Consolas, monospace;
@@ -306,6 +312,19 @@ app.registerExtension({
             etqLoop.className = "asd-pm-loop";
             const etqDesde = document.createElement("span");
             etqDesde.className = "asd-pm-desde";
+            // Los dos borrados juntos y con la misma pinta, porque son la misma
+            // clase de accion sobre la misma cosa: uno quita el prompt de delante
+            // y el otro todos. Antes el de "todos" era un icono de 11 px perdido
+            // entre el zoom y el refresh -- ni se veia, ni estaba donde se busca.
+            //
+            // Both deletions together and alike: same kind of action on the same
+            // thing. The "all" one used to be an 11px icon lost between the zoom
+            // and the reload -- invisible, and nowhere near where you look for it.
+            const btnVaciar = document.createElement("button");
+            btnVaciar.className = "asd-pm-del asd-pm-primero";
+            btnVaciar.innerText = "Delete All Prompts";
+            btnVaciar.title = "removes every prompt loop; nothing on disk";
+
             const btnDel = document.createElement("button");
             btnDel.className = "asd-pm-del";
             // "Selected Prompt" y no "loop": el nodo Moviola tiene al lado un
@@ -316,7 +335,7 @@ app.registerExtension({
             // text, and mixing them up is expensive.
             btnDel.innerText = "Delete Selected Prompt";
             btnDel.title = "removes this prompt only, nothing on disk";
-            cabEd.append(etqLoop, etqDesde, btnDel);
+            cabEd.append(etqLoop, etqDesde, btnVaciar, btnDel);
             const areaLoop = document.createElement("textarea");
             areaLoop.className = "asd-pm-ta";
             areaLoop.style.minHeight = "150px";
@@ -352,6 +371,31 @@ app.registerExtension({
                 return [ancho, 60 + Math.max(nIn, nOut) * 22 + h];
             };
 
+            // El ancho del contenido se fija a mano desde el tamano del nodo, con
+            // la MISMA cuenta que usa el frontend para enmarcar un widget DOM
+            // (`node.size[0] - 2 * margin`, con margin = 10). No es duplicar su
+            // trabajo por gusto: el frontend la aplica sobre una copia del tamano
+            // del nodo que no siempre esta al dia, y cuando se queda atras el
+            // contenido se encoge hasta el minimo mientras el cuerpo del nodo
+            // sigue dibujandose ancho -- que es justo lo que pasaba al cargar un
+            // proyecto. Calcularlo aqui, donde el tamano de verdad esta siempre a
+            // mano, deja de depender de cuando se refresque esa copia.
+            //
+            // The content width is set by hand from the node size, with the SAME
+            // arithmetic the frontend uses to frame a DOM widget
+            // (`node.size[0] - 2 * margin`, margin = 10). Not duplication for its
+            // own sake: the frontend applies it to a cached copy of the node size
+            // that is not always current, and when that copy lags the content
+            // shrinks to the minimum while the node body still draws wide -- which
+            // is exactly what loading a project did. Doing it here, where the real
+            // size is always at hand, stops depending on when that copy refreshes.
+            const fijarAncho = (w) => {
+                const util = Math.round(Math.max(w || 0, MIN_WIDTH) - 2 * MARGEN_DOM);
+                if (container.style.width !== util + "px") {
+                    container.style.width = util + "px";
+                }
+            };
+
             const originalOnResize = this.onResize;
             this.onResize = function (size) {
                 if (originalOnResize) originalOnResize.apply(this, arguments);
@@ -363,6 +407,7 @@ app.registerExtension({
                 // comparing it with itself would make the node impossible to
                 // narrow again.
                 if (size[0] < MIN_WIDTH) size[0] = MIN_WIDTH;
+                fijarAncho(size[0]);
             };
 
             const ajustar = () => {
@@ -370,8 +415,15 @@ app.registerExtension({
                 _this._ajustando = true;
                 requestAnimationFrame(() => {
                     try {
-                        const alto = _this.computeSize()[1];
                         const ancho = Math.max(_this.size[0], MIN_WIDTH);
+                        // Primero el ancho y luego el alto: `scrollHeight` depende
+                        // de lo ancho que sea el contenido, asi que medirlo antes
+                        // de recolocarlo devuelve el alto de la anchura anterior.
+                        // Width first, height second: `scrollHeight` depends on how
+                        // wide the content is, so measuring before re-laying it out
+                        // returns the height of the previous width.
+                        fijarAncho(ancho);
+                        const alto = _this.computeSize()[1];
                         if (Math.abs(_this.size[1] - alto) > 1 || _this.size[0] !== ancho) {
                             _this.setSize([ancho, alto]);
                             app.graph.setDirtyCanvas(true, true);
@@ -635,6 +687,36 @@ app.registerExtension({
             });
 
             btnRecargar.addEventListener("click", () => _this.cargarFrames());
+
+            // Vaciar los prompts NO toca el disco: los fotogramas, las latentes y
+            // los videos siguen donde estaban. Solo se va el texto, que es lo unico
+            // que vive en el nodo -- para lo otro estan los botones de Moviola.
+            //
+            // Clearing the prompts does NOT touch disk: frames, latents and videos
+            // stay where they were. Only the text goes, which is all that lives in
+            // this node -- the Moviola buttons are for the rest.
+            btnVaciar.addEventListener("click", () => {
+                const n = _this.promptState.length;
+                const hayGlobal = !!areaGlobal.value.trim();
+                if (n <= 1 && !(_this.promptState[0] || {}).text && !hayGlobal) return;
+                if (!confirm(`Delete all ${n} prompt loop${n === 1 ? "" : "s"}`
+                    + `${hayGlobal ? " and the global prompt" : ""}?\n\n`
+                    + "Only the text written here. Frames, latents and videos on disk "
+                    + "are untouched.\nThis cannot be undone.")) return;
+                // El global se va con ellos: es la cabecera de ESTA serie, asi que
+                // dejarlo en pie al vaciar los loops significa empezar la siguiente
+                // con el sujeto y el aspecto de la anterior sin haberlo pedido.
+                //
+                // The global goes too: it is THIS series' header, so leaving it
+                // standing means starting the next one with the previous subject
+                // and look without having asked for them.
+                _this.promptState = [{ text: DEFAULT_TEXT }];
+                _this.loopSel = 0;
+                areaGlobal.value = "";
+                guardar();
+                _this.renderTira();
+                _this.renderEditor();
+            });
 
             this.renderUI = () => {
                 if (_this.widgets) {

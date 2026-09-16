@@ -111,7 +111,7 @@ class AcademiaCLIPTextEncode:
             # mismo papel solo plantearía la duda de cuál manda. Conectado gana
             # él; desconectado no existe y el nodo funciona como siempre.
             #
-            # `prompt` is a SOCKET only (`forceInput`), not a second widget: the
+            # `prompt` is a CONNECTOR only (`forceInput`), not a second widget: the
             # node already has its box with history and favourites, and another
             # box in the same role would only raise the question of which wins.
             "optional": {
