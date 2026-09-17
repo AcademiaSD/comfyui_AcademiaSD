@@ -2080,6 +2080,20 @@ class AcademiaMoviola:
                                           "tooltip": "Same value as Moviola Out. Only a "
                                                      "guide: it is used where a seam is too "
                                                      "still to measure."}),
+                # ORDEN: los widgets NUEVOS van al FINAL de este diccionario.
+                # ComfyUI guarda sus valores en un workflow como una lista
+                # POSICIONAL, asi que meter uno en medio corre todos los de
+                # detras y cada widget hereda el valor del vecino. Paso al meter
+                # `deflicker` aqui: trim, trim_int y crf aparecieron cambiados en
+                # un grafo ya guardado. Se queda donde esta porque moverlo ahora
+                # volveria a descolocar los que ya se corrigieron a mano.
+                #
+                # ORDER: NEW widgets go at the END of this dict. ComfyUI stores
+                # their values in a workflow as a POSITIONAL list, so inserting
+                # one in the middle shifts everything after it and each widget
+                # inherits its neighbour's value. It happened adding `deflicker`
+                # here. It stays put because moving it now would shift again the
+                # ones already corrected by hand.
                 "deflicker": ("BOOLEAN", {"default": False, "label_on": "smooth",
                                           "label_off": "per clip",
                                           "tooltip": "Exposure correction. 'per clip' "
