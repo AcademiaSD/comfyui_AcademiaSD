@@ -948,7 +948,7 @@ def _recorte_esperado(latent_frames, fps):
     return reales * 2 if fps > 36 else reales
 
 
-def _decidir_recortes(perfiles, esperado):
+def _decidir_recortes(perfiles, esperado, fijo=None):
     """Cuantos fotogramas quita cada costura.
 
     El minimo NO es donde cortar: es el fotograma que REPITE, el que mas se
@@ -961,6 +961,15 @@ def _decidir_recortes(perfiles, esperado):
     copian la mediana de las que si tienen V. Si ninguna la tiene, se usa
     `latent_frames` como guia.
     """
+    # Un recorte impuesto a mano se aplica tal cual y no se mide nada. Existe
+    # para comprobar la regla, no para usarlo a diario: la medida acierta costura
+    # a costura y un numero fijo no puede.
+    # A hand-set trim is applied as is and nothing is measured. It exists to check
+    # the rule, not for daily use: measuring gets each seam right and one number
+    # cannot.
+    if fijo is not None and fijo >= 0:
+        return [int(fijo)] * len(perfiles)
+
     claras = sorted(p["k"] for p in perfiles if p and p["clara"])
     if claras:
         comun = claras[len(claras) // 2] + 1
@@ -973,11 +982,11 @@ def claras_hay(perfiles):
     return any(p and p["clara"] for p in perfiles)
 
 
-def _medir(rutas, latent_frames, log):
+def _medir(rutas, latent_frames, log, fijo=None):
     perfiles = [_perfil(rutas[i], rutas[i + 1], "s{}".format(i))
                 for i in range(len(rutas) - 1)]
     esperado = _recorte_esperado(latent_frames, _fps(rutas[0]))
-    recortes = _decidir_recortes(perfiles, esperado)
+    recortes = _decidir_recortes(perfiles, esperado, fijo)
 
     salida = []
     for i, (p, n_rec) in enumerate(zip(perfiles, recortes)):
@@ -1129,9 +1138,9 @@ def _escribir_audio(sal, flujo, pista, rate):
 
 # -- el montaje --------------------------------------------------------------
 
-def _montar(rutas, destino, latent_frames, crf, log):
+def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
     """Une los clips corrigiendo las tres costuras, sin salir del proceso."""
-    dec = _medir(rutas, latent_frames, log)
+    dec = _medir(rutas, latent_frames, log, fijo)
     recorta = [0] + [d[0] for d in dec]
 
     # La correccion de exposicion se ACUMULA: cada clip se iguala al anterior,
@@ -1512,7 +1521,7 @@ def _carpeta(path, maximo=60):
     return log
 
 
-def _editar(path, latent_frames, crf):
+def _editar(path, latent_frames, crf, fijo=None):
     """Une los clips de cada pista. Devuelve las lineas de consola."""
     log = []
     carpeta, base, pre_v, pre_i = _nombres(path)
@@ -1534,7 +1543,7 @@ def _editar(path, latent_frames, crf):
         log.append("{}: joining {} clips ({} seams)".format(
             etiqueta, len(rutas), len(rutas) - 1))
         try:
-            _montar(rutas, destino, latent_frames, crf, log)
+            _montar(rutas, destino, latent_frames, crf, log, fijo)
         except Exception as exc:
             log.append("{}: FAILED -- {}".format(etiqueta, exc))
             continue
@@ -1735,7 +1744,13 @@ async def moviola_edit(request):
         path = _path_de(datos)
         lf = int(datos.get("latent_frames") or 1)
         crf = max(0, min(51, int(datos.get("crf") or 18)))
-        log, _ = await _en_hilo(_editar, path, lf, crf)
+        # -1, o ausente, significa medir. El `or` no vale aqui porque 0 es un
+        # recorte legitimo: no recortar nada.
+        # -1, or absent, means measure. `or` will not do, because 0 is a valid
+        # trim: take nothing off.
+        crudo = datos.get("trim")
+        fijo = None if crudo is None else max(-1, min(64, int(crudo)))
+        log, _ = await _en_hilo(_editar, path, lf, crf, fijo)
         log.append("")
         log.append(await _en_hilo(_informe, path, lf))
         return web.json_response({"status": "success", "log": log,
@@ -1780,6 +1795,11 @@ class AcademiaMoviola:
                                           "tooltip": "Same value as Moviola Out. Only a "
                                                      "guide: it is used where a seam is too "
                                                      "still to measure."}),
+                "trim": ("INT", {"default": -1, "min": -1, "max": 64, "step": 1,
+                                 "tooltip": "-1 measures every seam, which is what "
+                                            "you want. Any other value forces that "
+                                            "many frames off every seam -- there to "
+                                            "check the rule against a fixed cut."}),
                 "crf": ("INT", {"default": 18, "min": 0, "max": 51, "step": 1,
                                 "tooltip": "x264 quality of the joined file. Raise it for a "
                                            "smaller file; 16 is near-transparent, 24 is "

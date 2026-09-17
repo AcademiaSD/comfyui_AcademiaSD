@@ -331,6 +331,14 @@ app.registerExtension({
                 path: await resolverPath(),
                 latent_frames: parseInt(valorResuelto("latent_frames", 1), 10) || 1,
                 crf: parseInt(valorResuelto("crf", 18), 10) || 18,
+                // Sin `|| -1`: el 0 es un recorte legitimo y `||` lo convertiria
+                // en -1, que significa lo contrario -- medir.
+                // No `|| -1`: 0 is a legitimate trim and `||` would turn it into
+                // -1, which means the opposite -- measure.
+                trim: (() => {
+                    const v = parseInt(valorResuelto("trim", -1), 10);
+                    return Number.isFinite(v) ? v : -1;
+                })(),
             });
 
             const escribir = (texto) => {
