@@ -195,15 +195,47 @@ app.registerExtension({
             // Without giving those 20 px back the content spills past the node.
             const MARGEN_DOM = 10;
             let domW = null;
+
+            // El ancho que se DEVUELVE es el actual, no el minimo. Devolver
+            // siempre el minimo afirma que el nodo nunca necesita mas, y quien
+            // dimensione a partir de ahi -- el widget DOM incluido -- deja el
+            // contenido clavado en el minimo por ancho que se ponga el nodo. El
+            // minimo es un suelo, no una talla unica.
+            //
+            // The width RETURNED is the current one, not the minimum. Always
+            // answering the minimum claims the node never needs more, and
+            // anything sizing from it -- the DOM widget included -- pins the
+            // content to the minimum however wide the node gets.
+            const anchoActual = function (nodo) {
+                return Math.max((nodo.size && nodo.size[0]) || ANCHO_MIN, ANCHO_MIN);
+            };
+
+            // Y el ancho del contenido se fija a mano con la MISMA cuenta que usa
+            // el frontend para enmarcar un widget DOM (`size[0] - 2 * margin`),
+            // porque la aplica sobre una copia del tamano del nodo que no siempre
+            // esta al dia: cuando se queda atras, el contenido se encoge mientras
+            // el cuerpo del nodo se sigue dibujando ancho.
+            //
+            // The content width is set by hand with the SAME arithmetic the
+            // frontend uses (`size[0] - 2 * margin`), because it applies that to a
+            // cached copy of the node size that is not always current.
+            const fijarAncho = (w) => {
+                const util = Math.round(Math.max(w || 0, ANCHO_MIN) - 2 * MARGEN_DOM);
+                if (container.style.width !== util + "px") {
+                    container.style.width = util + "px";
+                }
+            };
+
             this.computeSize = function () {
                 const h = (inner.scrollHeight || 240) + 2 * MARGEN_DOM + 6;
+                const ancho = anchoActual(this);
                 if (domW && typeof domW.last_y === "number" && domW.last_y > 0) {
-                    return [ANCHO_MIN, domW.last_y + h];
+                    return [ancho, domW.last_y + h];
                 }
                 // Solo hasta el primer dibujado, cuando aun no hay last_y.
                 const nIn = this.inputs ? this.inputs.length : 0;
                 const nOut = this.outputs ? this.outputs.length : 0;
-                return [ANCHO_MIN, 60 + Math.max(nIn, nOut) * 22 + h];
+                return [ancho, 60 + Math.max(nIn, nOut) * 22 + h];
             };
 
             const originalOnResize = this.onResize;
@@ -211,7 +243,13 @@ app.registerExtension({
                 if (originalOnResize) originalOnResize.apply(this, arguments);
                 const m = this.computeSize();
                 if (size[1] < m[1]) size[1] = m[1];
-                if (size[0] < m[0]) size[0] = m[0];
+                // ANCHO_MIN y no m[0]: m[0] ya es el ancho actual, asi que
+                // compararlo consigo mismo impediria estrechar el nodo nunca.
+                // ANCHO_MIN, not m[0]: m[0] is already the current width, so
+                // comparing it with itself would make the node impossible to
+                // narrow again.
+                if (size[0] < ANCHO_MIN) size[0] = ANCHO_MIN;
+                fijarAncho(size[0]);
             };
 
             const ajustar = () => {
@@ -219,8 +257,14 @@ app.registerExtension({
                 _this._ajustando = true;
                 requestAnimationFrame(() => {
                     try {
-                        const alto = _this.computeSize()[1];
                         const ancho = Math.max(_this.size[0], ANCHO_MIN);
+                        // Primero el ancho: `scrollHeight` depende de lo ancho que
+                        // sea el contenido, asi que medir antes de recolocarlo
+                        // devuelve el alto de la anchura anterior.
+                        // Width first: `scrollHeight` depends on how wide the
+                        // content is.
+                        fijarAncho(ancho);
+                        const alto = _this.computeSize()[1];
                         if (Math.abs(_this.size[1] - alto) > 1 || _this.size[0] !== ancho) {
                             _this.setSize([ancho, alto]);
                             app.graph.setDirtyCanvas(true, true);
