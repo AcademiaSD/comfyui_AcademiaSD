@@ -7,6 +7,25 @@ app.registerExtension({
 
         if (nodeData.name === "AcademiaSD_TimeCalculator") {
 
+            // Al terminar la ejecucion llegan los valores de verdad, los mismos
+            // con los que se han calculado las salidas.
+            // When the run finishes the real values arrive -- the same ones the
+            // outputs were computed from.
+            const onExecuted = nodeType.prototype.onExecuted;
+
+            nodeType.prototype.onExecuted = function (mensaje) {
+
+                if (onExecuted)
+                    onExecuted.apply(this, arguments);
+
+                const d = mensaje && mensaje.asd_tiempo && mensaje.asd_tiempo[0];
+
+                if (d && typeof d.duration === "number") {
+                    this._asdTiempo = d;
+                    if (this._asdRefrescar) this._asdRefrescar();
+                }
+            };
+
             const onNodeCreated = nodeType.prototype.onNodeCreated;
 
             nodeType.prototype.onNodeCreated = function () {
@@ -70,17 +89,50 @@ app.registerExtension({
                 // CALCULAR DURACIÓN
                 // =====================================================
 
+                // Una entrada ENLAZADA manda sobre su widget: el widget conserva
+                // su valor por defecto y no tiene forma de enterarse de lo que
+                // viaja por el cable. Lo que viaja solo se sabe al ejecutar, y
+                // llega por `onExecuted`.
+                //
+                // A LINKED input beats its widget: the widget keeps its default
+                // and has no way of knowing what travels down the wire. What
+                // travels is only known once the node runs, and arrives through
+                // `onExecuted`.
+                const enlazada = (nombre) => {
+                    const ent = this.inputs || [];
+                    for (let i = 0; i < ent.length; i++) {
+                        const e = ent[i];
+                        const suyo = e.name === nombre ||
+                            (e.widget && e.widget.name === nombre);
+                        if (suyo && e.link != null) return true;
+                    }
+                    return false;
+                };
+
                 const updateTime = () => {
 
                     if (!framesWidget || !fpsWidget)
                         return;
 
+                    const ej = this._asdTiempo;
 
-                    const frames =
-                        parseInt(framesWidget.value);
+                    // Enlazado y sin ejecutar todavia: no se sabe. Se dice, en vez
+                    // de ensenar la cuenta del valor por defecto, que seria un
+                    // numero con toda la pinta de ser cierto.
+                    // Linked and not run yet: unknown. Say so, rather than show the
+                    // default's result, which would look entirely trustworthy.
+                    if (!ej && (enlazada("frames") || enlazada("fps"))) {
+                        timeLabel.innerText = "\u23f1\ufe0f \u2014";
+                        return;
+                    }
 
-                    const fps =
-                        parseFloat(fpsWidget.value);
+                    const frames = (ej && enlazada("frames"))
+                        ? ej.frames
+                        : parseInt(framesWidget.value);
+
+                    const fps = (ej && enlazada("fps"))
+                        ? ej.fps
+                        : parseFloat(fpsWidget.value);
 
 
                     if (
@@ -220,6 +272,12 @@ app.registerExtension({
                 // =====================================================
                 // ACTUALIZACIÓN INICIAL
                 // =====================================================
+
+                // Se deja a mano para que `onExecuted`, que vive fuera de aqui,
+                // pueda repintar sin duplicar la cuenta.
+                // Exposed so `onExecuted`, which lives outside this closure, can
+                // repaint without duplicating the arithmetic.
+                this._asdRefrescar = updateTime;
 
                 setTimeout(() => {
 
