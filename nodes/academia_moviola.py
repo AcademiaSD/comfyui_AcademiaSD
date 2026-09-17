@@ -1082,11 +1082,6 @@ def _medir(rutas, latent_frames, log, fijo=None):
         if p is None:
             salida.append((n_rec, [1.0, 1.0, 1.0], 0))
             continue
-        # La exposicion se mide contra el fotograma que SOBREVIVE al recorte. Con
-        # ocho descartados, medirla contra el 0 calcula la ganancia de una imagen
-        # que se tira y el cambio de tono sobrevive a la correccion.
-        sup = p["fb"][min(n_rec, len(p["fb"]) - 1)]
-        salida.append((n_rec, _ganancia(p["fa"][1], sup), dis))
         # El ratio se escribe porque es lo que dice si la union sirve, y no se
         # deducia de los otros dos numeros.
         # The ratio is printed because it is what says whether the join works,
@@ -1116,6 +1111,11 @@ def _medir(rutas, latent_frames, log, fijo=None):
         # 2n-1 on an interpolated clip, for the usual reason.
         largo = (DISOLVENCIA * 2 - 1) if fps_pista > 36 else DISOLVENCIA
         dis = min(largo, n_rec) if (razon is not None and razon >= UMBRAL_DISOLVER) else 0
+        # La exposicion se mide contra el fotograma que SOBREVIVE al recorte. Con
+        # ocho descartados, medirla contra el 0 calcula la ganancia de una imagen
+        # que se tira y el cambio de tono sobrevive a la correccion.
+        sup = p["fb"][min(n_rec, len(p["fb"]) - 1)]
+        salida.append((n_rec, _ganancia(p["fa"][1], sup), dis))
         marca = "   {:.2f}x".format(razon) if razon is not None else ""
         if dis:
             marca += "   blend {}".format(dis)
