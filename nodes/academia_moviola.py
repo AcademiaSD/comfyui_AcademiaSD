@@ -574,7 +574,8 @@ class AcademiaMoviolaOut:
                 # orders fighting. The offset makes them agree. The derived value
                 # is `_fotogramas_de(lf) - 1`; left manual and at 0 because only
                 # latent_frames = 2 has been measured.
-                "frames_back": ("INT", {"default": 0, "min": 0, "max": 32}),
+                "frames_back": ("INT", {"default": -1, "min": -1, "max": 32,
+                                       "tooltip": "-1 derives it from latent_frames, which is what you want. 0 keeps the last frame."}),
             },
             "optional": {
                 "images": ("IMAGE",),
@@ -619,7 +620,22 @@ class AcademiaMoviolaOut:
             # siguiente, y guardar los demas llenaria el disco sin aportar nada.
             # Only the LAST frame: it is the one that chains into the next take,
             # and keeping the rest would fill the disk for nothing.
-            atras = max(0, int(frames_back))
+            # -1 lo deduce de `latent_frames`, que esta en el widget de arriba.
+            # El keyframe ocupa los primeros `lf` tokens del clip NUEVO, y ahi el
+            # token 0 decodifica un fotograma y el resto cuatro, asi que el clip
+            # nuevo arranca `_fotogramas_de(lf) - 1` fotogramas antes del final
+            # del anterior. Comprobado: 4 con latent_frames 2 y 8 con 3, que es
+            # donde cayo el hoyo al montar esas series.
+            #
+            # -1 derives it from `latent_frames`, the widget just above. The
+            # keyframe takes the first `lf` tokens of the NEW clip, where token 0
+            # decodes one frame and the rest four, so the new clip starts
+            # `_fotogramas_de(lf) - 1` frames before the previous ending.
+            # Verified: 4 at latent_frames 2 and 8 at 3, which is where the dip
+            # landed when those series were joined.
+            atras = int(frames_back)
+            if atras < 0:
+                atras = max(0, _fotogramas_de(int(latent_frames)) - 1)
             total = int(images.shape[0])
             if atras >= total:
                 # Pedir mas atras de lo que dura el clip no puede saltar al clip
@@ -632,8 +648,10 @@ class AcademiaMoviolaOut:
                 atras = total - 1
             ultimo = images[total - 1 - atras:total - atras]
             if atras:
-                print("[Moviola Out] guardando {} fotogramas antes del final "
-                      "/ saving {} frames before the end".format(atras, atras))
+                print("[Moviola Out] guardando {} fotogramas antes del final{} "
+                      "/ saving {} frames before the end".format(
+                          atras, " (de latent_frames)" if int(frames_back) < 0 else "",
+                          atras))
             _tensor_a_pil(ultimo).save(base + ".png", compress_level=4)
             ui = _vista_previa(ultimo, nombre + "_out")
 
