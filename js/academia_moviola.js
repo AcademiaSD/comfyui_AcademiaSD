@@ -327,6 +327,15 @@ app.registerExtension({
                 return String(valor("path", ""));
             };
 
+            // Sin `|| -1`: el 0 es un recorte legitimo y `||` lo convertiria en
+            // -1, que significa lo contrario -- medir.
+            // No `|| -1`: 0 is a legitimate trim and `||` would turn it into -1,
+            // which means the opposite -- measure.
+            const entero = (nombre) => {
+                const v = parseInt(valorResuelto(nombre, -1), 10);
+                return Number.isFinite(v) ? v : -1;
+            };
+
             const cuerpo = async () => ({
                 path: await resolverPath(),
                 latent_frames: parseInt(valorResuelto("latent_frames", 1), 10) || 1,
@@ -335,10 +344,8 @@ app.registerExtension({
                 // en -1, que significa lo contrario -- medir.
                 // No `|| -1`: 0 is a legitimate trim and `||` would turn it into
                 // -1, which means the opposite -- measure.
-                trim: (() => {
-                    const v = parseInt(valorResuelto("trim", -1), 10);
-                    return Number.isFinite(v) ? v : -1;
-                })(),
+                trim: entero("trim"),
+                trim_int: entero("trim_int"),
             });
 
             const escribir = (texto) => {

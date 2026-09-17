@@ -1521,14 +1521,24 @@ def _carpeta(path, maximo=60):
     return log
 
 
-def _editar(path, latent_frames, crf, fijo=None):
+def _editar(path, latent_frames, crf, fijo=None, fijo_int=None):
     """Une los clips de cada pista. Devuelve las lineas de consola."""
     log = []
     carpeta, base, pre_v, pre_i = _nombres(path)
     titulo = _titulo(carpeta, base)
     hecho = []
-    for etiqueta, prefijo, sufijo in (("video", pre_v, "_final"),
-                                      ("interpolated", pre_i, "_final_int")):
+    # Cada pista lleva su recorte forzado. NO puede ser el mismo numero: el
+    # interpolador no duplica los fotogramas, los intercala, asi que un clip de
+    # 124 sale con 247 y no con 248. Un rebobinado de n fotogramas reales ocupa
+    # 2n-1 interpolados -- 5 se corresponde con 9, no con 10.
+    #
+    # Each track carries its own forced trim, and it cannot be the same number:
+    # interpolation inserts frames rather than duplicating them, so a 124-frame
+    # clip comes out at 247, not 248. A rewind of n real frames spans 2n-1
+    # interpolated ones -- 5 pairs with 9, not 10.
+    for etiqueta, prefijo, sufijo, forzado in (("video", pre_v, "_final", fijo),
+                                               ("interpolated", pre_i, "_final_int",
+                                                fijo_int)):
         clips = _clips(carpeta, prefijo)
         if not clips:
             log.append('{}: nothing found (looked for "{}_#####.mp4").'.format(
@@ -1543,7 +1553,7 @@ def _editar(path, latent_frames, crf, fijo=None):
         log.append("{}: joining {} clips ({} seams)".format(
             etiqueta, len(rutas), len(rutas) - 1))
         try:
-            _montar(rutas, destino, latent_frames, crf, log, fijo)
+            _montar(rutas, destino, latent_frames, crf, log, forzado)
         except Exception as exc:
             log.append("{}: FAILED -- {}".format(etiqueta, exc))
             continue
@@ -1748,9 +1758,12 @@ async def moviola_edit(request):
         # recorte legitimo: no recortar nada.
         # -1, or absent, means measure. `or` will not do, because 0 is a valid
         # trim: take nothing off.
-        crudo = datos.get("trim")
-        fijo = None if crudo is None else max(-1, min(64, int(crudo)))
-        log, _ = await _en_hilo(_editar, path, lf, crf, fijo)
+        def forzado(clave):
+            crudo = datos.get(clave)
+            return None if crudo is None else max(-1, min(64, int(crudo)))
+
+        log, _ = await _en_hilo(_editar, path, lf, crf,
+                                forzado("trim"), forzado("trim_int"))
         log.append("")
         log.append(await _en_hilo(_informe, path, lf))
         return web.json_response({"status": "success", "log": log,
@@ -1796,10 +1809,17 @@ class AcademiaMoviola:
                                                      "guide: it is used where a seam is too "
                                                      "still to measure."}),
                 "trim": ("INT", {"default": -1, "min": -1, "max": 64, "step": 1,
-                                 "tooltip": "-1 measures every seam, which is what "
-                                            "you want. Any other value forces that "
-                                            "many frames off every seam -- there to "
-                                            "check the rule against a fixed cut."}),
+                                 "tooltip": "Plain track. -1 measures every seam, "
+                                            "which is what you want. Any other value "
+                                            "forces that many frames off every seam -- "
+                                            "there to check the rule against a fixed "
+                                            "cut."}),
+                "trim_int": ("INT", {"default": -1, "min": -1, "max": 128, "step": 1,
+                                     "tooltip": "Same, for the interpolated track, "
+                                                "which needs its own number: "
+                                                "interpolation inserts frames rather "
+                                                "than duplicating them, so a trim of n "
+                                                "here is 2n-1 -- 5 pairs with 9."}),
                 "crf": ("INT", {"default": 18, "min": 0, "max": 51, "step": 1,
                                 "tooltip": "x264 quality of the joined file. Raise it for a "
                                            "smaller file; 16 is near-transparent, 24 is "
