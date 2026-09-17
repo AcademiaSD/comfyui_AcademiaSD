@@ -706,6 +706,8 @@ class AcademiaMoviolaOut:
 VENTANA_BUSQUEDA = 20       # fotogramas del clip nuevo que se exploran
 FPS_POR_DEFECTO = 24.0      # solo si el contenedor no declara ninguno
 HUNDIMIENTO = 0.6           # el minimo debe bajar a esto de los hombros de la V
+OBJETIVO = 1.15             # cuanto debe saltar la union, en pasos normales
+BUSCA_TRAS_HOYO = 8         # hasta donde se busca a partir del fondo
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
 # prefijo_00001<lo que sea>.mp4
@@ -933,7 +935,11 @@ def _perfil(a, b, etq=""):
     k = min(range(len(difs)), key=lambda i: difs[i])
     mov = (_dif(fa[0], fa[1]) + _dif(fb[k], fb[min(k + 1, len(fb) - 1)])) / 2.0
     hombros = min(difs[0], difs[-1])
-    return {"k": k, "dif": difs[k], "mov": mov,
+    # `difs` entera y no solo su minimo: elegir el corte necesita ver la SUBIDA
+    # que viene despues del fondo, no donde esta el fondo.
+    # The whole of `difs`, not just its minimum: picking the cut needs to see the
+    # CLIMB after the bottom, not where the bottom is.
+    return {"k": k, "dif": difs[k], "mov": mov, "difs": difs,
             "clara": difs[k] < HUNDIMIENTO * hombros, "fa": fa, "fb": fb}
 
 
@@ -946,6 +952,64 @@ def _recorte_esperado(latent_frames, fps):
     """
     reales = max(1, int(latent_frames)) * FRAMES_POR_LATENTE
     return reales * 2 if fps > 36 else reales
+
+
+def _elegir_corte(p):
+    """Donde cortar una costura: el fotograma en que se REANUDA el movimiento.
+
+    El fondo de la curva es el fotograma que REPITE, y hasta ahora se cortaba
+    siempre uno despues. Eso vale cuando el fondo es agudo, pero no cuando es
+    plano: un fotograma mas alla sigues encima de la repeticion y la union se
+    queda corta -- el paron.
+
+    Un fondo se vuelve plano cuando el clip nuevo reproduce el final del
+    anterior sin precision, y eso pasa de forma sistematica en UNA costura: la
+    primera. El primer clip es el unico que se genera sin keyframe, porque
+    todavia no hay latente en disco, asi que el segundo lo repite peor que el
+    tercero al segundo. Medido en dos series seguidas, la primera costura
+    cortando en el fondo+1 daba 0,49 y 0,71 veces el movimiento normal, mientras
+    las demas quedaban entre 0,99 y 1,04.
+
+    Asi que no se cuenta: se busca. De entre los fotogramas que siguen al fondo,
+    el que deje la union saltando lo que salta un fotograma cualquiera de esa
+    zona. Donde el fondo es agudo la subida es rapida y el elegido vuelve a ser
+    el de siempre, asi que las costuras que ya iban bien no se mueven.
+
+    Where to cut a seam: the frame at which the movement RESUMES.
+
+    The bottom of the curve is the frame that REPEATS, and until now the cut was
+    always one past it. That works while the bottom is sharp; it does not when
+    the bottom is flat, because one frame on you are still sitting on the repeat
+    and the join falls short -- the stall.
+
+    A bottom goes flat when the new clip reproduces the previous ending
+    imprecisely, and that happens systematically at ONE seam: the first. The
+    first clip is the only one generated without a keyframe, since no latent is
+    on disk yet, so the second reproduces it worse than the third does the
+    second. Measured across two consecutive series, the first seam cut at
+    bottom+1 gave 0.49 and 0.71 times the normal motion while the others landed
+    between 0.99 and 1.04.
+
+    So it is searched for rather than counted. Among the frames after the bottom,
+    the one whose join moves as much as any ordinary frame of that stretch does.
+    Where the bottom is sharp the climb is steep and the winner is the same frame
+    as before, so the seams that already worked do not move.
+    """
+    k = p["k"]
+    difs = p.get("difs") or []
+    mov = p.get("mov") or 0.0
+    # Sin movimiento con el que comparar no hay objetivo posible: se cae en la
+    # regla de siempre. / With no motion to compare against there is no target:
+    # fall back to the long-standing rule.
+    if mov <= 1e-6 or len(difs) < k + 2:
+        return k + 1
+    fin = min(k + BUSCA_TRAS_HOYO, len(difs) - 1)
+    candidatos = range(k + 1, fin + 1)
+    if not candidatos:
+        return k + 1
+    # NUNCA el fondo: ese es el fotograma repetido, y conservarlo para en seco.
+    # NEVER the bottom itself: that frame is the repeat, and keeping it stalls.
+    return min(candidatos, key=lambda c: abs(difs[c] / mov - OBJETIVO))
 
 
 def _decidir_recortes(perfiles, esperado, fijo=None):
@@ -970,12 +1034,16 @@ def _decidir_recortes(perfiles, esperado, fijo=None):
     if fijo is not None and fijo >= 0:
         return [int(fijo)] * len(perfiles)
 
-    claras = sorted(p["k"] for p in perfiles if p and p["clara"])
-    if claras:
-        comun = claras[len(claras) // 2] + 1
+    elegidos = {}
+    for i, p in enumerate(perfiles):
+        if p and p["clara"]:
+            elegidos[i] = _elegir_corte(p)
+    if elegidos:
+        orden = sorted(elegidos.values())
+        comun = orden[len(orden) // 2]
     else:
         comun = max(1, int(esperado))
-    return [((p["k"] + 1) if (p and p["clara"]) else comun) for p in perfiles]
+    return [elegidos.get(i, comun) for i in range(len(perfiles))]
 
 
 def claras_hay(perfiles):
@@ -998,8 +1066,18 @@ def _medir(rutas, latent_frames, log, fijo=None):
         # que se tira y el cambio de tono sobrevive a la correccion.
         sup = p["fb"][min(n_rec, len(p["fb"]) - 1)]
         salida.append((n_rec, _ganancia(p["fa"][1], sup)))
-        log.append("   seam {} -> {}   dip at {}{}   trim {}".format(
-            i + 1, i + 2, p["k"], "" if p["clara"] else " (flat, copied)", n_rec))
+        # El ratio se escribe porque es lo que dice si la union sirve, y no se
+        # deducia de los otros dos numeros.
+        # The ratio is printed because it is what says whether the join works,
+        # and it could not be worked out from the other two numbers.
+        difs, mov = p.get("difs") or [], p.get("mov") or 0.0
+        if mov > 1e-6 and n_rec < len(difs):
+            marca = "   {:.2f}x".format(difs[n_rec] / mov)
+        else:
+            marca = ""
+        log.append("   seam {} -> {}   dip at {}{}   trim {}{}".format(
+            i + 1, i + 2, p["k"], "" if p["clara"] else " (flat, copied)",
+            n_rec, marca))
     if perfiles and not claras_hay(perfiles):
         log.append("   no clear dip anywhere: fell back to latent_frames "
                    "({} frames)".format(esperado))
