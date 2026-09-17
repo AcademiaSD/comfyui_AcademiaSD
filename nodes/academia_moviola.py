@@ -279,6 +279,44 @@ class AcademiaMoviolaIn:
         return {
             "required": {
                 "project_path": ("STRING", {"default": "moviola/toma"}),
+                # Elige QUE imagen sale por `image`, no si sale. El cable se queda
+                # puesto en los dos casos, asi que el mismo grafo sirve para las
+                # dos formas de encadenar.
+                #
+                # `new frame` -- sale lo que el nodo acaba de leer: la base en la
+                #     vuelta 1 y el ultimo fotograma generado de la 2 en adelante.
+                #     Es lo que encadena por `first_frame`, donde la imagen fija el
+                #     fotograma 0 y tiene que avanzar en cada vuelta.
+                #
+                # `pass through` -- sale la MISMA imagen que entro por
+                #     `base_image`, vuelta tras vuelta, sin tocar el disco. Es lo
+                #     que hace falta en una ranura de referencia: ahi la imagen
+                #     dice COMO ES el sujeto y debe ser la misma toda la serie. Si
+                #     ahi entrara el fotograma generado, cada vuelta cambiaria de
+                #     referencia y ademas arrastraria el final del clip hacia esa
+                #     composicion, porque una referencia se atiende durante todo el
+                #     clip. Por esa via la continuidad la pone Guide con el
+                #     keyframe.
+                #
+                # Sin nada conectado a `base_image`, `pass through` saca None y no
+                # es un error: es el caso normal de una serie que arranca solo con
+                # el prompt.
+                #
+                # Picks WHICH image leaves through `image`, not whether one does.
+                # The wire stays connected either way, so one graph serves both
+                # ways of chaining. `new frame`: what the node just read -- the
+                # base on pass 1, the last generated frame from pass 2 on -- which
+                # is what chains through `first_frame`, where the image fixes frame
+                # 0 and must advance every pass. `pass through`: the SAME image
+                # that came in through `base_image`, pass after pass, never
+                # touching disk -- what a reference slot needs, since there the
+                # image says WHAT THE SUBJECT LOOKS LIKE and must stay the same all
+                # series. With nothing wired to `base_image`, `pass through` yields
+                # None and that is not an error: it is the ordinary case of a
+                # series starting from the prompt alone.
+                "image_out": ("BOOLEAN", {"default": True,
+                                          "label_on": "new frame",
+                                          "label_off": "pass through"}),
             },
             "optional": {
                 "base_image": ("IMAGE",),
@@ -303,7 +341,7 @@ class AcademiaMoviolaIn:
         # Reads from disk, which changes between runs though the inputs do not.
         return float("NaN")
 
-    def servir(self, project_path, base_image=None):
+    def servir(self, project_path, image_out=True, base_image=None):
         carpeta, nombre = _partes(project_path)
         n, fichero = _ultimo(carpeta, nombre, "png")
 
@@ -368,8 +406,12 @@ class AcademiaMoviolaIn:
         # since a null slot leaves no gap. Down that route Guide already provides
         # continuity, building the keyframe from the latent on disk with no PNG in
         # between.
+        # La vista previa se pinta igual con la salida cerrada: enseña lo que el
+        # nodo ha leido, que es informacion util aunque no salga por el cable.
+        # The preview is drawn either way: it shows what the node read, which is
+        # worth seeing even when nothing leaves through the wire.
         return {"ui": {"images": vista},
-                "result": (imagen, n + 1, origen, project_path)}
+                "result": (imagen if image_out else base_image, n + 1, origen, project_path)}
 
 
 # -- GUIDE -------------------------------------------------------------------
@@ -506,6 +548,33 @@ class AcademiaMoviolaOut:
             "required": {
                 "project_path": ("STRING", {"default": "moviola/toma"}),
                 "latent_frames": ("INT", {"default": 1, "min": 1, "max": 8}),
+                # Cuantos fotogramas ANTES del final se guarda. 0 es el ultimo,
+                # que es lo de siempre; 4 es el cuarto antes del final.
+                #
+                # Para que sirve: el clip siguiente no arranca en el ultimo
+                # fotograma de este, arranca ANTES y va a parar a el. Medido en
+                # dos costuras seguidas, el fotograma 4 del clip nuevo es el que
+                # reproduce el ultimo del anterior, asi que su fotograma 0
+                # equivale a cuatro antes del final. Cuando esta imagen alimenta
+                # `first_frame`, darle el ultimo le dice al modelo que el
+                # fotograma 0 es algo que el keyframe coloca en el 4: dos ordenes
+                # peleandose. El desplazamiento las pone de acuerdo.
+                #
+                # El valor que sale de la cuenta es `_fotogramas_de(lf) - 1`:
+                # 0 con latent_frames 1, 4 con 2, 8 con 3. Se deja a mano y a 0
+                # por defecto porque solo esta medido el caso de 2.
+                #
+                # How many frames BEFORE the end to save. 0 is the last one, the
+                # long-standing behaviour. The next clip does not start on this
+                # clip's last frame, it starts EARLIER and arrives at it: measured
+                # across two consecutive seams, frame 4 of the new clip is the one
+                # reproducing the previous last frame. When this image feeds
+                # `first_frame`, handing over the last frame tells the model that
+                # frame 0 is something the keyframe places at frame 4 -- two
+                # orders fighting. The offset makes them agree. The derived value
+                # is `_fotogramas_de(lf) - 1`; left manual and at 0 because only
+                # latent_frames = 2 has been measured.
+                "frames_back": ("INT", {"default": 0, "min": 0, "max": 32}),
             },
             "optional": {
                 "images": ("IMAGE",),
@@ -533,7 +602,8 @@ class AcademiaMoviolaOut:
     def IS_CHANGED(s, **kwargs):
         return float("NaN")
 
-    def guardar(self, project_path, latent_frames=1, images=None, latent=None):
+    def guardar(self, project_path, latent_frames=1, frames_back=0,
+                images=None, latent=None):
         if images is None and latent is None:
             raise ValueError("[Moviola Out] Conecta images, latent o ambos. "
                              "/ Connect images, latent or both.")
@@ -549,7 +619,21 @@ class AcademiaMoviolaOut:
             # siguiente, y guardar los demas llenaria el disco sin aportar nada.
             # Only the LAST frame: it is the one that chains into the next take,
             # and keeping the rest would fill the disk for nothing.
-            ultimo = images[-1:]
+            atras = max(0, int(frames_back))
+            total = int(images.shape[0])
+            if atras >= total:
+                # Pedir mas atras de lo que dura el clip no puede saltar al clip
+                # anterior, que no esta aqui: se avisa y se coge el primero.
+                # Asking further back than the clip lasts cannot reach into the
+                # previous clip, which is not here: say so and take the first.
+                print("[Moviola Out] frames_back {} pero el clip tiene {} "
+                      "fotogramas; se coge el primero / clip has only {} frames, "
+                      "taking the first".format(atras, total, total))
+                atras = total - 1
+            ultimo = images[total - 1 - atras:total - atras]
+            if atras:
+                print("[Moviola Out] guardando {} fotogramas antes del final "
+                      "/ saving {} frames before the end".format(atras, atras))
             _tensor_a_pil(ultimo).save(base + ".png", compress_level=4)
             ui = _vista_previa(ultimo, nombre + "_out")
 
