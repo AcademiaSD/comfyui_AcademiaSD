@@ -335,6 +335,24 @@ Project Paths ──project_name──► Multi-Prompt ──prompt──► Ref
 Moviola Guide ──positive──► sampler ──► Moviola Out ──latent_frames──► Moviola 🎞️
 ```
 
+### `frames_back`, and why the last frame is the wrong one
+
+Moviola Out saves a frame for the next pass to start from, and the obvious choice
+— the last one — is wrong. The next clip does not begin where this one ended; it
+begins **earlier** and arrives there. Measured across five seams of three series,
+frame 4 of the new clip is the one reproducing the previous last frame, so its
+frame 0 corresponds to four frames before the end.
+
+Feeding `first_frame` the last frame therefore says frame 0 is something the
+keyframe places at frame 4 — two orders pulling against each other. The offset
+makes them agree.
+
+`-1`, the default, derives it from `latent_frames`: the keyframe takes the first
+*lf* tokens of the new clip, where token 0 decodes one frame and the rest four, so
+the answer is `frames_back = _fotogramas_de(lf) - 1` — 0, 4, 8 for one, two and
+three. Verified at two of those points against where the dip actually landed. A
+number forces it, `0` included, which keeps the last frame.
+
 ### Moviola In's image output is a first frame, never a reference
 
 It carries the frame the pass starts from, and it exists for one input in
@@ -519,6 +537,29 @@ whole cut nine times to throw eight away.
     delete buttons act on, so it doubles as a check before pressing one.
 *   **🔄 Refresh** — re-reads the whole project from disk.
 
+Four settings sit above them:
+
+*   **`deflicker`** — `per clip` corrects each seam with one gain for the whole
+    clip. `smooth` instead corrects **every frame**, aiming it at a ten-second
+    moving average of the montage's own brightness, which removes the sawtooth and
+    each clip's own drift together; seam continuity then comes for free, since both
+    sides are corrected toward the same curve.
+    The gain is taken from luminance and applied to all three channels, so the
+    correction can move brightness and never hue: aiming each channel at its own
+    curve turned a brightness stabiliser into a colour one, shifting the hue by up
+    to 8 % where the scene genuinely changed colour.
+    It is not free of side effects — a moving average cannot tell a sawtooth from a
+    real change of light, so a fade the footage actually makes gets flattened.
+    Worth it when the sawtooth is large, not when it is small. Off by default, and
+    the console says which case you are in.
+*   **`auto_trim`** — `auto` measures every seam. `fixed` hands the two numbers
+    below through, ignoring them in `auto` rather than clearing them, so values
+    under test survive a round trip.
+*   **`trim` / `trim_int`** — a forced trim per track, `-1` to measure. Two of them
+    because one number cannot serve both: interpolation inserts frames rather than
+    duplicating them, so a 124-frame clip comes out at 247 and a trim of *n* here
+    is *2n−1* there — 5 pairs with 9, not with 10.
+
 A **player** appears once a cut exists, with tabs for the plain and the
 interpolated file when both are there. Finishing the process by sending people to
 hunt for the file in a folder is a silly barrier at the very last step.
@@ -538,28 +579,47 @@ a **rewind**, not a repeated frame — which is why looking only at frame 0 cann
 see it.
 
 1.  **Trim.** Compare the last frame of A against the first twenty of B. The
-    profile comes out as a V, and the cut goes at the **minimum plus one** — the
-    minimum is the frame that *repeats*. Measured over nine seams: cutting at the
-    minimum left seven of them changing 0.18–0.49× the normal motion (a stall);
-    one frame later, six land at 1.10–1.21×, which is what a cut looks like.
+    profile comes out as a V whose bottom is the frame that *repeats*, and the cut
+    goes **after** it. Not one frame after, though: the cut is searched for, taking
+    whichever of the next few frames moves about as much as an ordinary frame of
+    that stretch. Where the V is sharp that is the frame right after the bottom,
+    the long-standing rule; where the bottom is a plateau, one frame on is still
+    sitting on the repeat and the join falls short.
     A seam too still to show a V copies the median of the others, since the rewind
     lasts the same across the series. With no V anywhere, `latent_frames` is the
     fallback — that is all it is used for.
-2.  **Exposure.** Every take is generated separately and the level drifts: the
+2.  **Blend, where no cut exists.** Some seams have no frame that joins. The first
+    one systematically: the first clip is the only one generated without a
+    keyframe, so the second reproduces its ending imprecisely and the profile has a
+    plateau rather than a V. Every cut point was tried on one series — 4 through 13
+    — and the best still moved 2.41× a normal frame against 1.02 and 1.34 at the
+    other seams. Choosing better was not on offer; the frame does not exist.
+    A seam that jumps more than 1.6× therefore blends across four frames instead of
+    cutting. The blend costs nothing: the frames it crosses with are the rewind,
+    discarded anyway, so the join lasts exactly as long as before. And it does not
+    cross two moments of the action — it crosses two renderings of the **same**
+    moment, which is why four frames suffice and it does not read as a transition.
+    Never longer than that seam's trim, since those are the frames feeding it.
+3.  **Exposure.** Every take is generated separately and the level drifts: the
     same **+2.5 % per seam** whether the scene sits at 22 or at 143 of brightness.
     That is gain, not content, so it is corrected with a per-channel gain — not an
     offset, which would lift the blacks — measured against the frame that
     **survives** the trim, and accumulated down the series.
-3.  **Audio.** The discarded frames are a rewind, so their sound covers the *same
+    That matches each seam exactly and does nothing about the drift *inside* a
+    clip, so the brightness sawtooths: it falls through a clip and climbs again
+    just past the join. The value is continuous there, the slope is not, and that
+    reads as a pulse rather than a step. `deflicker` decides what to do about it,
+    and the console measures the jump so the choice is not guesswork.
+4.  **Audio.** The discarded frames are a rewind, so their sound covers the *same
     instant* as the previous clip's tail. Crossfading them shifts nothing, because
     the overlap was already there. Clips arrive ~26 ms shorter in audio than in
     picture and that is absorbed with `atempo`, never by padding with silence.
     Projects saved without sound join fine: the audio track is asked for, not
     inferred from the filename.
 
-`tools/montar.py` is the standalone bench this grew out of, and
-`tools/DATOS_MONTAJE.md` records every measurement behind it — including the
-approaches that did **not** work and why, which is the part usually lost.
+`tools/DATOS_MONTAJE.md` records every measurement behind all of this —
+including the approaches that did **not** work and why, which is the part usually
+lost.
 
 ---
 
