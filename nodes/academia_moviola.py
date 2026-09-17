@@ -708,6 +708,8 @@ FPS_POR_DEFECTO = 24.0      # solo si el contenedor no declara ninguno
 HUNDIMIENTO = 0.6           # el minimo debe bajar a esto de los hombros de la V
 OBJETIVO = 1.15             # cuanto debe saltar la union, en pasos normales
 BUSCA_TRAS_HOYO = 8         # hasta donde se busca a partir del fondo
+DISOLVENCIA = 4             # fotogramas que se mezclan cuando no hay corte bueno
+UMBRAL_DISOLVER = 1.6       # a partir de este salto, mezclar en vez de cortar
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
 # prefijo_00001<lo que sea>.mp4
@@ -1053,28 +1055,52 @@ def claras_hay(perfiles):
 def _medir(rutas, latent_frames, log, fijo=None):
     perfiles = [_perfil(rutas[i], rutas[i + 1], "s{}".format(i))
                 for i in range(len(rutas) - 1)]
-    esperado = _recorte_esperado(latent_frames, _fps(rutas[0]))
+    fps_pista = _fps(rutas[0])
+    esperado = _recorte_esperado(latent_frames, fps_pista)
     recortes = _decidir_recortes(perfiles, esperado, fijo)
 
     salida = []
     for i, (p, n_rec) in enumerate(zip(perfiles, recortes)):
         if p is None:
-            salida.append((n_rec, [1.0, 1.0, 1.0]))
+            salida.append((n_rec, [1.0, 1.0, 1.0], 0))
             continue
         # La exposicion se mide contra el fotograma que SOBREVIVE al recorte. Con
         # ocho descartados, medirla contra el 0 calcula la ganancia de una imagen
         # que se tira y el cambio de tono sobrevive a la correccion.
         sup = p["fb"][min(n_rec, len(p["fb"]) - 1)]
-        salida.append((n_rec, _ganancia(p["fa"][1], sup)))
+        salida.append((n_rec, _ganancia(p["fa"][1], sup), dis))
         # El ratio se escribe porque es lo que dice si la union sirve, y no se
         # deducia de los otros dos numeros.
         # The ratio is printed because it is what says whether the join works,
         # and it could not be worked out from the other two numbers.
         difs, mov = p.get("difs") or [], p.get("mov") or 0.0
-        if mov > 1e-6 and n_rec < len(difs):
-            marca = "   {:.2f}x".format(difs[n_rec] / mov)
-        else:
-            marca = ""
+        razon = difs[n_rec] / mov if (mov > 1e-6 and n_rec < len(difs)) else None
+        # Una costura que salta mucho mas que un fotograma normal no tiene corte
+        # bueno: no existe el fotograma que empalme. Ahi se mezcla en vez de
+        # cortar, y la mezcla sale gratis porque los fotogramas con los que se
+        # cruza son los del rebobinado, que se iban a tirar de todas formas. No
+        # cruza dos momentos distintos de la accion: cruza dos versiones del
+        # MISMO momento, que es por lo que cuatro fotogramas bastan y no se lee
+        # como una transicion.
+        #
+        # Nunca mas larga que el recorte, porque son esos mismos fotogramas los
+        # que la alimentan. Y el doble menos uno si el clip va interpolado, por
+        # lo de siempre: el interpolador intercala, no duplica.
+        #
+        # A seam that jumps far more than an ordinary frame has no good cut --
+        # the frame that would join does not exist. There it is blended instead,
+        # and the blend is free because the frames it crosses with are the
+        # rewind, thrown away anyway. It does not cross two different moments of
+        # the action: it crosses two renderings of the SAME moment, which is why
+        # four frames are enough and it does not read as a transition.
+        #
+        # Never longer than the trim, since those are the frames feeding it. And
+        # 2n-1 on an interpolated clip, for the usual reason.
+        largo = (DISOLVENCIA * 2 - 1) if fps_pista > 36 else DISOLVENCIA
+        dis = min(largo, n_rec) if (razon is not None and razon >= UMBRAL_DISOLVER) else 0
+        marca = "   {:.2f}x".format(razon) if razon is not None else ""
+        if dis:
+            marca += "   blend {}".format(dis)
         log.append("   seam {} -> {}   dip at {}{}   trim {}{}".format(
             i + 1, i + 2, p["k"], "" if p["clara"] else " (flat, copied)",
             n_rec, marca))
@@ -1220,6 +1246,9 @@ def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
     """Une los clips corrigiendo las tres costuras, sin salir del proceso."""
     dec = _medir(rutas, latent_frames, log, fijo)
     recorta = [0] + [d[0] for d in dec]
+    # disolver[i] es la mezcla de la costura que hay ANTES del clip i.
+    # disolver[i] is the blend of the seam BEFORE clip i.
+    disolver = [0] + [(d[2] if len(d) > 2 else 0) for d in dec]
 
     # La correccion de exposicion se ACUMULA: cada clip se iguala al anterior,
     # que a su vez ya viene igualado al suyo. Corrigiendo solo contra el vecino
@@ -1277,35 +1306,63 @@ def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
             ao.layout = "stereo"
 
         escritos = 0
+
+        def emitir(arr):
+            """Un fotograma ya en RGB float al fichero."""
+            f = av.VideoFrame.from_ndarray(
+                np.clip(arr, 0, 255).astype(np.uint8), format="rgb24")
+            f.pts = emitir.n
+            f.time_base = base_t
+            emitir.n += 1
+            for p in vo.encode(f):
+                sal.mux(p)
+        emitir.n = 0
+
+        # Los ultimos fotogramas del clip anterior, retenidos sin escribir para
+        # poder cruzarlos con los primeros del siguiente. Vacio = corte en seco.
+        # The previous clip's last frames, held back unwritten so they can cross
+        # with the next clip's first ones. Empty = a hard cut.
+        retenidos = []
         for i, r in enumerate(rutas):
             g = gan[i]
             toca = max(abs(x - 1.0) for x in g) >= 0.005
+            n_entra = len(retenidos)          # mezcla de ESTA costura
+            n_sale = disolver[i + 1] if i + 1 < len(rutas) else 0
+            desde = recorta[i] - n_entra
             c = _abrir(r)
             if c is None:
+                retenidos = []
                 continue
             try:
                 v = c.streams.video[0]
                 v.thread_type = "AUTO"
+                cola = []
                 for idx, f in enumerate(c.decode(v)):
-                    if idx < recorta[i]:
+                    if idx < desde:
                         continue
+                    arr = f.to_ndarray(format="rgb24").astype(np.float32)
                     if toca:
-                        arr = f.to_ndarray(format="rgb24").astype(np.float32)
                         arr[..., 0] *= g[0]
                         arr[..., 1] *= g[1]
                         arr[..., 2] *= g[2]
-                        f = av.VideoFrame.from_ndarray(
-                            np.clip(arr, 0, 255).astype(np.uint8), format="rgb24")
-                    else:
-                        f = av.VideoFrame.from_ndarray(
-                            f.to_ndarray(format="rgb24"), format="rgb24")
-                    f.pts = escritos
-                    f.time_base = base_t
-                    escritos += 1
-                    for p in vo.encode(f):
-                        sal.mux(p)
+                    if idx < recorta[i]:
+                        # Fotograma de mezcla: pesa cada vez mas el clip nuevo.
+                        # A blend frame: the new clip weighs more each step.
+                        k = idx - desde
+                        alfa = (k + 1.0) / (n_entra + 1.0)
+                        arr = (1.0 - alfa) * retenidos[k] + alfa * arr
+                    cola.append(arr)
+                    if len(cola) > n_sale:
+                        emitir(cola.pop(0))
+                # Lo que queda en la cola son los de la costura siguiente.
+                retenidos = cola
             finally:
                 c.close()
+        # El ultimo clip no tiene costura detras: lo retenido se escribe.
+        # The last clip has no seam after it: whatever is held goes out.
+        for arr in retenidos:
+            emitir(arr)
+        escritos = emitir.n
         for p in vo.encode():
             sal.mux(p)
 
