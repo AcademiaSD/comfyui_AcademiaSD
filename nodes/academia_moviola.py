@@ -730,6 +730,8 @@ DISOLVENCIA = 4             # fotogramas que se mezclan cuando no hay corte buen
 UMBRAL_DISOLVER = 1.6       # a partir de este salto, mezclar en vez de cortar
 SEGUNDOS_SUAVE = 10.0       # ventana de la media movil del brillo
 TOPE_SUAVE = 0.18           # cuanto se deja corregir un fotograma
+VENTANA_PENDIENTE = 25      # fotogramas para medir la pendiente del brillo
+SIERRA_GRANDE = 8.0         # a partir de aqui, 'smooth' compensa
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
 # prefijo_00001<lo que sea>.mp4
@@ -949,10 +951,22 @@ def _perfil(a, b, etq=""):
     anterior. Una V de verdad se hunde muy por debajo de sus dos hombros; si no
     lo hace, el plano esta casi quieto y el minimo es ruido.
     """
-    fa = _ultimos_fotogramas(a, 2)
+    # Se decodifican mas fotogramas del final de A de los que hacen falta para
+    # el perfil, pero solo se GUARDA su brillo: tres numeros por fotograma en
+    # vez de la imagen. Con dos no se puede medir una pendiente, y guardar
+    # veinticinco imagenes por costura se comeria la memoria en una serie larga.
+    #
+    # More frames are decoded from A's tail than the profile needs, but only
+    # their brightness is KEPT -- three numbers each instead of the image. Two
+    # frames cannot give a slope, and keeping twenty-five images per seam would
+    # eat memory on a long series.
+    todos = _ultimos_fotogramas(a, VENTANA_PENDIENTE)
     fb = _fotogramas(b, 0, VENTANA_BUSQUEDA + 1)
-    if len(fa) < 2 or len(fb) < 2:
+    if len(todos) < 2 or len(fb) < 2:
         return None
+    brillo_a = [float(np.mean(x)) for x in todos]
+    brillo_b = [float(np.mean(x)) for x in fb]
+    fa = todos[-2:]
     difs = [_dif(fa[1], x) for x in fb]
     k = min(range(len(difs)), key=lambda i: difs[i])
     mov = (_dif(fa[0], fa[1]) + _dif(fb[k], fb[min(k + 1, len(fb) - 1)])) / 2.0
@@ -962,7 +976,8 @@ def _perfil(a, b, etq=""):
     # The whole of `difs`, not just its minimum: picking the cut needs to see the
     # CLIMB after the bottom, not where the bottom is.
     return {"k": k, "dif": difs[k], "mov": mov, "difs": difs,
-            "clara": difs[k] < HUNDIMIENTO * hombros, "fa": fa, "fb": fb}
+            "clara": difs[k] < HUNDIMIENTO * hombros, "fa": fa, "fb": fb,
+            "brillo_a": brillo_a, "brillo_b": brillo_b}
 
 
 def _recorte_esperado(latent_frames, fps):
@@ -1127,7 +1142,56 @@ def _medir(rutas, latent_frames, log, fijo=None):
     if perfiles and not claras_hay(perfiles):
         log.append("   no clear dip anywhere: fell back to latent_frames "
                    "({} frames)".format(esperado))
+    _sierra(perfiles, recortes, fps_pista, log)
     return salida
+
+
+def _pendiente(brillos, fps):
+    """Niveles por segundo, o None si no hay con que medirla."""
+    if not brillos or len(brillos) < 4:
+        return None
+    y = np.asarray(brillos, dtype=np.float64)
+    x = np.arange(len(y)) / float(fps)
+    return float(np.polyfit(x, y, 1)[0])
+
+
+def _sierra(perfiles, recortes, fps, log):
+    """Cuanto rompe el brillo en cada costura, y con eso que modo conviene.
+
+    El brillo de un clip no es plano: sube al arrancar y va cayendo. Al
+    encadenar, el valor empalma -- de eso se encarga la ganancia -- pero la
+    PENDIENTE cambia de golpe, y eso se ve como un latido en vez de como un
+    escalon. Cuanto vale ese salto decide si merece la pena el modo 'smooth',
+    que lo quita pero a cambio puede aplanar un cambio de luz real.
+
+    Medido: con latent_frames 3 los saltos fueron 18,0 y 7,1 y 'smooth'
+    mejoraba claramente; con 2 fueron 4,4 y 0,4 y 1,4, y salia perdiendo.
+
+    How hard the brightness breaks at each seam, and which mode that calls for.
+    A clip's brightness is not flat: it rises at the start and falls away. When
+    chained the value joins -- the gain sees to that -- but the SLOPE changes
+    abruptly, which reads as a pulse rather than a step. How big that jump is
+    decides whether 'smooth' is worth it, since it removes the pulse but can
+    flatten a real change of light.
+    """
+    saltos = []
+    for p, n_rec in zip(perfiles, recortes):
+        if not p:
+            continue
+        antes = _pendiente(p.get("brillo_a"), fps)
+        despues = _pendiente((p.get("brillo_b") or [])[n_rec:], fps)
+        if antes is None or despues is None:
+            continue
+        saltos.append(abs(despues - antes))
+    if not saltos:
+        return
+    peor = max(saltos)
+    if peor >= SIERRA_GRANDE:
+        consejo = "large -- try deflicker 'smooth'"
+    else:
+        consejo = "small -- 'per clip' is enough"
+    log.append("   brightness sawtooth: {}  ({})".format(
+        " / ".join("{:.1f}".format(x) for x in saltos), consejo))
 
 
 # -- audio -------------------------------------------------------------------
