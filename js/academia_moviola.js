@@ -344,6 +344,7 @@ app.registerExtension({
                 // en -1, que significa lo contrario -- medir.
                 // No `|| -1`: 0 is a legitimate trim and `||` would turn it into
                 // -1, which means the opposite -- measure.
+                auto_trim: valorResuelto("auto_trim", true) !== false,
                 trim: entero("trim"),
                 trim_int: entero("trim_int"),
             });

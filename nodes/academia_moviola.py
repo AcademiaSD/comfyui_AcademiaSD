@@ -1758,7 +1758,18 @@ async def moviola_edit(request):
         # recorte legitimo: no recortar nada.
         # -1, or absent, means measure. `or` will not do, because 0 is a valid
         # trim: take nothing off.
+        # En automatico los dos recortes fijos NI SE MIRAN. Se ignoran en vez de
+        # borrarlos para que los valores de prueba sigan escritos en el nodo:
+        # alternar entre medir y un corte fijo es un clic, no volver a teclear.
+        #
+        # In auto the two forced trims are NOT EVEN READ. They are ignored rather
+        # than cleared so the values under test stay written in the node: moving
+        # between measuring and a fixed cut is one click, not retyping.
+        auto = bool(datos.get("auto_trim", True))
+
         def forzado(clave):
+            if auto:
+                return None
             crudo = datos.get(clave)
             return None if crudo is None else max(-1, min(64, int(crudo)))
 
@@ -1808,6 +1819,12 @@ class AcademiaMoviola:
                                           "tooltip": "Same value as Moviola Out. Only a "
                                                      "guide: it is used where a seam is too "
                                                      "still to measure."}),
+                "auto_trim": ("BOOLEAN", {"default": True, "label_on": "auto",
+                                          "label_off": "fixed",
+                                          "tooltip": "In auto every seam is measured "
+                                                     "and the two trims below are "
+                                                     "ignored, keeping their values for "
+                                                     "when you switch back."}),
                 "trim": ("INT", {"default": -1, "min": -1, "max": 64, "step": 1,
                                  "tooltip": "Plain track. -1 measures every seam, "
                                             "which is what you want. Any other value "
