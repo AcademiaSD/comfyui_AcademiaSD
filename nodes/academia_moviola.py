@@ -728,6 +728,8 @@ OBJETIVO = 1.15             # cuanto debe saltar la union, en pasos normales
 BUSCA_TRAS_HOYO = 8         # hasta donde se busca a partir del fondo
 DISOLVENCIA = 4             # fotogramas que se mezclan cuando no hay corte bueno
 UMBRAL_DISOLVER = 1.6       # a partir de este salto, mezclar en vez de cortar
+SEGUNDOS_SUAVE = 10.0       # ventana de la media movil del brillo
+TOPE_SUAVE = 0.18           # cuanto se deja corregir un fotograma
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
 # prefijo_00001<lo que sea>.mp4
@@ -1260,13 +1262,112 @@ def _escribir_audio(sal, flujo, pista, rate):
 
 # -- el montaje --------------------------------------------------------------
 
-def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
+def _curva_brillo(rutas, recorta, disolver):
+    """El brillo por canal de cada fotograma DE SALIDA, en orden.
+
+    Se recorre igual que al escribir -- mismos recortes, misma retencion para
+    las mezclas -- pero guardando solo tres numeros por fotograma en vez de la
+    imagen. La media de una mezcla se puede componer sin tener los pixeles
+    delante, porque mezclar es lineal: la media de (1-a)*A + a*B es
+    (1-a)*media(A) + a*media(B). Por eso esta pasada no gasta memoria.
+
+    The per-channel brightness of every OUTPUT frame, in order. Walked exactly
+    as the writing pass walks it -- same trims, same hold-back for the blends --
+    keeping three numbers per frame instead of the image. A blend's mean can be
+    composed without the pixels, because blending is linear.
+    """
+    curva = []
+    retenidas = []
+    for i, r in enumerate(rutas):
+        n_entra = len(retenidas)
+        n_sale = disolver[i + 1] if i + 1 < len(rutas) else 0
+        desde = recorta[i] - n_entra
+        c = _abrir(r)
+        if c is None:
+            retenidas = []
+            continue
+        try:
+            v = c.streams.video[0]
+            v.thread_type = "AUTO"
+            cola = []
+            for idx, f in enumerate(c.decode(v)):
+                if idx < desde:
+                    continue
+                m = f.to_ndarray(format="rgb24").astype(np.float32).mean(axis=(0, 1))
+                if idx < recorta[i]:
+                    k = idx - desde
+                    alfa = (k + 1.0) / (n_entra + 1.0)
+                    m = (1.0 - alfa) * retenidas[k] + alfa * m
+                cola.append(m)
+                if len(cola) > n_sale:
+                    curva.append(cola.pop(0))
+            retenidas = cola
+        finally:
+            c.close()
+    curva.extend(retenidas)
+    return np.array(curva) if curva else None
+
+
+def _ganancias_suaves(curva, fps):
+    """Cuanto multiplicar cada fotograma para que el brillo vaya liso.
+
+    El objetivo no es una constante: es la propia curva pasada por una media
+    movil de unos diez segundos. Asi se conserva lo que la escena hace de verdad
+    -- apagarse poco a poco -- y se quita el diente de sierra, cuyo periodo es
+    el de un clip. Corregir contra una recta aplanaria tambien los cambios de
+    luz legitimos.
+
+    El tope existe porque una correccion grande sube el ruido y puede quemar
+    altas luces. Si un tramo pide mas de lo que se le deja, se queda como esta:
+    mejor un trozo algo apagado que un trozo sucio.
+
+    The target is not a constant: it is the curve itself through a moving
+    average of about ten seconds. That keeps what the scene actually does --
+    fading gradually -- and removes the sawtooth, whose period is one clip.
+    The cap exists because a large correction lifts noise and can burn
+    highlights: better a slightly dark stretch than a dirty one.
+    """
+    n = len(curva)
+    w = max(3, int(fps * SEGUNDOS_SUAVE)) | 1
+    if n < 3:
+        return np.ones_like(curva)
+    m = w // 2
+    ext = np.concatenate([np.repeat(curva[:1], m, axis=0), curva,
+                          np.repeat(curva[-1:], m, axis=0)])
+    acum = np.cumsum(ext, axis=0)
+    acum = np.concatenate([np.zeros((1, curva.shape[1])), acum])
+    objetivo = (acum[w:] - acum[:-w]) / float(w)
+    g = objetivo / np.maximum(curva, 1e-6)
+    return np.clip(g, 1.0 - TOPE_SUAVE, 1.0 + TOPE_SUAVE)
+
+
+def _montar(rutas, destino, latent_frames, crf, log, fijo=None,
+            suave=False):
     """Une los clips corrigiendo las tres costuras, sin salir del proceso."""
     dec = _medir(rutas, latent_frames, log, fijo)
     recorta = [0] + [d[0] for d in dec]
     # disolver[i] es la mezcla de la costura que hay ANTES del clip i.
     # disolver[i] is the blend of the seam BEFORE clip i.
     disolver = [0] + [(d[2] if len(d) > 2 else 0) for d in dec]
+
+    # Con `suave` la correccion deja de ser una constante por clip y pasa a ser
+    # una por fotograma, asi que las ganancias acumuladas NO se aplican: se
+    # sustituyen. Hace falta una pasada previa para conocer el brillo de todo
+    # antes de escribir nada.
+    #
+    # With `suave` the correction stops being one constant per clip and becomes
+    # one per frame, so the accumulated gains are not applied -- they are
+    # replaced. A first pass is needed to know the whole brightness before
+    # anything is written.
+    curva = _curva_brillo(rutas, recorta, disolver) if suave else None
+    suaves = None
+    if curva is not None and len(curva) > 2:
+        suaves = _ganancias_suaves(curva, _fps(rutas[0]))
+        log.append("   smooth exposure: {} frames, correction {:.3f}..{:.3f}".format(
+            len(curva), float(suaves.min()), float(suaves.max())))
+    elif suave:
+        log.append("   smooth exposure: could not read the brightness, "
+                   "falling back to per-clip gain")
 
     # La correccion de exposicion se ACUMULA: cada clip se iguala al anterior,
     # que a su vez ya viene igualado al suyo. Corrigiendo solo contra el vecino
@@ -1327,6 +1428,9 @@ def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
 
         def emitir(arr):
             """Un fotograma ya en RGB float al fichero."""
+            if suaves is not None and emitir.n < len(suaves):
+                s = suaves[emitir.n]
+                arr = np.stack([arr[..., c] * s[c] for c in range(3)], -1)
             f = av.VideoFrame.from_ndarray(
                 np.clip(arr, 0, 255).astype(np.uint8), format="rgb24")
             f.pts = emitir.n
@@ -1343,7 +1447,10 @@ def _montar(rutas, destino, latent_frames, crf, log, fijo=None):
         retenidos = []
         for i, r in enumerate(rutas):
             g = gan[i]
-            toca = max(abs(x - 1.0) for x in g) >= 0.005
+            # Con la correccion por fotograma la de por clip sobra: aplicar las
+            # dos seria corregir dos veces. / With the per-frame correction the
+            # per-clip one is redundant: applying both corrects twice.
+            toca = (suaves is None) and max(abs(x - 1.0) for x in g) >= 0.005
             n_entra = len(retenidos)          # mezcla de ESTA costura
             n_sale = disolver[i + 1] if i + 1 < len(rutas) else 0
             desde = recorta[i] - n_entra
@@ -1674,7 +1781,7 @@ def _carpeta(path, maximo=60):
     return log
 
 
-def _editar(path, latent_frames, crf, fijo=None, fijo_int=None):
+def _editar(path, latent_frames, crf, fijo=None, fijo_int=None, suave=False):
     """Une los clips de cada pista. Devuelve las lineas de consola."""
     log = []
     carpeta, base, pre_v, pre_i = _nombres(path)
@@ -1706,7 +1813,7 @@ def _editar(path, latent_frames, crf, fijo=None, fijo_int=None):
         log.append("{}: joining {} clips ({} seams)".format(
             etiqueta, len(rutas), len(rutas) - 1))
         try:
-            _montar(rutas, destino, latent_frames, crf, log, forzado)
+            _montar(rutas, destino, latent_frames, crf, log, forzado, suave)
         except Exception as exc:
             log.append("{}: FAILED -- {}".format(etiqueta, exc))
             continue
@@ -1927,7 +2034,8 @@ async def moviola_edit(request):
             return None if crudo is None else max(-1, min(64, int(crudo)))
 
         log, _ = await _en_hilo(_editar, path, lf, crf,
-                                forzado("trim"), forzado("trim_int"))
+                                forzado("trim"), forzado("trim_int"),
+                                bool(datos.get("deflicker", False)))
         log.append("")
         log.append(await _en_hilo(_informe, path, lf))
         return web.json_response({"status": "success", "log": log,
@@ -1972,6 +2080,14 @@ class AcademiaMoviola:
                                           "tooltip": "Same value as Moviola Out. Only a "
                                                      "guide: it is used where a seam is too "
                                                      "still to measure."}),
+                "deflicker": ("BOOLEAN", {"default": False, "label_on": "smooth",
+                                          "label_off": "per clip",
+                                          "tooltip": "Exposure correction. 'per clip' "
+                                                     "matches each seam with one gain "
+                                                     "per clip. 'smooth' corrects every "
+                                                     "frame toward a smoothed brightness "
+                                                     "curve, which also removes each "
+                                                     "clip's own drift."}),
                 "auto_trim": ("BOOLEAN", {"default": True, "label_on": "auto",
                                           "label_off": "fixed",
                                           "tooltip": "In auto every seam is measured "
@@ -2018,8 +2134,8 @@ class AcademiaMoviola:
     # values through the API route. But ComfyUI hands over every declared input
     # as an argument, so a signature that does not name them breaks the graph --
     # and not on a button press, but part-way through a series.
-    def refrescar(self, path, latent_frames=1, auto_trim=True, trim=-1,
-                  trim_int=-1, crf=18, unique_id=None):
+    def refrescar(self, path, latent_frames=1, deflicker=False, auto_trim=True,
+                  trim=-1, trim_int=-1, crf=18, unique_id=None):
         try:
             texto = _informe(path, latent_frames)
         except Exception as exc:
