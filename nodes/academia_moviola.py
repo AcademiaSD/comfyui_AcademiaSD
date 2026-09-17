@@ -339,50 +339,37 @@ class AcademiaMoviolaIn:
                 ACADEMIASD_VERSION, origen, origen))
 
         vista = _vista_previa(imagen, nombre + "_in") if imagen is not None else []
-        # La salida `image` va VACIA a proposito, aunque aqui arriba se haya
-        # leido el fotograma y se este ensenando en la vista previa.
+        # La salida `image` lleva el fotograma con el que arranca la vuelta, y
+        # existe para una entrada concreta: `first_frame` de ImageToVideo. Ahi no
+        # es una referencia, es el fotograma 0 y nada mas, asi que encadenar por
+        # ese camino es legitimo.
         #
-        # Lo que empalma dos tomas es el keyframe, y ese lo construye Guide
-        # leyendo la latente del disco: no necesita este cable. Mandar ademas el
-        # fotograma como REFERENCIA hace dano, porque una referencia no tiene
-        # posicion temporal -- se atiende durante todo el clip y arrastra tambien
-        # su FINAL hacia esa composicion, asi que la toma se mueve y acaba donde
-        # empezo. Y si la serie tiene referencias propias, encima les roba una
-        # ranura y cambia a que imagen apunta cada <Picture N> a partir de la
-        # segunda vuelta.
+        # NO conectarla a una ranura de `ref_images`. Una referencia no tiene
+        # posicion temporal: se atiende durante todo el clip y arrastra tambien su
+        # FINAL hacia esa composicion, de modo que la toma se mueve y acaba donde
+        # empezo. Medido sobre dos vueltas encadenadas -- la segunda se movio mas
+        # que la primera (8.86 contra 6.00 de media entre fotogramas) y aun asi
+        # termino a 2.78 sobre 255 de donde habia salido. Y de paso ocupa una
+        # ranura y corre la numeracion de <Picture N>, porque una ranura nula no
+        # deja hueco. Por ese camino la continuidad ya la pone Guide, que fabrica
+        # el keyframe leyendo la latente del disco sin pasar por un PNG.
         #
-        # El cable se deja puesto igualmente porque el BYPASS lo restaura: con
-        # este nodo puenteado, ComfyUI reenvia `base_image` a la salida del mismo
-        # tipo, y el mismo grafo pasa a ser un flujo normal con la imagen base de
-        # referencia. Un interruptor sin widget: el modo lo decide el bypass.
+        # The `image` output carries the frame the pass starts from, and it exists
+        # for one input in particular: ImageToVideo's `first_frame`. There it is
+        # not a reference, it is frame 0 and nothing else, so chaining through it
+        # is legitimate.
         #
-        # Donde enchufarlo importa: una ranura a None NO deja hueco
-        # (`if img is None: continue` en nodes_minimax_h3.py), las demas suben y
-        # <Picture 1> pasa a ser otra. En la ULTIMA ranura eso da igual en los dos
-        # modos, y en bypass el duplicado cae al final sin mover a nadie.
-        #
-        # The `image` output is deliberately EMPTY, even though the frame was
-        # read above and is on screen in the preview.
-        #
-        # What joins two takes is the keyframe, and Guide builds that from the
-        # latent on disk -- it does not need this wire. Sending the frame as a
-        # REFERENCE actively hurts: a reference has no temporal position, it is
-        # attended across the whole clip and drags its ENDING back to that
-        # composition, so the take moves and finishes where it started. And when
-        # the series has references of its own it steals a slot and changes which
-        # image each <Picture N> points at from the second pass on.
-        #
-        # The wire stays connected because BYPASS restores it: with this node
-        # bypassed ComfyUI forwards `base_image` to the output of the same type,
-        # and the same graph becomes a plain run with the base image as a
-        # reference. A switch with no widget -- bypass picks the mode.
-        #
-        # Which slot matters: a None slot leaves NO gap (`if img is None:
-        # continue` in nodes_minimax_h3.py), the rest shift up and <Picture 1>
-        # becomes a different image. In the LAST slot that is harmless in both
-        # modes, and when bypassed the duplicate lands at the end, moving nobody.
+        # Do NOT wire it into a `ref_images` slot. A reference carries no temporal
+        # position: it is attended across the whole clip and drags its ENDING back
+        # to that composition, so the take moves and finishes where it began.
+        # Measured across a chained pair -- the second moved more than the first
+        # (8.86 against 6.00 mean frame delta) and still ended 2.78/255 from where
+        # it started. It also eats a slot and shifts the <Picture N> numbering,
+        # since a null slot leaves no gap. Down that route Guide already provides
+        # continuity, building the keyframe from the latent on disk with no PNG in
+        # between.
         return {"ui": {"images": vista},
-                "result": (None, n + 1, origen, project_path)}
+                "result": (imagen, n + 1, origen, project_path)}
 
 
 # -- GUIDE -------------------------------------------------------------------

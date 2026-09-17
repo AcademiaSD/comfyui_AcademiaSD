@@ -328,31 +328,32 @@ one film. Five nodes that only make sense together.
 ```
 Project Paths ──project_name──► Multi-Prompt ──prompt──► Reference/Image to Video
               ├──path──────────► Moviola In ──next_index──► Multi-Prompt
-              │                             └──image──────► last reference slot (empty while active)
+              │                             └──image──────► first_frame  (never a reference slot)
               ├──vid_path──────► video saver
               └──vid_int_loop──► video saver (interpolated)
 
 Moviola Guide ──positive──► sampler ──► Moviola Out ──latent_frames──► Moviola 🎞️
 ```
 
-### Moviola In serves no image, and bypass is the mode switch
+### Moviola In's image output is a first frame, never a reference
 
-Its `image` output is deliberately empty while the node is active. What joins
-two takes is the keyframe, and Guide builds that from the latent on disk, so the
-wire is not needed for continuity. Sending the frame on as a *reference* makes
-things worse: a reference carries no temporal position, it is attended across the
-whole clip and pulls the **ending** back to that composition too, so the take
-moves and finishes where it began.
+It carries the frame the pass starts from, and it exists for one input in
+particular: `first_frame` on `MiniMaxH3ImageToVideo`. There the image is frame 0
+and nothing more, so chaining through it is exactly right -- and it is the only
+route that works for a first/last-frame workflow, where there is no reference
+list at all.
 
-Leave the wire connected anyway. **Bypass restores it**: with Moviola In bypassed
-ComfyUI forwards `base_image` to the output of the same type, and the same graph
-becomes an ordinary run with the base image as a reference. One switch, no
-widget.
+**Do not wire it into a `ref_images` slot.** A reference carries no temporal
+position: it is attended across the whole clip and pulls the **ending** back to
+that composition, so the take moves and finishes where it began. Measured across
+a chained pair -- the second take moved *more* than the first (8.86 against 6.00
+mean frame delta) and still ended 2.78/255 away from where it started. It also
+occupies a slot and shifts the `<Picture N>` numbering, because a null slot
+leaves no gap: the node skips nulls and the rest move up.
 
-Plug it into the **last** reference slot. An empty slot leaves no gap -- the
-node skips nulls, the rest shift up, and `<Picture 1>` silently becomes a
-different image. Last in the row, that cannot happen in either mode, and when
-bypassed the extra copy lands at the end without moving anything.
+Down the reference route nothing needs this wire. Guide already provides the
+continuity, building the keyframe from the latent on disk without a PNG in
+between, so the reference slots stay free for what they are for -- the subjects.
 
 ### `check_resolution`, when the graph upscales between passes
 
