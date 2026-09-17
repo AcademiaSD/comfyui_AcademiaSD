@@ -1854,7 +1854,19 @@ class AcademiaMoviola:
     def IS_CHANGED(s, **kwargs):
         return float("nan")
 
-    def refrescar(self, path, latent_frames=1, crf=18, unique_id=None):
+    # Los ajustes de montaje se ACEPTAN y no se usan. Ejecutar este nodo solo
+    # refresca el estado; montar es cosa de los botones, que mandan estos mismos
+    # valores por la ruta de API. Pero ComfyUI entrega TODA entrada declarada
+    # como argumento, asi que una firma que no las nombre revienta el grafo -- y
+    # no al pulsar un boton, sino en mitad de una serie.
+    #
+    # The montage settings are ACCEPTED and unused. Running this node only
+    # refreshes state; joining belongs to the buttons, which send these same
+    # values through the API route. But ComfyUI hands over every declared input
+    # as an argument, so a signature that does not name them breaks the graph --
+    # and not on a button press, but part-way through a series.
+    def refrescar(self, path, latent_frames=1, auto_trim=True, trim=-1,
+                  trim_int=-1, crf=18, unique_id=None):
         try:
             texto = _informe(path, latent_frames)
         except Exception as exc:
