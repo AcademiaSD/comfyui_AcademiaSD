@@ -94,9 +94,11 @@ const CSS = `
 .asd-pm-card.hecho { border-color: #2f7d3a; }
 .asd-pm-card.sel { box-shadow: 0 0 0 2px #4a8fe0; }
 @keyframes asd-pm-late { 50% { border-color: #6b5410; } }
-/* `contain` y no `cover`: la ficha ya tiene la forma del material, asi que
+/* contain y no cover: la ficha ya tiene la forma del material, asi que
    normalmente coinciden, pero la imagen base la trae el usuario y puede tener
-   otra proporcion. Recortarla seria esconder parte de lo que eligio. */
+   otra proporcion, y recortarla seria esconder parte de lo que eligio.
+   OJO: esto es CSS dentro de una plantilla de JavaScript, asi que aqui NO
+   puede haber acentos graves -- cierran la cadena y tumban el fichero entero. */
 .asd-pm-thumb { width: 100%; height: 61px; display: block; object-fit: contain;
     background: #0e0e0e; }
 .asd-pm-vacio { width: 100%; height: 61px; display: flex; align-items: center;
