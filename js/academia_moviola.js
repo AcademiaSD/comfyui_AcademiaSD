@@ -417,6 +417,21 @@ app.registerExtension({
                         // cuts exist, so the player appears and vanishes on its own.
                         finales = Array.isArray(r.finals) ? r.finals : [];
                         pintarVideo();
+                        // Borrar una vuelta cambia lo que hay en el disco, y el
+                        // Multi-Prompt esta ensenando justo eso. Sin avisarle, sus
+                        // tarjetas siguen en verde sobre ficheros que ya no
+                        // existen. Se le pide por lo que SABE HACER y no por su
+                        // tipo: asi vale para cualquier nodo que pinte la serie.
+                        //
+                        // Deleting a take changes what is on disk, and the
+                        // Multi-Prompt is showing exactly that. Without telling it,
+                        // its cards stay green over files that are gone. It is
+                        // asked by what it CAN DO rather than by its type.
+                        for (const n of (app.graph && app.graph._nodes) || []) {
+                            if (n !== _this && typeof n.cargarFrames === "function") {
+                                n.cargarFrames();
+                            }
+                        }
                     } else {
                         escribir("Error: " + (r.message || "unknown"));
                     }

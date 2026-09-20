@@ -86,8 +86,14 @@ const CSS = `
 .asd-pm-card { flex: 0 0 auto; width: 108px; cursor: pointer; border-radius: 7px;
     border: 2px solid transparent; background: #171717; overflow: hidden;
     transition: border-color .15s, transform .12s; }
-.asd-pm-card:hover { border-color: #55606e; transform: translateY(-1px); }
-.asd-pm-card.sel { border-color: #4a8fe0; }
+/* El borde dice el ESTADO y el anillo dice cual esta seleccionada. Antes los
+   dos usaban el borde y solo cabia uno de los dos mensajes. */
+.asd-pm-card:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.asd-pm-card.falta { border-color: #7a2f2f; }
+.asd-pm-card.curso { border-color: #c79a1e; animation: asd-pm-late 1.1s ease-in-out infinite; }
+.asd-pm-card.hecho { border-color: #2f7d3a; }
+.asd-pm-card.sel { box-shadow: 0 0 0 2px #4a8fe0; }
+@keyframes asd-pm-late { 50% { border-color: #6b5410; } }
 .asd-pm-thumb { width: 100%; height: 61px; display: block; object-fit: cover;
     background: #0e0e0e; }
 .asd-pm-vacio { width: 100%; height: 61px; display: flex; align-items: center;
@@ -584,6 +590,20 @@ app.registerExtension({
             btnMenos.addEventListener("click", () => cambiarZoom(-0.2));
             btnMas.addEventListener("click", () => cambiarZoom(0.2));
 
+            // La ultima vuelta que existe en el disco. `frames` viene indexado
+            // por el numero del fichero, y el 0 es la imagen base, que no es una
+            // vuelta: por eso se descarta. / The last take that exists on disk.
+            // `frames` is keyed by file number and 0 is the base image, which is
+            // not a take, so it is dropped.
+            this.ultimaVuelta = () => {
+                let ult = 0;
+                for (const k of Object.keys(_this.frames || {})) {
+                    const n = parseInt(k, 10);
+                    if (Number.isFinite(n) && n > ult) ult = n;
+                }
+                return ult;
+            };
+
             this.renderTira = () => {
                 clamp();
                 tira.innerHTML = "";
@@ -595,9 +615,30 @@ app.registerExtension({
                     // zero, which only exists when there was a base image.
                     const f = _this.frames[idx];
                     const card = document.createElement("div");
-                    card.className = "asd-pm-card" + (idx === _this.loopSel ? " sel" : "");
-                    card.title = f ? f.filename : (idx === 0 ? "starts from the prompt alone"
-                                                             : "not generated yet");
+                    // Verde: la vuelta ya existe en el disco. Amarillo: es la que
+                    // se esta generando ahora. Rojo: aun no esta.
+                    //
+                    // OJO con la numeracion, que no es la misma para la imagen y
+                    // para el estado. La tarjeta N ENSENA el fotograma con el que
+                    // ARRANCA -- el final de la vuelta anterior, `loop_{N-1}` --
+                    // pero su estado lo decide `loop_{N}`, que es su propio
+                    // resultado. Por eso al borrar la ultima vuelta la tarjeta
+                    // siguiente se queda sin imagen y la anterior se pone roja.
+                    //
+                    // Green: the take exists on disk. Yellow: it is the one being
+                    // generated. Red: not there yet. Mind the numbering, which
+                    // differs for the picture and for the state: card N SHOWS the
+                    // frame it STARTS from, the previous take's last, `loop_{N-1}`,
+                    // while its state is decided by `loop_{N}`, its own result.
+                    const hecho = (idx + 1) <= _this.ultimaVuelta();
+                    const curso = !hecho && _this._generando
+                        && (idx + 1) === _this.ultimaVuelta() + 1;
+                    card.className = "asd-pm-card "
+                        + (hecho ? "hecho" : (curso ? "curso" : "falta"))
+                        + (idx === _this.loopSel ? " sel" : "");
+                    card.title = (hecho ? "generated" : (curso ? "generating now"
+                                                               : "not generated yet"))
+                        + (f ? "  -- starts from " + f.filename : "");
                     if (f) {
                         const img = document.createElement("img");
                         img.className = "asd-pm-thumb";
@@ -894,9 +935,22 @@ app.registerExtension({
             // the backend when the whole run finishes, which is when the file is
             // actually there.
             const alTerminar = () => {
+                _this._generando = false;
                 if (_this.cargarFrames) _this.cargarFrames();
+                else if (_this.renderTira) _this.renderTira();
             };
+            // `execution_error` tambien apaga el amarillo: si no, una vuelta que
+            // revienta deja la tarjeta parpadeando para siempre.
+            // `execution_error` clears the yellow too: without it, a pass that
+            // blows up leaves the card blinking for ever.
+            const alEmpezar = () => {
+                _this._generando = true;
+                if (_this.renderTira) _this.renderTira();
+            };
+            api.addEventListener("execution_start", alEmpezar);
             api.addEventListener("execution_success", alTerminar);
+            api.addEventListener("execution_error", alTerminar);
+            api.addEventListener("execution_interrupted", alTerminar);
 
             const onRemoved = this.onRemoved;
             this.onRemoved = function () {
@@ -906,7 +960,10 @@ app.registerExtension({
                 // fotogramas de un proyecto que ya no se esta mirando.
                 // Left behind, every deleted node keeps a listener asking for
                 // frames of a project nobody is looking at.
-                api.removeEventListener("execution_success", alTerminar);
+                api.removeEventListener("execution_start", alEmpezar);
+            api.removeEventListener("execution_success", alTerminar);
+            api.removeEventListener("execution_error", alTerminar);
+            api.removeEventListener("execution_interrupted", alTerminar);
                 if (onRemoved) onRemoved.apply(this, arguments);
             };
 
