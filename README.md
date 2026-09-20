@@ -505,6 +505,14 @@ The strip is where the state of a project lives, instead of the console:
     picture and the one before it turns red, which is exactly what happened on
     disk. Deleting or joining in the Moviola node tells the strip to re-read the
     folder, so the cards never stay green over files that are gone.
+*   **Card 1 shows its own first frame.** It has no previous take to borrow a
+    start from, so it used to fall back to the base image -- which is what the
+    model departs from, not what is on screen when the series begins -- or to a
+    black gap in a series that started from the prompt alone. A route decodes
+    frame 0 of that take's clip and returns it in the response, writing nothing:
+    the project folder belongs to the user and should not fill with thumbnails
+    nobody asked for. It sends a 512-wide thumbnail, since full size was most of
+    the clip's own weight to draw a tenth of it.
 *   **Resting the pointer on a card plays that take**, muted and looping, in
     place of the still. It waits 250 ms first, so sweeping the strip does not
     fire one download per card.
