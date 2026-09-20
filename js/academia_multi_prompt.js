@@ -555,6 +555,18 @@ app.registerExtension({
                     }
                     _this.frames = m;
                     _this.clips = v;
+                    // La ruta se guarda porque la tarjeta 1 la necesita para pedir
+                    // su fotograma, y el sello cambia solo cuando cambia la serie:
+                    // sin el, cada repintado -- y hay uno por cada clic en la tira --
+                    // volveria a decodificar el clip en el servidor.
+                    //
+                    // The path is kept because card 1 needs it to ask for its frame,
+                    // and the stamp changes only when the series does: without it
+                    // every repaint, and there is one per click on the strip, would
+                    // decode the clip again on the server.
+                    _this._rutaTira = path;
+                    _this._selloTira = Object.keys(m).length * 1000
+                        + Object.keys(v).length;
                     for (const c of Object.values(v)) {
                         if (c.ancho > 0 && c.alto > 0) {
                             _this.relacion = c.ancho / c.alto;
@@ -675,14 +687,32 @@ app.registerExtension({
                         + (idx === _this.loopSel ? " sel" : "");
                     card.title = (hecho ? "generated" : (curso ? "generating now"
                                                                : "not generated yet"))
-                        + (f ? "  -- starts from " + f.filename : "");
-                    if (f) {
+                        + (f ? "  -- starts from " + f.filename
+                             : (idx === 0 ? "  -- starts from its own first frame" : ""));
+                    // La vuelta 1 no tiene anterior de la que tomar el arranque, asi
+                    // que lo saca de su PROPIO clip. Antes ensenaba la imagen de
+                    // referencia, que es de donde parte el modelo pero no lo que se
+                    // ve al empezar, o un hueco negro en una serie sin imagen base.
+                    // Mientras esa vuelta no exista se sigue ensenando lo que haya.
+                    //
+                    // Take 1 has no previous take to borrow its start from, so it
+                    // takes it from its OWN clip. It used to show the reference
+                    // image, which is what the model departs from but not what is
+                    // on screen at the start, or a black gap in a series with no
+                    // base image. Until that take exists, whatever is there is
+                    // still shown.
+                    const propio = idx === 0 && (_this.clips || {})[1];
+                    if (f || propio) {
                         const img = document.createElement("img");
                         img.className = "asd-pm-thumb";
                         img.loading = "lazy";
-                        img.src = api.apiURL(`/view?filename=${encodeURIComponent(f.filename)}`
-                            + `&subfolder=${encodeURIComponent(f.subfolder)}&type=output`
-                            + `&t=${Date.now()}`);
+                        img.src = propio
+                            ? api.apiURL(`/academia/moviola/arranque`
+                                + `?path=${encodeURIComponent(_this._rutaTira || "")}`
+                                + `&n=1&t=${_this._selloTira || 0}`)
+                            : api.apiURL(`/view?filename=${encodeURIComponent(f.filename)}`
+                                + `&subfolder=${encodeURIComponent(f.subfolder)}&type=output`
+                                + `&t=${Date.now()}`);
                         card.appendChild(img);
                     } else {
                         const hueco = document.createElement("div");

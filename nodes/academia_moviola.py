@@ -47,6 +47,7 @@ import asyncio
 import glob
 import os
 import re
+import io
 import shutil
 import time
 from fractions import Fraction
@@ -732,6 +733,7 @@ SEGUNDOS_SUAVE = 10.0       # ventana de la media movil del brillo
 TOPE_SUAVE = 0.18           # cuanto se deja corregir un fotograma
 VENTANA_PENDIENTE = 25      # fotogramas para medir la pendiente del brillo
 SIERRA_GRANDE = 8.0         # a partir de aqui, 'smooth' compensa
+ANCHO_MINIATURA = 512       # ancho maximo del fotograma que va a la tira
 FRAMES_POR_LATENTE = 4      # FRAME_PER_TOKEN = (1, 4, 4, 4, 4)
 
 # prefijo_00001<lo que sea>.mp4
@@ -2106,6 +2108,64 @@ def _montajes(path):
                            "mb": round(os.path.getsize(completo) / 1048576.0, 1),
                            "mtime": int(os.path.getmtime(completo))})
     return salida
+
+
+@PromptServer.instance.routes.get("/academia/moviola/arranque")
+async def moviola_arranque(request):
+    """El fotograma 0 de un clip, como PNG, sin dejar nada en el disco.
+
+    Existe por la PRIMERA vuelta y solo por ella. Las demas ensenan el ultimo
+    fotograma de la anterior, que ya esta guardado como `loop_#####.png`; la
+    primera no tiene anterior, asi que hasta ahora ensenaba la imagen de
+    referencia -- que no es de donde arranca -- o un hueco negro cuando la serie
+    empezaba solo con el prompt.
+
+    Se decodifica y se devuelve en la respuesta en vez de escribir un fichero:
+    la carpeta del proyecto es del usuario y no debe llenarse de miniaturas que
+    el no ha pedido. Y se manda el fotograma, no el clip entero, que para una
+    tarjeta de cien pixeles seria bajarse varios megas.
+
+    Frame 0 of a clip as a PNG, leaving nothing on disk. It exists for the FIRST
+    take and only for it: every other card shows the previous take's last frame,
+    already saved, while the first has no previous one and until now showed the
+    reference image -- which is not where it starts -- or a black gap.
+
+    Decoded and returned in the response rather than written out: the project
+    folder belongs to the user and should not fill with thumbnails nobody asked
+    for. And it sends the frame, not the whole clip, which for a hundred-pixel
+    card would be several megabytes.
+    """
+    try:
+        path = str(request.query.get("path") or "")
+        n = int(request.query.get("n") or 1)
+        carpeta, _, pre_v, _ = _nombres(path)
+        elegido = None
+        for num, ruta in _clips(carpeta, pre_v):
+            if num == n:
+                elegido = ruta
+                break
+        if elegido is None:
+            return web.Response(status=404, text="no clip")
+        fs = await _en_hilo(_fotogramas, elegido, 0, 1)
+        if not fs:
+            return web.Response(status=404, text="cannot decode")
+        im = Image.fromarray(np.clip(fs[0], 0, 255).astype(np.uint8))
+        # Se manda una miniatura, no el fotograma a tamano real: la tarjeta mide
+        # unos cien pixeles y a todo zoom no pasa de trescientos, asi que un PNG
+        # de 1280 de ancho serian mas de novecientos kilobytes para pintar algo
+        # diez veces menor.
+        # A thumbnail, not the full-size frame: the card is about a hundred pixels
+        # and never past three hundred at full zoom, so a 1280-wide PNG would be
+        # most of a megabyte to draw something ten times smaller.
+        if im.width > ANCHO_MINIATURA:
+            alto = max(1, round(im.height * ANCHO_MINIATURA / float(im.width)))
+            im = im.resize((ANCHO_MINIATURA, alto), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, format="PNG")
+        return web.Response(body=buf.getvalue(), content_type="image/png",
+                            headers={"Cache-Control": "no-cache"})
+    except Exception as exc:
+        return web.Response(status=400, text=str(exc))
 
 
 @PromptServer.instance.routes.post("/academia/moviola/frames")
