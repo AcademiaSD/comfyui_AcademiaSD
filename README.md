@@ -493,6 +493,30 @@ that grows without end. Each card carries the frame its take *starts from* — t
 previous take's last — so the anchor sits next to the prompt written for it.
 Click to switch, `+` to add, and the wheel scrolls the strip sideways.
 
+The strip is where the state of a project lives, instead of the console:
+
+*   **The border says where the series is.** Green once that take exists on disk,
+    yellow while it is being generated, red when it is not there yet. Selection
+    moved to a ring, since the border now carries the state and only one of the
+    two messages fitted there.
+*   **Two numberings, on purpose.** A card SHOWS the frame it starts from,
+    `loop_{N-1}`, while its state and its clip are its own result, `N`. That is
+    what makes deleting a take read correctly: the following card loses its
+    picture and the one before it turns red, which is exactly what happened on
+    disk. Deleting or joining in the Moviola node tells the strip to re-read the
+    folder, so the cards never stay green over files that are gone.
+*   **Resting the pointer on a card plays that take**, muted and looping, in
+    place of the still. It waits 250 ms first, so sweeping the strip does not
+    fire one download per card.
+*   **Each card says how long its clip runs**, read from the container header
+    rather than by decoding. Nothing forces every take to last the same —
+    `length` can change between them — and a series of uneven takes should be
+    readable without opening the folder.
+*   **The card takes the clip's shape**, reported with the rest. Landscape
+    project, landscape cards; vertical project, vertical cards. The alternative
+    was choosing between cropping, which makes a vertical take useless in a
+    strip, and shrinking to fit, which wastes half the card.
+
 The split is deliberate. A row of side-by-side cards looks tidy until a
 1,500-character prompt goes in one: navigating and editing want opposite shapes,
 so each gets its own. The node's height no longer depends on how many loops
