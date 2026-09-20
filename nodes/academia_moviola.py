@@ -2059,8 +2059,20 @@ def _vistas(path):
     sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
     if sub == ".":
         sub = ""
-    return [{"n": n, "filename": os.path.basename(r), "subfolder": sub}
-            for n, r in _clips(carpeta, pre_v)]
+    # La duracion sale de la CABECERA del contenedor, no de decodificar: son
+    # milisegundos por fichero y permite ensenarla en la tira. Y hace falta
+    # decirla, porque el sistema no obliga a que todas las vueltas duren lo
+    # mismo -- `length` se puede cambiar entre una y otra.
+    #
+    # The duration comes from the container HEADER, not from decoding: a few
+    # milliseconds per file. It is worth showing, because nothing forces every
+    # take to last the same -- `length` can change between them.
+    salida = []
+    for n, r in _clips(carpeta, pre_v):
+        fps, dur, cuantos = _info(r)[:3]
+        salida.append({"n": n, "filename": os.path.basename(r), "subfolder": sub,
+                       "segundos": round(float(dur), 2), "fotogramas": int(cuantos)})
+    return salida
 
 
 def _montajes(path):

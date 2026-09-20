@@ -104,6 +104,8 @@ const CSS = `
 .asd-pm-card.sel .asd-pm-pie { color: #cfe3ff; background: #22303f; }
 .asd-pm-aviso { color: #6f6f6f; font-size: 9px; }
 .asd-pm-play { color: #7fae86; font-size: 9px; letter-spacing: .5px; }
+.asd-pm-dur { color: #8a8a8a; font-size: 9px; margin-left: auto;
+    padding-right: 4px; font-variant-numeric: tabular-nums; }
 
 .asd-pm-add { flex: 0 0 auto; width: 44px; border-radius: 7px; border: 2px dashed #3f3f3f;
     background: #171717; color: #7b7b7b; cursor: pointer; font-size: 19px;
@@ -686,6 +688,18 @@ app.registerExtension({
                     const clip = (_this.clips || {})[idx + 1];
                     if (clip && vis) {
                         const pie2 = pie;
+                        // La duracion va ANTES de la flecha: lo que se lee de
+                        // izquierda a derecha es numero de vuelta, cuanto dura y
+                        // que se puede reproducir.
+                        // The duration goes BEFORE the arrow, so left to right it
+                        // reads as take number, how long it is, and that it plays.
+                        if (clip.segundos > 0) {
+                            const dur = document.createElement("span");
+                            dur.className = "asd-pm-dur";
+                            dur.innerText = clip.segundos.toFixed(1) + "s";
+                            dur.title = clip.fotogramas + " frames";
+                            pie2.appendChild(dur);
+                        }
                         const marca = document.createElement("span");
                         marca.className = "asd-pm-play";
                         marca.innerText = "\u25b6";
