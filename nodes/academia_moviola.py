@@ -792,7 +792,7 @@ def _info(ruta):
     """
     c = _abrir(ruta)
     if c is None:
-        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0)
+        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0, 0, 0)
     try:
         v = c.streams.video[0] if c.streams.video else None
         a = c.streams.audio[0] if c.streams.audio else None
@@ -801,10 +801,16 @@ def _info(ruta):
         n = int(v.frames or 0) if v else 0
         if not n and fps > 0 and dur:
             n = int(round(dur * fps))
+        # El ancho y el alto van al FINAL de la tupla a proposito: todo el que
+        # la usa lo hace por indice, asi que anadir por detras no mueve nada.
+        # Width and height go at the END on purpose: every caller indexes into
+        # this tuple, so appending disturbs nobody.
         return (fps if fps > 1.0 else FPS_POR_DEFECTO, dur, n,
-                a is not None, int(a.rate) if a else 0, int(a.channels) if a else 0)
+                a is not None, int(a.rate) if a else 0, int(a.channels) if a else 0,
+                int(v.codec_context.width) if v else 0,
+                int(v.codec_context.height) if v else 0)
     except Exception:
-        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0)
+        return (FPS_POR_DEFECTO, 0.0, 0, False, 0, 0, 0, 0)
     finally:
         c.close()
 
@@ -2069,9 +2075,15 @@ def _vistas(path):
     # take to last the same -- `length` can change between them.
     salida = []
     for n, r in _clips(carpeta, pre_v):
-        fps, dur, cuantos = _info(r)[:3]
+        # Una sola lectura de cabecera por fichero: abrirla dos veces para
+        # sacar la duracion y luego el tamano seria pagar el doble por lo mismo.
+        # One header read per file: opening it twice, once for the duration and
+        # again for the size, would pay twice for the same thing.
+        datos = _info(r)
+        dur, cuantos, ancho, alto = datos[1], datos[2], datos[6], datos[7]
         salida.append({"n": n, "filename": os.path.basename(r), "subfolder": sub,
-                       "segundos": round(float(dur), 2), "fotogramas": int(cuantos)})
+                       "segundos": round(float(dur), 2), "fotogramas": int(cuantos),
+                       "ancho": int(ancho), "alto": int(alto)})
     return salida
 
 

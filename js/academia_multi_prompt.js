@@ -94,7 +94,10 @@ const CSS = `
 .asd-pm-card.hecho { border-color: #2f7d3a; }
 .asd-pm-card.sel { box-shadow: 0 0 0 2px #4a8fe0; }
 @keyframes asd-pm-late { 50% { border-color: #6b5410; } }
-.asd-pm-thumb { width: 100%; height: 61px; display: block; object-fit: cover;
+/* `contain` y no `cover`: la ficha ya tiene la forma del material, asi que
+   normalmente coinciden, pero la imagen base la trae el usuario y puede tener
+   otra proporcion. Recortarla seria esconder parte de lo que eligio. */
+.asd-pm-thumb { width: 100%; height: 61px; display: block; object-fit: contain;
     background: #0e0e0e; }
 .asd-pm-vacio { width: 100%; height: 61px; display: flex; align-items: center;
     justify-content: center; background: #131313;
@@ -550,6 +553,12 @@ app.registerExtension({
                     }
                     _this.frames = m;
                     _this.clips = v;
+                    for (const c of Object.values(v)) {
+                        if (c.ancho > 0 && c.alto > 0) {
+                            _this.relacion = c.ancho / c.alto;
+                            break;
+                        }
+                    }
                 } catch (e) {
                     _this.frames = {};
                     _this.clips = {};
@@ -572,6 +581,23 @@ app.registerExtension({
             const ZOOM_MIN = 0.7, ZOOM_MAX = 2.6, ANCHO_CARTA = 108, ALTO_THUMB = 61;
             if (typeof this.tiraZoom !== "number") this.tiraZoom = 1;
 
+            // La ficha toma la forma del CLIP: apaisado en un proyecto 16:9 y
+            // vertical en uno 9:16. Asi no hay que elegir entre recortar -- que
+            // deja un vertical en una tira inservible -- y encoger para que quepa
+            // entero, que desperdicia media ficha. Sin clips todavia se usa la
+            // proporcion de siempre.
+            //
+            // The card takes the CLIP's shape, so there is no choosing between
+            // cropping, which makes a vertical take useless in a strip, and
+            // shrinking to fit, which wastes half the card. With no clips yet the
+            // long-standing ratio is used.
+            const RELACION_POR_DEFECTO = ANCHO_CARTA / ALTO_THUMB;
+            const altoMiniatura = () => {
+                const z = _this.tiraZoom;
+                const rel = _this.relacion || RELACION_POR_DEFECTO;
+                return Math.max(24, Math.round((ANCHO_CARTA * z) / rel));
+            };
+
             const aplicarZoom = () => {
                 const z = _this.tiraZoom;
                 etqZoom.innerText = Math.round(z * 100) + "%";
@@ -580,7 +606,7 @@ app.registerExtension({
                 for (const card of tira.querySelectorAll(".asd-pm-card")) {
                     card.style.width = Math.round(ANCHO_CARTA * z) + "px";
                     const vis = card.querySelector(".asd-pm-thumb, .asd-pm-vacio");
-                    if (vis) vis.style.height = Math.round(ALTO_THUMB * z) + "px";
+                    if (vis) vis.style.height = altoMiniatura() + "px";
                 }
                 const mas = tira.querySelector(".asd-pm-add");
                 if (mas) mas.style.width = Math.round(44 * z) + "px";
@@ -730,8 +756,17 @@ app.registerExtension({
                                 temporizador = null;
                                 if (!vis.parentNode) return;
                                 video = document.createElement("video");
-                                video.className = vis.className;
-                                video.style.height = vis.style.height;
+                                // SIEMPRE `asd-pm-thumb`, nunca la clase de lo que
+                                // sustituye: el hueco de una vuelta sin fotograma
+                                // es un `asd-pm-vacio` sin `object-fit`, y copiarla
+                                // hacia que el primer clip se viera con otro
+                                // criterio que los demas.
+                                // ALWAYS `asd-pm-thumb`, never the class of what it
+                                // replaces: an empty card's placeholder has no
+                                // `object-fit`, and copying it made the first clip
+                                // display by different rules than the rest.
+                                video.className = "asd-pm-thumb";
+                                video.style.height = altoMiniatura() + "px";
                                 video.muted = true;
                                 video.loop = true;
                                 video.autoplay = true;
