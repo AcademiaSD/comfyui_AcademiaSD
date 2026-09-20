@@ -2039,6 +2039,30 @@ def _frames(path):
     return salida
 
 
+def _vistas(path):
+    """El clip de cada vuelta, para que la tira pueda reproducirlos.
+
+    OJO con la numeracion, que no coincide con la de `_frames`: el fichero
+    `loop_00003_.png` es el FINAL de la vuelta 3 y por tanto el arranque de la 4,
+    mientras que `vid_loop_00003.mp4` es la vuelta 3 entera. Aqui se devuelve
+    indexado por la vuelta que el clip ES, y quien pinte que lo case con la
+    tarjeta que toque.
+
+    Mind the numbering, which is not the same as `_frames`: `loop_00003_.png` is
+    the END of take 3 and so the start of take 4, while `vid_loop_00003.mp4` is
+    take 3 itself. This returns them keyed by the take the clip IS.
+    """
+    carpeta, _, pre_v, _ = _nombres(path)
+    if not os.path.isdir(carpeta):
+        return []
+    raiz = os.path.abspath(folder_paths.get_output_directory())
+    sub = os.path.relpath(carpeta, raiz).replace("\\", "/")
+    if sub == ".":
+        sub = ""
+    return [{"n": n, "filename": os.path.basename(r), "subfolder": sub}
+            for n, r in _clips(carpeta, pre_v)]
+
+
 def _montajes(path):
     """Los ficheros ya montados que existan, para el reproductor."""
     carpeta, base, _, _ = _nombres(path)
@@ -2064,8 +2088,10 @@ def _montajes(path):
 async def moviola_frames(request):
     try:
         datos = await request.json()
+        path = _path_de(datos)
         return web.json_response({"status": "success",
-                                  "frames": await _en_hilo(_frames, _path_de(datos))})
+                                  "frames": await _en_hilo(_frames, path),
+                                  "clips": await _en_hilo(_vistas, path)})
     except Exception as exc:
         return web.json_response({"status": "error", "message": str(exc)}, status=400)
 

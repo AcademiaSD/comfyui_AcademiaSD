@@ -103,6 +103,7 @@ const CSS = `
     padding: 4px 6px; font-size: 10.5px; color: #9a9a9a; font-family: Consolas, monospace; }
 .asd-pm-card.sel .asd-pm-pie { color: #cfe3ff; background: #22303f; }
 .asd-pm-aviso { color: #6f6f6f; font-size: 9px; }
+.asd-pm-play { color: #7fae86; font-size: 9px; letter-spacing: .5px; }
 
 .asd-pm-add { flex: 0 0 auto; width: 44px; border-radius: 7px; border: 2px dashed #3f3f3f;
     background: #171717; color: #7b7b7b; cursor: pointer; font-size: 19px;
@@ -540,13 +541,16 @@ app.registerExtension({
                 }
                 try {
                     const r = await pedirJSON("/academia/moviola/frames", { path });
-                    const m = {};
+                    const m = {}, v = {};
                     if (r.status === "success") {
                         for (const f of r.frames || []) m[f.n] = f;
+                        for (const c of r.clips || []) v[c.n] = c;
                     }
                     _this.frames = m;
+                    _this.clips = v;
                 } catch (e) {
                     _this.frames = {};
+                    _this.clips = {};
                 }
                 _this.renderTira();
             };
@@ -606,6 +610,9 @@ app.registerExtension({
 
             this.renderTira = () => {
                 clamp();
+                for (const c of tira.querySelectorAll(".asd-pm-card")) {
+                    if (typeof c._asdQuitarVideo === "function") c._asdQuitarVideo();
+                }
                 tira.innerHTML = "";
                 _this.promptState.forEach((item, idx) => {
                     // El fotograma que ARRANCA la vuelta N es el ultimo de la N-1.
@@ -662,6 +669,75 @@ app.registerExtension({
                     av.innerText = f ? "" : (idx === 0 ? "t2v" : "—");
                     pie.append(num, av);
                     card.appendChild(pie);
+                    // La miniatura ya esta puesta y las dos ramas de arriba la
+                    // llaman distinto -- `img` o `hueco` --, asi que se localiza
+                    // por su clase en vez de recordarla.
+                    // The thumbnail is already in place and the two branches above
+                    // name it differently, so it is looked up by class.
+                    const vis = card.querySelector(".asd-pm-thumb, .asd-pm-vacio");
+
+                    // El clip de ESTA tarjeta es el de su propia vuelta, no el
+                    // de la imagen que ensena: la tarjeta N arranca en el final
+                    // de la N-1 pero el video que le corresponde es el N.
+                    //
+                    // This card's clip is its own take's, not the one the picture
+                    // belongs to: card N starts from take N-1's last frame, but
+                    // the video that is card N is take N.
+                    const clip = (_this.clips || {})[idx + 1];
+                    if (clip && vis) {
+                        const pie2 = pie;
+                        const marca = document.createElement("span");
+                        marca.className = "asd-pm-play";
+                        marca.innerText = "\u25b6";
+                        pie2.appendChild(marca);
+
+                        // Con retardo: barrer la tira con el raton no debe
+                        // disparar una descarga por tarjeta. Y el video SUSTITUYE
+                        // al fotograma en su sitio, heredando su clase y su alto,
+                        // para que el zoom lo siga tratando igual.
+                        //
+                        // Delayed: sweeping the strip must not fire one download
+                        // per card. And the video REPLACES the frame in place,
+                        // inheriting its class and height, so zoom keeps treating
+                        // it the same.
+                        let temporizador = null, video = null;
+                        const quitar = () => {
+                            if (temporizador) { clearTimeout(temporizador); temporizador = null; }
+                            if (video) {
+                                try { video.pause(); } catch (e) {}
+                                if (video.parentNode) video.parentNode.replaceChild(vis, video);
+                                video.removeAttribute("src");
+                                video = null;
+                            }
+                        };
+                        card.addEventListener("mouseenter", () => {
+                            if (video || temporizador) return;
+                            temporizador = setTimeout(() => {
+                                temporizador = null;
+                                if (!vis.parentNode) return;
+                                video = document.createElement("video");
+                                video.className = vis.className;
+                                video.style.height = vis.style.height;
+                                video.muted = true;
+                                video.loop = true;
+                                video.autoplay = true;
+                                video.playsInline = true;
+                                video.src = api.apiURL(
+                                    `/view?filename=${encodeURIComponent(clip.filename)}`
+                                    + `&subfolder=${encodeURIComponent(clip.subfolder)}&type=output`);
+                                vis.parentNode.replaceChild(video, vis);
+                                const p = video.play();
+                                if (p && p.catch) p.catch(() => {});
+                            }, 250);
+                        });
+                        card.addEventListener("mouseleave", quitar);
+                        // Al repintar la tira las tarjetas viejas se tiran enteras,
+                        // asi que no hace falta desmontar nada mas: lo unico que
+                        // podria sobrevivir es el temporizador, y lo para el
+                        // `mouseleave` que el propio navegador dispara al quitarlas.
+                        card._asdQuitarVideo = quitar;
+                    }
+
                     card.addEventListener("click", () => {
                         _this.loopSel = idx;
                         _this.renderTira();
