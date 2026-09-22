@@ -27,7 +27,12 @@ class AcademiaResolutionCalc:
         ]
         return {
             "required": {
-                "megapixel": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 100.0, "step": 0.1}),
+                # El minimo baja de 0.1 a 0.0039 (64x64) para que escribir el ancho
+                # y el alto a mano funcione en TODO el rango del nodo: 0.1 MP dejaba
+                # fuera tamanos tan normales como 320x320. Ampliar un minimo no
+                # invalida ningun workflow: los valores que ya se guardaban siguen
+                # dentro del rango.
+                "megapixel": ("FLOAT", {"default": 1.0, "min": 0.0039, "max": 100.0, "step": 0.1}),
                 "aspect_ratio": (ratios, {"default": "4:5 (Artistic Frame)"}),
                 "divisible_by": (["8", "16", "32", "64"], {"default": "16"}),
                 # label_on es lo que se ENSEÑA cuando el valor es True. Con
@@ -39,8 +44,11 @@ class AcademiaResolutionCalc:
             "optional": { "image": ("IMAGE",) }
         }
 
-    RETURN_TYPES = ("INT", "INT")
-    RETURN_NAMES = ("WIDTH", "HEIGHT")
+    # RESOLUTION va la ULTIMA a proposito. Los enlaces guardados en un workflow
+    # apuntan al slot por NUMERO, asi que anadir al final deja WIDTH en el 0 y
+    # HEIGHT en el 1: quien ya tenga el nodo cableado no tiene que tocar nada.
+    RETURN_TYPES = ("INT", "INT", "INT")
+    RETURN_NAMES = ("WIDTH", "HEIGHT", "RESOLUTION")
     FUNCTION = "calc_resolution"
     CATEGORY = "Academia SD"
 
@@ -82,7 +90,14 @@ class AcademiaResolutionCalc:
         div = int(divisible_by)
         w_final = max(div, int(round(w_exact / div) * div))
         h_final = max(div, int(round(h_exact / div) * div))
-        return (w_final, h_final)
+
+        # RESOLUTION dice los mismos megapixeles, pero como el lado del cuadrado
+        # que ocuparia esa area: 1.0 MP -> 1024, 2.0 MP -> 1448. Es el numero que
+        # los modelos llaman "resolucion base". Sale del area PEDIDA, no de
+        # w_final x h_final, para que no baile al cambiar aspect_ratio o
+        # divisible_by: con megapixel = 1.0 son 1024 y punto.
+        resolution = int(round(math.sqrt(target_area)))
+        return (w_final, h_final, resolution)
 
 # Registro de ruta seguro
 routes = server.PromptServer.instance.routes
