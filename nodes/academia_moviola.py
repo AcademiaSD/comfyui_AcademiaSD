@@ -2042,7 +2042,22 @@ def _frames(path):
     for f in sorted(os.listdir(carpeta)):
         m = pat.match(f)
         if m:
-            salida.append({"n": int(m.group(1)), "filename": f, "subfolder": sub})
+            # La FECHA del fichero acompana a cada entrada, y con ella se
+            # construye la URL en el navegador. Cambia exactamente cuando cambia
+            # el contenido: ni antes, lo que obligaria a redescargar sin motivo,
+            # ni despues, que es lo que deja una miniatura vieja en pantalla tras
+            # rehacer una vuelta.
+            #
+            # The file's DATE travels with each entry and the browser builds the
+            # URL from it. It changes exactly when the content does: no sooner,
+            # which would force needless re-downloads, and no later, which is what
+            # leaves a stale thumbnail on screen after a take is redone.
+            try:
+                cuando = int(os.path.getmtime(os.path.join(carpeta, f)))
+            except OSError:
+                cuando = 0
+            salida.append({"n": int(m.group(1)), "filename": f, "subfolder": sub,
+                           "mtime": cuando})
     salida.sort(key=lambda x: x["n"])
     return salida
 
@@ -2083,9 +2098,13 @@ def _vistas(path):
         # again for the size, would pay twice for the same thing.
         datos = _info(r)
         dur, cuantos, ancho, alto = datos[1], datos[2], datos[6], datos[7]
+        try:
+            cuando = int(os.path.getmtime(r))
+        except OSError:
+            cuando = 0
         salida.append({"n": n, "filename": os.path.basename(r), "subfolder": sub,
                        "segundos": round(float(dur), 2), "fotogramas": int(cuantos),
-                       "ancho": int(ancho), "alto": int(alto)})
+                       "ancho": int(ancho), "alto": int(alto), "mtime": cuando})
     return salida
 
 

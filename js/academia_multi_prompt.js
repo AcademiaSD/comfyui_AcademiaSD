@@ -556,17 +556,19 @@ app.registerExtension({
                     _this.frames = m;
                     _this.clips = v;
                     // La ruta se guarda porque la tarjeta 1 la necesita para pedir
-                    // su fotograma, y el sello cambia solo cuando cambia la serie:
-                    // sin el, cada repintado -- y hay uno por cada clic en la tira --
-                    // volveria a decodificar el clip en el servidor.
+                    // su fotograma. Lo que NO se guarda ya es un sello contado: eran
+                    // el numero de fotogramas y de clips, y borrar dos vueltas y
+                    // rehacer dos devuelve las mismas cuentas, la misma URL y la
+                    // miniatura vieja en pantalla. Ahora cada elemento lleva su
+                    // propia fecha y cada URL se invalida sola.
                     //
-                    // The path is kept because card 1 needs it to ask for its frame,
-                    // and the stamp changes only when the series does: without it
-                    // every repaint, and there is one per click on the strip, would
-                    // decode the clip again on the server.
+                    // The path is kept because card 1 needs it to ask for its frame.
+                    // What is NOT kept any more is a counted stamp: it was the number
+                    // of frames and clips, and deleting two takes and redoing two
+                    // gives the same counts, the same URL and the old thumbnail on
+                    // screen. Each entry now carries its own date and every URL
+                    // invalidates itself.
                     _this._rutaTira = path;
-                    _this._selloTira = Object.keys(m).length * 1000
-                        + Object.keys(v).length;
                     for (const c of Object.values(v)) {
                         if (c.ancho > 0 && c.alto > 0) {
                             _this.relacion = c.ancho / c.alto;
@@ -709,10 +711,10 @@ app.registerExtension({
                         img.src = propio
                             ? api.apiURL(`/academia/moviola/arranque`
                                 + `?path=${encodeURIComponent(_this._rutaTira || "")}`
-                                + `&n=1&t=${_this._selloTira || 0}`)
+                                + `&n=1&t=${propio.mtime || 0}`)
                             : api.apiURL(`/view?filename=${encodeURIComponent(f.filename)}`
                                 + `&subfolder=${encodeURIComponent(f.subfolder)}&type=output`
-                                + `&t=${Date.now()}`);
+                                + `&t=${f.mtime || 0}`);
                         card.appendChild(img);
                     } else {
                         const hueco = document.createElement("div");
@@ -803,9 +805,16 @@ app.registerExtension({
                                 video.loop = true;
                                 video.autoplay = true;
                                 video.playsInline = true;
+                                // Sin esto el navegador sirve de su cache el clip
+                                // ANTERIOR cuando una vuelta se rehace: la URL no
+                                // cambiaba aunque el fichero si.
+                                // Without this the browser serves the PREVIOUS clip
+                                // from cache when a take is redone: the URL did not
+                                // change although the file did.
                                 video.src = api.apiURL(
                                     `/view?filename=${encodeURIComponent(clip.filename)}`
-                                    + `&subfolder=${encodeURIComponent(clip.subfolder)}&type=output`);
+                                    + `&subfolder=${encodeURIComponent(clip.subfolder)}&type=output`
+                                    + `&t=${clip.mtime || 0}`);
                                 vis.parentNode.replaceChild(video, vis);
                                 const p = video.play();
                                 if (p && p.catch) p.catch(() => {});
