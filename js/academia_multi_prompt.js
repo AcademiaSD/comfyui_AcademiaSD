@@ -9,6 +9,25 @@ const DEFAULT_TEXT = "integrated_multimodal_description:\n\n"
     + "overall_soundscape:\n\n"
     + "non_diegetic_music:\nN/A";
 
+// A donde se va el nodo cuando se borra el ULTIMO proyecto que quedaba. Dejar el
+// nombre vacio seria peor: sin nombre, Project Paths devuelve los sufijos
+// sueltos y las tomas de la siguiente vuelta caen directamente en output/,
+// mezcladas con todo lo demas.
+//
+// Where the node lands when the LAST project is deleted. Leaving the name empty
+// would be worse: with no name Project Paths returns the bare suffixes and the
+// next take is written straight into output/, mixed in with everything else.
+const PROYECTO_POR_DEFECTO = "Moviola_test";
+
+// Bytes en algo que se pueda leer en un aviso. Un "12345678" no dice nada.
+function legible(b) {
+    const n = Number(b) || 0;
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(0) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
+}
+
 // El widget DOM no ocupa todo lo que se le asigna. El frontend hace
 //     let t = n.margin;            // margin = 10
 //     r.pos  = [x + t, y + t + n.y];
@@ -74,6 +93,10 @@ const CSS = `
     border-radius: 6px; font-weight: 700; font-size: 11.5px; transition: background .15s; }
 .asd-pm-save { background: #2f7d43; } .asd-pm-save:hover { background: #389751; }
 .asd-pm-load { background: #4c5563; } .asd-pm-load:hover { background: #626c7d; }
+/* Ni ancho completo ni pegado a Save: el rojo ya avisa, y el tamano dice que no
+   es un boton de todos los dias. */
+.asd-pm-borrar { background: #7d2f2f; flex: 0 0 auto; padding: 7px 15px; font-size: 11px; }
+.asd-pm-borrar:hover { background: #9b3a3a; }
 
 /* --- tira de fotogramas --- */
 .asd-pm-strip { display: flex; gap: 7px; overflow-x: auto; overflow-y: hidden;
@@ -257,7 +280,22 @@ app.registerExtension({
             const btnLoad = document.createElement("button");
             btnLoad.className = "asd-pm-btn asd-pm-load";
             btnLoad.innerText = "📂 Load Project";
-            filaBtn.append(btnSave, btnLoad);
+            // En medio de los dos y sin estirarse: Save y Load se reparten el
+            // ancho como antes y el de borrar se queda del tamano de su texto,
+            // que es lo que dice que no es un boton de todos los dias. Que la
+            // confirmacion sea obligatoria es lo que lo hace seguro, no su sitio.
+            //
+            // Between the two and never stretching: Save and Load share the width
+            // as before and the delete button stays the size of its own label,
+            // which is what says it is not an everyday button. What makes it safe
+            // is the mandatory confirmation, not where it sits.
+            const btnBorrar = document.createElement("button");
+            btnBorrar.className = "asd-pm-btn asd-pm-borrar";
+            btnBorrar.innerText = "🗑 Delete Project";
+            btnBorrar.title = "Deletes the CURRENT project: its prompts file and its "
+                + "whole output folder, takes included. Pick another one with Load "
+                + "Project first if this is not the one you mean.";
+            filaBtn.append(btnSave, btnBorrar, btnLoad);
             cajaProy.append(cabProy, filaBtn);
             inner.appendChild(cajaProy);
 
@@ -514,11 +552,48 @@ app.registerExtension({
             const nombreProyecto = () =>
                 String(nombreDeArriba() || (projWidget && projWidget.value) || "").trim();
 
+            // La cabecera dice SIEMPRE a que proyecto apunta el nodo, venga el
+            // nombre de Project Paths o del widget de aqui abajo. Antes solo se
+            // veia el enlazado, asi que con el nombre propio no habia forma de
+            // saber sobre que iban a actuar los botones -- y uno de ellos borra.
+            // La flecha distingue los dos casos: con ella, el nombre manda desde
+            // arriba y editarlo aqui no serviria de nada.
+            //
+            // The header always says which project the node points at, whether
+            // the name comes from Project Paths or from the widget below. Only
+            // the linked one used to show, so with a local name there was no way
+            // to tell what the buttons would act on -- and one of them deletes.
             const refrescarEnlace = () => {
                 const a = nombreDeArriba();
-                titProy.innerText = a !== null ? "📁 Project  ⇠ " + a : "📁 Project";
+                if (a !== null) {
+                    titProy.innerText = "📁 Project  ⇠ " + (a || "(unnamed)");
+                    return;
+                }
+                const propio = String((projWidget && projWidget.value) || "").trim();
+                titProy.innerText = propio ? "📁 Project  " + propio : "📁 Project";
             };
             this.refrescarEnlace = refrescarEnlace;
+
+            // Cambiar de proyecto cambia el PROYECTO, no solo los prompts: con el
+            // nombre enlazado el de verdad vive en Project Paths, y de ahi salen
+            // las carpetas de salida y la ruta del montador. Escribirlo solo aqui
+            // abajo dejaria los prompts de uno apuntando a las carpetas de otro.
+            //
+            // Switching projects switches the PROJECT, not just the prompts: with
+            // the name linked, the real one lives in Project Paths and the output
+            // folders come from there.
+            const escribirNombre = (nombre) => {
+                const arriba = nodoArriba();
+                const wArriba = arriba && arriba.widgets
+                    ? arriba.widgets.find((x) => x.name === "project_name") : null;
+                if (wArriba) {
+                    wArriba.value = nombre;
+                    if (typeof wArriba.callback === "function") wArriba.callback(nombre);
+                    app.graph.setDirtyCanvas(true, true);
+                } else if (projWidget) {
+                    projWidget.value = nombre;
+                }
+            };
 
             // ---------- fotogramas ----------
             //
@@ -984,23 +1059,7 @@ app.registerExtension({
                     _this.loopSel = 0;
                     areaGlobal.value = d.global_prompt || "";
 
-                    // Cargar un proyecto cambia el PROYECTO, no solo los prompts.
-                    // Con el nombre enlazado, el de verdad vive en Project Paths y
-                    // de ahi salen las carpetas de salida y la ruta del montador:
-                    // escribirlo aqui abajo dejaria los prompts de un proyecto
-                    // apuntando a las carpetas de otro.
-                    //
-                    // Loading switches the PROJECT, not just the prompts.
-                    const arriba = nodoArriba();
-                    const wArriba = arriba && arriba.widgets
-                        ? arriba.widgets.find((x) => x.name === "project_name") : null;
-                    if (wArriba) {
-                        wArriba.value = nombre;
-                        if (typeof wArriba.callback === "function") wArriba.callback(nombre);
-                        app.graph.setDirtyCanvas(true, true);
-                    } else if (projWidget) {
-                        projWidget.value = nombre;
-                    }
+                    escribirNombre(nombre);
 
                     guardar();
                     _this.renderUI();
@@ -1065,6 +1124,124 @@ app.registerExtension({
                 menu.style.minWidth = r.width + "px";
                 document.body.appendChild(menu);
                 document.addEventListener("mousedown", fuera, true);
+            });
+
+            // ---------- borrar proyecto ----------
+            //
+            // Se borra SIEMPRE el proyecto actual del nodo, que es el que Load
+            // Project acaba de poner. No hay un segundo menu a proposito: asi no
+            // existe la forma de borrar algo que no se esta mirando.
+            //
+            // The CURRENT project is always the one deleted -- the one Load
+            // Project just set. Deliberately no second menu: there is then no way
+            // to delete something you are not looking at.
+            const aviso = (t, ms) => {
+                notaProy.innerText = t;
+                setTimeout(() => (notaProy.innerText = ""), ms || 4000);
+            };
+
+            btnBorrar.addEventListener("click", async () => {
+                const nombre = nombreProyecto();
+                if (!nombre) return aviso("⚠ no project selected");
+                // Borrar la carpeta mientras se esta escribiendo en ella deja la
+                // vuelta a medias y el proyecto en un estado que no es ni uno ni
+                // otro. Se espera a que termine.
+                if (_this._generando) return aviso("⚠ busy generating");
+
+                let previos = [];
+                let info = null;
+                try {
+                    const l = await (await fetch("/academia/multiprompt/list")).json();
+                    if (l.status === "success") previos = l.files || [];
+                    const r = await (await fetch("/academia/multiprompt/inspect?name="
+                        + encodeURIComponent(nombre))).json();
+                    if (r.status === "success") info = r;
+                } catch (e) {}
+                if (!info) return aviso("⚠ no answer from the server");
+
+                const trozos = [];
+                if (info.prompts_file) {
+                    const c = info.prompts;
+                    trozos.push("the prompts file"
+                        + (c == null ? "" : ` (${c} loop${c === 1 ? "" : "s"})`));
+                }
+                if (info.folder_exists) {
+                    trozos.push(`the output folder "${info.folder}" -- `
+                        + `${info.files} file${info.files === 1 ? "" : "s"}, `
+                        + `${legible(info.bytes)}`);
+                }
+                if (!trozos.length) {
+                    // Decir QUE nombre es el dato que falta: el proyecto actual
+                    // puede venir de Project Paths y no ser el que se esta
+                    // mirando en la tira. Sin el nombre, el aviso parece un fallo.
+                    //
+                    // Naming it is the missing fact: the current project may come
+                    // from Project Paths and not be the one on screen. Without the
+                    // name the warning reads like a bug.
+                    console.warn(`[AcademiaSD] Delete Project: "${nombre}" has no `
+                        + "prompts file and no output folder -- nothing to delete.");
+                    return aviso(`⚠ "${nombre}": nothing to delete`, 6000);
+                }
+
+                if (!confirm(`Delete project "${nombre}"?\n\n`
+                    + `This removes ${trozos.join("\nand ")}\n\n`
+                    + "Takes, latents, videos and the finished film go with it.\n"
+                    + "There is no undo and nothing goes to the recycle bin.")) return;
+
+                let r;
+                try {
+                    r = await pedirJSON("/academia/multiprompt/delete", { name: nombre });
+                } catch (e) {
+                    return aviso("⚠ no answer from the server");
+                }
+                if (r.status !== "success") {
+                    return aviso(`⚠ ${r.message || "could not delete it"}`);
+                }
+                if (!r.complete) {
+                    // Algo sigue abierto. El proyecto NO ha desaparecido, asi que
+                    // tampoco se cambia de proyecto: se dice que paso y se puede
+                    // reintentar.
+                    console.warn("[AcademiaSD] Delete Project:", r.errors);
+                    await _this.cargarFrames();
+                    return aviso(`⚠ ${(r.errors || [])[0] || "partly deleted"}`, 8000);
+                }
+
+                // A que proyecto se pasa: al SIGUIENTE de la lista y, si el
+                // borrado era el ultimo, al anterior. Quitar el elemento i deja en
+                // i al que venia detras, asi que `restantes[i]` es el siguiente y
+                // undefined significa que no habia.
+                //
+                // Which project to switch to: the NEXT one, or the previous one
+                // when the deleted project was the last. Removing item i leaves
+                // the one that followed at i, so undefined means there was none.
+                const restantes = r.remaining || [];
+                const i = previos.indexOf(nombre);
+                const siguiente = restantes.length
+                    ? (i >= 0 && restantes[i] !== undefined
+                        ? restantes[i] : restantes[restantes.length - 1])
+                    : null;
+
+                if (siguiente) {
+                    await cargarProyecto(siguiente);
+                } else {
+                    escribirNombre(PROYECTO_POR_DEFECTO);
+                    _this.promptState = [{ text: DEFAULT_TEXT }];
+                    _this.loopSel = 0;
+                    areaGlobal.value = "";
+                    _this.frames = {};
+                    guardar();
+                    _this.renderUI();
+                    await _this.cargarFrames();
+                }
+                aviso(`✔ deleted — now on "${siguiente || PROYECTO_POR_DEFECTO}"`);
+
+                // Los demas nodos que leen el disco se quedarian ensenando las
+                // miniaturas de un proyecto que ya no existe.
+                // The other nodes that read disk would keep showing thumbnails of
+                // a project that is no longer there.
+                for (const n of (app.graph && app.graph._nodes) || []) {
+                    if (n !== _this && typeof n.cargarFrames === "function") n.cargarFrames();
+                }
             });
 
             // ---------- eventos del lienzo ----------
@@ -1140,7 +1317,12 @@ app.registerExtension({
             this.onDrawForeground = function () {
                 if (onDraw) onDraw.apply(this, arguments);
                 if (this.flags && this.flags.collapsed) return;
-                const ahora = String(nombreDeArriba() || "");
+                // El nombre EFECTIVO, no solo el de arriba: escribirlo en el
+                // widget de este nodo tambien cambia de proyecto, y antes ni la
+                // cabecera ni la tira se enteraban.
+                // The EFFECTIVE name, not just the upstream one: typing it into
+                // this node's own widget also switches project.
+                const ahora = String(nombreProyecto() || "");
                 if (ahora !== this._ultimoArriba) {
                     this._ultimoArriba = ahora;
                     refrescarEnlace();

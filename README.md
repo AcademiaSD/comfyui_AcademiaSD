@@ -541,6 +541,26 @@ there are.
     take it. Written atomically. Saving over an existing name asks first.
 *   Loading a project writes the name **upstream**, into Project Paths, so the
     output folders follow. Switching project switches everything or nothing.
+*   The **Project** header names the project the buttons act on, with a `⇠` when
+    that name is coming from Project Paths upstream rather than from the node's
+    own field. Not decoration: one of the buttons deletes.
+*   **🗑 Delete Project** — removes the project the node is pointing at: its
+    prompts file **and** its whole `output/<project>/` folder, takes, latents,
+    videos, interpolated clips and the finished cut included. A project lives in
+    two places and removing one half orphans the other — prompts pointing at
+    nothing, or a folder of takes that can no longer be selected from the node.
+    It asks first, and the warning names both halves with what they weigh —
+    *the prompts file (6 loops) and the output folder "BAG_V2" — 47 files, 1.8
+    GB* — because a button that deletes without saying how much is a formality,
+    not a warning. Nothing goes to a recycle bin. It refuses while a run is in
+    progress, and if a file is held open by another process it removes what it
+    can, **keeps the prompts file** so the project stays in the list and can be
+    retried, and says which file stopped it. Afterwards the node moves to the
+    next project in the list, or to the previous one when the deleted project was
+    the last; with none left the name becomes `Moviola_test`, since an empty name
+    makes Project Paths return the bare suffixes and the next take would land
+    straight in `output/`. The server receives a *name*, never a path, and
+    rebuilds both locations with the same rule that wrote them.
 
 ---
 

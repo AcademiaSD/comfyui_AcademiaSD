@@ -4,6 +4,16 @@ import os
 from aiohttp import web
 from server import PromptServer
 
+# La carpeta de salida del proyecto se pide a ComfyUI, no se adivina: quien la
+# haya movido con --output-directory tiene que seguir borrando la suya.
+#
+# The project's output folder is asked of ComfyUI rather than guessed: whoever
+# moved it with --output-directory must still be deleting their own.
+try:
+    import folder_paths
+except Exception:
+    folder_paths = None
+
 # Los proyectos viven junto al nodo, no en output/: son la RECETA de una serie
 # (los prompts y su cabecera comun), no material generado. Vaciar output/ no
 # deberia llevarse por delante el guion de un proyecto de diez tomas.
@@ -61,6 +71,97 @@ def _project_path(name):
     if os.path.commonpath([base, destino]) != base:
         return None
     return destino
+
+
+def _carpeta_salida(nombre):
+    """output/<proyecto>: donde cuelga TODO lo que genera ese proyecto.
+
+    La regla de verdad esta en `AcademiaProjectPaths.rutas`, que devuelve
+    '<proyecto>/loop', '<proyecto>/vid_loop' y '<proyecto>/vid_int_loop'. Los tres
+    caen dentro de output/<proyecto>, asi que esa carpeta es el proyecto entero en
+    disco y es lo que hay que quitar.
+
+    Devuelve None -- y quien llama se para en seco -- si no hay nombre, si no se
+    sabe donde esta output/, o si lo que sale no es un descendiente suyo. El
+    nombre ya viene de `sanitize_project`, que no deja sobrevivir barras ni
+    puntos, asi que la ultima comprobacion no deberia poder fallar nunca: esta
+    porque lo que hay al otro lado es un borrado recursivo.
+
+    Returns None -- and the caller stops -- with no name, with no known output
+    directory, or if the result is not a descendant of it. The name has already
+    been through `sanitize_project`, so the last check should be unreachable: it
+    is there because what happens next is a recursive delete.
+    """
+    seguro = sanitize_project(nombre)
+    if not seguro or folder_paths is None:
+        return None
+    try:
+        raiz = os.path.abspath(folder_paths.get_output_directory())
+    except Exception:
+        return None
+    destino = os.path.abspath(os.path.join(raiz, seguro))
+    if destino == raiz or os.path.commonpath([raiz, destino]) != raiz:
+        return None
+    return destino
+
+
+def _medida(carpeta):
+    """(ficheros, bytes) de todo el arbol, para poder DECIR que se va a borrar.
+
+    El aviso del navegador lo recita antes de preguntar. Un boton que borra sin
+    decir cuanto se lleva no es un aviso, es un tramite.
+    """
+    n, total = 0, 0
+    for raiz, _, ficheros in os.walk(carpeta):
+        for f in ficheros:
+            n += 1
+            try:
+                total += os.path.getsize(os.path.join(raiz, f))
+            except OSError:
+                pass
+    return n, total
+
+
+def _arrasar(carpeta):
+    """Borra el arbol de abajo arriba. Devuelve (ficheros, bytes, fallos).
+
+    A mano y no con `shutil.rmtree` por dos razones. Su `onerror` esta deprecado
+    desde 3.12 y cambia de firma, y sobre todo: en Windows lo normal no es que
+    falle el borrado entero, es que falle UN fichero porque algo lo tiene
+    abierto. Decir cual es la diferencia entre reintentar y rendirse.
+
+    By hand rather than with `shutil.rmtree`: its `onerror` is deprecated since
+    3.12, and on Windows the usual failure is not the whole tree but ONE file
+    something still holds open. Naming it is the difference between retrying and
+    giving up.
+    """
+    n, octetos, fallos = 0, 0, []
+    for raiz, dirs, ficheros in os.walk(carpeta, topdown=False):
+        for f in ficheros:
+            completo = os.path.join(raiz, f)
+            try:
+                tam = os.path.getsize(completo)
+            except OSError:
+                tam = 0
+            try:
+                os.remove(completo)
+                n += 1
+                octetos += tam
+            except OSError as exc:
+                fallos.append("{}: {}".format(f, exc.strerror or exc))
+        # De abajo arriba, asi que al llegar aqui ya estan vacias -- salvo que
+        # algo de dentro no se fuera, y eso ya tiene su linea.
+        for d in dirs:
+            try:
+                os.rmdir(os.path.join(raiz, d))
+            except OSError:
+                pass
+    try:
+        os.rmdir(carpeta)
+    except OSError as exc:
+        if os.path.isdir(carpeta):
+            fallos.append("{}: {}".format(os.path.basename(carpeta), exc.strerror or exc))
+    return n, octetos, fallos
 
 
 # --- RUTAS DE API ---
@@ -121,6 +222,121 @@ async def save_project(request):
     except Exception:
         return web.json_response(
             {"status": "error", "message": "Could not save the project"}, status=400)
+
+
+@PromptServer.instance.routes.get("/academia/multiprompt/inspect")
+async def inspect_project(request):
+    """Que hay que borrar, ANTES de borrarlo.
+
+    No toca nada. Existe para que el aviso del navegador pueda nombrar las dos
+    cosas que se va a llevar y cuanto pesan, en vez de preguntar a ciegas.
+    Read-only: it exists so the browser's warning can name both things it is
+    about to remove, and their size, instead of asking blind.
+    """
+    nombre = sanitize_project(request.query.get("name"))
+    ruta = _project_path(nombre)
+    if not nombre or ruta is None:
+        return web.json_response({"status": "error", "message": "Invalid name"}, status=400)
+
+    hay_json = os.path.isfile(ruta)
+    cuantos = None
+    if hay_json:
+        try:
+            with open(ruta, "r", encoding="utf-8") as f:
+                cuantos = len(json.load(f).get("prompts") or [])
+        except Exception:
+            # Ilegible sigue siendo borrable, y de hecho es un motivo para
+            # borrarlo. Solo se pierde la cuenta que sale en el aviso.
+            cuantos = None
+
+    carpeta = _carpeta_salida(nombre)
+    hay_carpeta = bool(carpeta) and os.path.isdir(carpeta)
+    ficheros, octetos = _medida(carpeta) if hay_carpeta else (0, 0)
+
+    return web.json_response({
+        "status": "success",
+        "project": nombre,
+        "prompts_file": hay_json,
+        "prompts": cuantos,
+        "folder": os.path.basename(carpeta) if carpeta else None,
+        "folder_exists": hay_carpeta,
+        "files": ficheros,
+        "bytes": octetos,
+    })
+
+
+@PromptServer.instance.routes.post("/academia/multiprompt/delete")
+async def delete_project(request):
+    """Se lleva el .json de los prompts Y la carpeta de salida entera.
+
+    Un proyecto son dos cosas en dos sitios: el guion, aqui al lado del nodo, y
+    las tomas, bajo output/. Borrar solo una deja la otra huerfana -- prompts que
+    apuntan a nada, o una carpeta de tomas que ya no se puede seleccionar desde
+    el nodo -- asi que se van las dos o se avisa de por que no.
+
+    Llega un NOMBRE, nunca una ruta: las dos rutas se reconstruyen aqui con la
+    misma regla que las escribio. Una ruta que viniera del navegador seria una
+    ruta que el navegador elige, y al otro lado hay un borrado recursivo.
+
+    A project is two things in two places: the script, next to the node, and the
+    takes, under output/. Removing only one orphans the other. A NAME arrives,
+    never a path: both paths are rebuilt here with the same rule that wrote them.
+    """
+    try:
+        cuerpo = await request.json()
+    except Exception:
+        return web.json_response({"status": "error", "message": "Bad request"}, status=400)
+
+    nombre = sanitize_project(cuerpo.get("name"))
+    ruta = _project_path(nombre)
+    carpeta = _carpeta_salida(nombre)
+    if not nombre or ruta is None or carpeta is None:
+        return web.json_response(
+            {"status": "error", "message": "Invalid project name"}, status=400)
+
+    fallos = []
+    ficheros, octetos = 0, 0
+    if os.path.isdir(carpeta):
+        ficheros, octetos, fallos = _arrasar(carpeta)
+    sobra_carpeta = os.path.isdir(carpeta)
+
+    # El .json se va DESPUES, y solo si la carpeta se fue entera. Si algo sigue
+    # abierto el proyecto se queda en la lista y se puede reintentar; sin el
+    # .json seria una carpeta a medio borrar que ya no se puede ni seleccionar.
+    #
+    # The .json goes LAST, and only if the folder went completely. If something
+    # is still open the project stays in the list and can be retried; without
+    # the .json it would be a half-deleted folder nobody can select any more.
+    json_fuera = False
+    if not sobra_carpeta and os.path.isfile(ruta):
+        try:
+            os.remove(ruta)
+            json_fuera = True
+        except OSError as exc:
+            fallos.append("{}.json: {}".format(nombre, exc.strerror or exc))
+
+    try:
+        restantes = sorted(f[:-5] for f in os.listdir(PROJECTS_DIR) if f.endswith(".json"))
+    except OSError:
+        restantes = []
+
+    print("[AcademiaSD] 🗑 Delete Project '{}': {} file(s), {:.1f} MB, "
+          "prompts {}{}".format(nombre, ficheros, octetos / 1048576.0,
+                                "deleted" if json_fuera else "kept",
+                                "" if not fallos else " -- {} PROBLEM(S)".format(len(fallos))))
+    for f in fallos:
+        print("[AcademiaSD]    could not remove {}".format(f))
+
+    return web.json_response({
+        "status": "success",
+        "project": nombre,
+        "complete": not fallos,
+        "files": ficheros,
+        "bytes": octetos,
+        "prompts_deleted": json_fuera,
+        "errors": fallos,
+        "remaining": restantes,
+    })
 
 
 class AcademiaMultiPrompt:
