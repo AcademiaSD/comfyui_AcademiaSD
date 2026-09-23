@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
 const CUSTOM = "Custom";
 
@@ -63,6 +64,15 @@ function parseRatio(text) {
     if (parts.length !== 2 || !parts.every((n) => Number.isFinite(n) && n > 0)) return null;
     return parts;
 }
+
+// El tamano que Python ha visto de verdad, por nodo. Es lo unico que vale
+// cuando la imagen no viene de un fichero.
+const seenSizes = new Map();
+api.addEventListener("academia.rescalc.image_size", (e) => {
+    const d = e.detail || {};
+    if (!d.node_id || !d.width || !d.height) return;
+    seenSizes.set(String(d.node_id), { w: d.width, h: d.height });
+});
 
 app.registerExtension({
     name: "AcademiaSD.ResolutionCalc",
@@ -195,6 +205,15 @@ app.registerExtension({
                     if (widthW) widthW.value = wf;
                     if (heightW) heightW.value = hf;
                     remeasure();
+
+                    // Otros nodos leen WIDTH y HEIGHT de aqui. Asignar el valor de
+                    // un widget a pelo NO dispara ningun evento de LiteGraph ni
+                    // ensucia el lienzo, asi que quien lo lea se enteraria en el
+                    // siguiente repintado que cayera por casualidad -- que puede
+                    // tardar segundos si nadie toca nada. Se avisa a mano.
+                    window.dispatchEvent(new CustomEvent("academia:sizes-changed",
+                                                         { detail: { nodeId: self.id } }));
+                    app.graph?.setDirtyCanvas(true, true);
                 };
 
                 /* --- el desplegable y el interruptor son el mismo ajuste --- */
@@ -259,10 +278,21 @@ app.registerExtension({
                 // no es la que recibe Python.
                 this.__academiaResCalc = calc;
 
+                // Recablear la entrada invalida lo medido: el tamano guardado es
+                // el de la imagen anterior, y darlo por bueno seria mentir.
+                const originalConn = this.onConnectionsChange;
+                this.onConnectionsChange = function (...args) {
+                    const r = originalConn?.apply(this, args);
+                    seenSizes.delete(String(self.id));
+                    return r;
+                };
+
                 /* --- tomar la medida de la imagen de referencia --- */
 
-                // Atraviesa reroutes y nodos de paso hasta dar con un Load Image.
-                const findImageWidget = () => {
+                // Atraviesa reroutes y nodos de paso hasta dar con el fichero del
+                // que sale la imagen. Devuelve el NOMBRE, no el widget: no todos
+                // los nodos que sirven una imagen la guardan en uno.
+                const findImageFile = () => {
                     let inp = self.inputs?.find(i => i.type === "IMAGE") || self.inputs?.[0];
                     for (let guard = 0; guard < 16; guard++) {
                         if (!inp || inp.link == null) return null;
@@ -270,9 +300,33 @@ app.registerExtension({
                         if (!link) return null;
                         const origin = app.graph.getNodeById(link.origin_id);
                         if (!origin) return null;
+
+                        // Nodos que sirven una imagen distinta por cada salida
+                        // (Multi Image Reference): hay que preguntar por la que
+                        // llega, no por "la suya", porque tiene doce.
+                        const served = origin.asdRefFileForOutput?.(link.origin_slot);
+                        if (served) return served;
+
                         const w = origin.widgets?.find(x => x.name === "image");
-                        if (w?.value) return w;
+                        if (w?.value) return w.value;
                         inp = origin.inputs?.find(i => i.link != null && (i.type === "IMAGE" || i.type === "*"));
+                    }
+                    return null;
+                };
+
+                // Sin cable de entrada, se mira a QUIEN le estamos dando el tamano.
+                // Tirar un cable de imagen hacia aca cerraria un ciclo -- este
+                // nodo ya le manda WIDTH y HEIGHT -- y ComfyUI rechaza el grafo
+                // entero. Pero el cable que hace falta ya existe, solo que en el
+                // otro sentido, asi que se recorre al reves y no hay ciclo.
+                const findImageFileDownstream = () => {
+                    for (const out of self.outputs || []) {
+                        for (const linkId of out.links || []) {
+                            const link = app.graph.links[linkId];
+                            const target = link ? app.graph.getNodeById(link.target_id) : null;
+                            const f = target?.asdPrimaryRefFile?.();
+                            if (f) return f;
+                        }
                     }
                     return null;
                 };
@@ -366,14 +420,26 @@ app.registerExtension({
                 }
 
                 this.addWidget("button", "📐 Get Size from Image", null, async () => {
-                    const imgWidget = findImageWidget();
-                    if (!imgWidget) {
-                        note("⚠ connect the image input to a Load Image node");
+                    // Orden a proposito: lo que Python ha medido manda sobre el
+                    // fichero, porque un reescalado por el camino hace que el
+                    // fichero de origen ya no diga el tamano que llega aqui.
+                    const linked = self.inputs?.find(i => i.type === "IMAGE")?.link != null;
+                    const seen = linked ? seenSizes.get(String(self.id)) : null;
+                    if (seen) {
+                        applyReference(seen.w, seen.h);
+                        app.graph.setDirtyCanvas(true, true);
+                        return;
+                    }
+
+                    const imgFile = findImageFile() || findImageFileDownstream();
+                    if (!imgFile) {
+                        note(linked ? "⚠ queue once so the size can be read"
+                                    : "⚠ connect an image, or feed a node that has one");
                         app.graph.setDirtyCanvas(true, true);
                         return;
                     }
                     try {
-                        const resp = await fetch(`/academia_res/get_image_size?filename=${encodeURIComponent(imgWidget.value)}`);
+                        const resp = await fetch(`/academia_res/get_image_size?filename=${encodeURIComponent(imgFile)}`);
                         const data = await resp.json();
                         if (data.width && data.height) applyReference(data.width, data.height);
                         else note("⚠ " + (data.error || "could not read that image"));

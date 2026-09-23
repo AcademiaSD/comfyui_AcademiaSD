@@ -41,7 +41,10 @@ class AcademiaResolutionCalc:
                 "custom_ratio": ("BOOLEAN", {"default": False, "label_on": "Custom ON", "label_off": "Custom OFF"}),
                 "custom_aspect_ratio": ("STRING", {"default": "1:1"}),
             },
-            "optional": { "image": ("IMAGE",) }
+            "optional": { "image": ("IMAGE",) },
+            # unique_id no es un widget ni desplaza nada: hace falta para poder
+            # decirle al panel de ESTE nodo que tamano ha llegado de verdad.
+            "hidden": { "unique_id": "UNIQUE_ID" },
         }
 
     # RESOLUTION va la ULTIMA a proposito. Los enlaces guardados en un workflow
@@ -72,7 +75,22 @@ class AcademiaResolutionCalc:
                 .format(field, text))
         return w_r, h_r
 
-    def calc_resolution(self, megapixel, aspect_ratio, divisible_by, custom_ratio, custom_aspect_ratio, image=None):
+    def calc_resolution(self, megapixel, aspect_ratio, divisible_by, custom_ratio,
+                        custom_aspect_ratio, image=None, unique_id=None):
+        # El unico sitio donde se sabe el tamano de una IMAGE cualquiera es aqui:
+        # en el navegador solo se puede averiguar si el origen nombra un fichero,
+        # y eso deja fuera todo lo que venga de un VAE Decode, un upscaler o un
+        # batch. Peor: con un reescalado por medio, el fichero de origen da un
+        # tamano que ya no es el que llega. Asi que se manda el de verdad.
+        if image is not None and unique_id is not None:
+            try:
+                server.PromptServer.instance.send_sync(
+                    "academia.rescalc.image_size",
+                    {"node_id": str(unique_id),
+                     "width": int(image.shape[2]), "height": int(image.shape[1])})
+            except Exception:
+                pass        # que un aviso de interfaz no tumbe una generacion
+
         # El desplegable y el interruptor son dos caras del mismo ajuste. Basta
         # con que cualquiera de los dos pida ratio manual para usarlo: si alguna
         # vez se descuadran, el nodo no calcula en silencio con una proporcion

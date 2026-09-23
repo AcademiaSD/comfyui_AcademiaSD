@@ -59,8 +59,23 @@ function setting(id, fallback) {
     return fallback;
 }
 
+// Sin espacios ni guiones bajos y en minusculas: el paquete mezcla
+// "Academia SD", "AcademiaSD" y "ComfyUI_AcademiaSD" en sus categorias.
+const norm = (s) => String(s ?? "").toLowerCase().replace(/[\s_]+/g, "");
+
 function isOurs(nodeData) {
-    return String(nodeData?.python_module || "").toLowerCase().includes(PACK);
+    // python_module es lo correcto... cuando ComfyUI lo etiqueta bien.
+    if (norm(nodeData?.python_module).includes(norm(PACK))) return true;
+
+    // Pero basta con que OTRO paquete tenga "from nodes import *" en su
+    // __init__.py para llevarselo todo por delante: eso importa el
+    // NODE_CLASS_MAPPINGS global del nucleo de ComfyUI, y entonces ComfyUI le
+    // atribuye a ESE paquete cada nodo ya cargado. Medido en esta instalacion:
+    // 1551 de 3322 nodos atribuidos a un solo paquete, los nuestros incluidos,
+    // y cero atribuidos al nuestro. Por eso el icono desaparecio de golpe.
+    //
+    // La categoria no depende de como se cargue el paquete, asi que aguanta.
+    return norm(nodeData?.category).includes("academiasd");
 }
 
 // El punto de plegar por defecto, para cuando no hay icono que pintar. Sin

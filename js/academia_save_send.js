@@ -29,10 +29,15 @@ app.registerExtension({
                                 return;
                             }
 
-                            // 2. Buscamos el widget de imagen
-                            const imageWidget = targetNode.widgets.find(w => w.name === "image");
-                            if (!imageWidget) {
-                                alert(`[Academia SD] ❌ The node "${targetTitle}" does not have an image upload widget.`);
+                            // 2. Como recibe la imagen ese nodo. Los que guardan su
+                            // estado en un JSON -- Multi Image Reference -- no tienen
+                            // widget "image", asi que primero se les pregunta y solo
+                            // despues se husmean los widgets.
+                            const puedeRecibir = typeof targetNode.asdReceiveImage === "function";
+                            const imageWidget = targetNode.widgets?.find(w => w.name === "image");
+                            if (!puedeRecibir && !imageWidget) {
+                                alert(`[Academia SD] ❌ The node "${targetTitle}" cannot take an image.
+Use a Load Image node, or an Academia SD Multi Image Reference.`);
                                 return;
                             }
 
@@ -55,7 +60,21 @@ app.registerExtension({
 
                                 if (result.status === "success") {
                                     
-                                    // 4. Cambiamos el valor del texto en el widget
+                                    // 4a. El nodo se encarga solo: repinta y guarda su
+                                    // estado por su cuenta, asi que aqui se acaba.
+                                    if (puedeRecibir) {
+                                        targetNode.asdReceiveImage(result.target_path);
+                                        targetNode.setDirtyCanvas(true, true);
+                                        app.graph.setDirtyCanvas(true, true);
+                                        this.sendButtonWidget.name = "✅ IMAGE SENT!";
+                                        setTimeout(() => {
+                                            this.sendButtonWidget.name = originalText;
+                                            app.graph.setDirtyCanvas(true, true);
+                                        }, 2000);
+                                        return;
+                                    }
+
+                                    // 4b. Load Image: se le cambia el texto del widget
                                     imageWidget.value = result.target_path;
                                     
                                     // 5. ¡TRUCO DEFINITIVO PARA FORZAR LA PREVISUALIZACIÓN!
