@@ -1,14 +1,18 @@
 import os
 import json
+import shutil
+import filecmp
 import hashlib
 
 import numpy as np
 import torch
 from PIL import Image, ImageOps
+from aiohttp import web
 
 import comfy.utils
 import folder_paths
 import node_helpers
+from server import PromptServer
 
 # Diez es lo que maneja Qwen Image 2.1, y encaja solo en el panel: una grande
 # mas tres filas de tres. El numero manda sobre todo lo demas -- los nombres de
@@ -67,7 +71,7 @@ class AcademiaMultiImageReference:
                 "crop": (CROP_METHODS, {"default": "center"}),
                 # Solo pinta en modo pad. Admite "#RRGGBB", "RRGGBB", "#RGB" o
                 # los nombres white / black / grey.
-                "pad_color": ("STRING", {"default": "#FFFFFF"}),
+                "pad_color": ("STRING", {"default": "#000000"}),
                 # Con el interruptor apagado la imagen va centrada y entera, que
                 # es el relleno de toda la vida. Encendido, manda la colocacion
                 # que se haya arrastrado en el panel: eso es el outpaint.
@@ -77,9 +81,9 @@ class AcademiaMultiImageReference:
             },
         }
 
-    # Reference_active va la ULTIMA a proposito: los enlaces guardados apuntan
-    # al slot por NUMERO, asi que anadir al final deja image_1..image_10 donde
-    # estaban y nadie tiene que recablear.
+    # En pantalla este nodo no tiene salidas: se cablean en Multi Image
+    # Reference Out, que al encolar redirige su salida N a la salida N de aqui.
+    # Por eso el orden tiene que ser el mismo en los dos sitios.
     RETURN_TYPES = ("IMAGE",) * SLOT_COUNT + ("INT",)
     RETURN_NAMES = (tuple("image_{}".format(i) for i in range(1, SLOT_COUNT + 1))
                     + ("Reference_active",))
@@ -168,17 +172,17 @@ class AcademiaMultiImageReference:
 
     @staticmethod
     def _parse_color(text):
-        """"#RRGGBB", "RRGGBB", "#RGB" o un nombre. Lo que no se entienda, blanco."""
+        """"#RRGGBB", "RRGGBB", "#RGB" o un nombre. Lo que no se entienda, negro."""
         t = str(text or "").strip().lower().lstrip("#")
         t = NAMED_COLORS.get(t, t)
         if len(t) == 3:
             t = "".join(c * 2 for c in t)
         if len(t) != 6:
-            return (1.0, 1.0, 1.0)
+            return (0.0, 0.0, 0.0)
         try:
             return tuple(int(t[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
         except ValueError:
-            return (1.0, 1.0, 1.0)
+            return (0.0, 0.0, 0.0)
 
     # --- EJECUCION ---
 
@@ -195,7 +199,7 @@ class AcademiaMultiImageReference:
 
     @classmethod
     def _resize(cls, image, width, height, scale_method, crop,
-                pad_color="#FFFFFF", outpaint=False, place=(0.5, 0.5, 1.0),
+                pad_color="#000000", outpaint=False, place=(0.5, 0.5, 1.0),
                 crop_pos=(0.5, 0.5)):
         if image is None or width <= 0 or height <= 0:
             return image
@@ -259,7 +263,7 @@ class AcademiaMultiImageReference:
 
     def load_references(self, refs_data="", width=0, height=0,
                         scale_method="lanczos", crop="center",
-                        pad_color="#FFFFFF", outpaint=False):
+                        pad_color="#000000", outpaint=False):
         # Una ranura apagada o vacia sale como None, que es exactamente lo que
         # Text Encode Qwen Image 2.1 descarta con su `if image is None: continue`.
         # No hace falta ningun bypass ni desconectar el cable: el apagado viaja
@@ -283,7 +287,7 @@ class AcademiaMultiImageReference:
 
     @classmethod
     def IS_CHANGED(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="center",
-                   pad_color="#FFFFFF", outpaint=False):
+                   pad_color="#000000", outpaint=False):
         # refs_data ya entra en el hash del prompt, asi que lo unico que hay que
         # detectar aqui es que un FICHERO haya cambiado por fuera sin cambiar de
         # nombre: sobrescribir una referencia y volver a encolar tiene que
@@ -303,7 +307,7 @@ class AcademiaMultiImageReference:
 
     @classmethod
     def VALIDATE_INPUTS(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="center",
-                        pad_color="#FFFFFF", outpaint=False):
+                        pad_color="#000000", outpaint=False):
         # Una referencia que falta NO puede pasar en silencio. Qwen numera las
         # <imageN> por la posicion en la lista ya compactada, asi que perder una
         # por el camino corre todas las de detras y el prompt acaba hablando de
@@ -317,25 +321,177 @@ class AcademiaMultiImageReference:
         return True
 
 
-_DISPLAY = "Academia SD Multi Image Reference 🖼️"
+# --- PROYECTOS ---
+#
+# Un proyecto es input/<nombre>/: las referencias copiadas y <nombre>.json con
+# su ranura, si van encendidas y el resto del estado del nodo. Vive en input/
+# porque de ahi es de donde el nodo carga las imagenes.
+#
+# Solo cuenta como proyecto la carpeta que tiene ESE json con ESTE kind. input/
+# es de todos -- clipspace, las subidas, carpetas del usuario -- y al otro lado
+# de Delete hay un borrado recursivo: una carpeta que se llame igual pero no
+# sea nuestra no se toca, ni para borrarla ni para escribir en ella.
 
-class _AcademiaQwenRefImagesLegacy(AcademiaMultiImageReference):
-    """El nombre viejo del nodo. No hace nada distinto: solo existe para que los
-    workflows guardados antes del renombrado sigan abriendo, en vez de dejar el
-    nodo en rojo y obligar a recablear diez salidas a mano.
+PROJECT_KIND = "academia_multi_image_reference"
 
-    DEPRECATED lo esconde del buscador de nodos. Sin esto salia DOS VECES en la
-    lista, porque son dos claves registradas con el mismo nombre visible.
-    Se puede borrar esta clase cuando esos workflows se hayan vuelto a guardar.
+
+def _sanitize_project(name):
+    """Misma lista blanca que Multi Prompt y Project Paths: letras, numeros,
+    espacio, guion y guion bajo. Nada de barras, puntos ni dos puntos."""
+    return "".join(c for c in str(name or "") if c.isalnum() or c in (" ", "-", "_")).strip()
+
+
+def _input_dir():
+    return os.path.abspath(folder_paths.get_input_directory())
+
+
+def _project_dir(name):
+    """(nombre limpio, input/<nombre>), o (nombre, None) si no vale."""
+    safe = _sanitize_project(name)
+    if not safe:
+        return safe, None
+    base = _input_dir()
+    path = os.path.abspath(os.path.join(base, safe))
+    if path == base or os.path.commonpath([base, path]) != base:
+        return safe, None
+    return safe, path
+
+
+def _read_project(folder, safe):
+    """El json del proyecto, o None si esa carpeta no es un proyecto nuestro."""
+    try:
+        with open(os.path.join(folder, safe + ".json"), "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) and data.get("kind") == PROJECT_KIND else None
+
+
+def _copy_into(rel, folder, used):
+    """Copia la referencia `rel` de input/ a la carpeta del proyecto y devuelve
+    su nombre alli.
+
+    Cada ranura acaba con SU fichero aunque dos tengan la misma imagen: una
+    copia hecha con el boton de copiar tiene que poder cambiar sin arrastrar a
+    la otra. La primera conserva el nombre y las demas llevan _02, _03... Un
+    fichero que ya esta ahi con el mismo contenido se reutiliza, asi que volver
+    a guardar no multiplica nada. `used` son los nombres ya dados en este Save.
     """
-    DEPRECATED = True
+    base = _input_dir()
+    src = os.path.abspath(folder_paths.get_annotated_filepath(rel))
+    if os.path.commonpath([base, src]) != base or not os.path.isfile(src):
+        raise FileNotFoundError(rel)
+    stem, ext = os.path.splitext(os.path.basename(src))
+    name, n = stem + ext, 2
+    while name in used or (os.path.exists(os.path.join(folder, name))
+                           and not filecmp.cmp(src, os.path.join(folder, name), shallow=False)):
+        name = "{}_{:02d}{}".format(stem, n, ext)
+        n += 1
+    if not os.path.exists(os.path.join(folder, name)):
+        shutil.copy2(src, os.path.join(folder, name))
+    used.add(name)
+    return name
+
+
+def _error(message, status=400):
+    return web.json_response({"status": "error", "message": message}, status=status)
+
+
+@PromptServer.instance.routes.get("/academia/multiref/list")
+async def multiref_list(request):
+    base = _input_dir()
+    names = [d for d in os.listdir(base)
+             if os.path.isdir(os.path.join(base, d)) and _read_project(os.path.join(base, d), d)]
+    return web.json_response({"status": "success", "projects": sorted(names, key=str.lower)})
+
+
+@PromptServer.instance.routes.post("/academia/multiref/save")
+async def multiref_save(request):
+    body = await request.json()
+    safe, folder = _project_dir(body.get("name"))
+    if folder is None:
+        return _error("Invalid project name")
+    state = body.get("state")
+    if not isinstance(state, dict) or not isinstance(state.get("slots"), list):
+        return _error("Bad request")
+    if os.path.isdir(folder) and _read_project(folder, safe) is None:
+        return _error('input/{} already exists and is not a Multi Image Reference project'.format(safe))
+
+    os.makedirs(folder, exist_ok=True)
+    slots, used = [], set()
+    for i, slot in enumerate(state["slots"][:SLOT_COUNT]):
+        slot = slot if isinstance(slot, dict) else {}
+        file = str(slot.get("file") or "")
+        if file:
+            try:
+                file = _copy_into(file, folder, used)
+            except FileNotFoundError:
+                return _error("Slot {}: file not found ({})".format(i + 1, file))
+        slots.append({"file": file, "on": bool(slot.get("on")) and bool(file)})
+
+    content = {"kind": PROJECT_KIND, "version": 1, "project": safe, "slots": slots}
+    for key in ("place", "cropPos", "heroH", "widgets"):
+        if key in state:
+            content[key] = state[key]
+
+    path = os.path.join(folder, safe + ".json")
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(content, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+    return web.json_response({"status": "success", "project": safe,
+                              "images": sum(1 for s in slots if s["file"])})
+
+
+@PromptServer.instance.routes.get("/academia/multiref/load")
+async def multiref_load(request):
+    safe, folder = _project_dir(request.query.get("name"))
+    data = _read_project(folder, safe) if folder else None
+    if data is None:
+        return _error("Project not found", 404)
+    # Los nombres van relativos a input/, que es como los guarda el nodo.
+    missing = []
+    for i, slot in enumerate(data.get("slots") or []):
+        if isinstance(slot, dict) and slot.get("file"):
+            if not os.path.isfile(os.path.join(folder, slot["file"])):
+                missing.append(i + 1)
+            slot["file"] = "{}/{}".format(safe, slot["file"])
+    return web.json_response({"status": "success", "project": safe, "data": data, "missing": missing})
+
+
+@PromptServer.instance.routes.get("/academia/multiref/inspect")
+async def multiref_inspect(request):
+    """Que se va a borrar, ANTES de borrarlo, para que el aviso lo pueda decir."""
+    safe, folder = _project_dir(request.query.get("name"))
+    if folder is None or _read_project(folder, safe) is None:
+        return web.json_response({"status": "success", "project": safe, "exists": False})
+    files, size = 0, 0
+    for root, _, names in os.walk(folder):
+        for n in names:
+            files += 1
+            size += os.path.getsize(os.path.join(root, n))
+    return web.json_response({"status": "success", "project": safe, "exists": True,
+                              "files": files, "bytes": size})
+
+
+@PromptServer.instance.routes.post("/academia/multiref/delete")
+async def multiref_delete(request):
+    # Llega un NOMBRE, nunca una ruta: la carpeta se reconstruye aqui con la
+    # misma regla que la creo.
+    body = await request.json()
+    safe, folder = _project_dir(body.get("name"))
+    if folder is None or _read_project(folder, safe) is None:
+        return _error("Not a Multi Image Reference project")
+    try:
+        shutil.rmtree(folder)
+    except OSError as exc:
+        return _error("Could not delete input/{}: {}".format(safe, exc.strerror or exc))
+    return web.json_response({"status": "success", "project": safe})
 
 
 NODE_CLASS_MAPPINGS = {
     "AcademiaSD_MultiImageReference": AcademiaMultiImageReference,
-    "AcademiaSD_QwenRefImages": _AcademiaQwenRefImagesLegacy,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AcademiaSD_MultiImageReference": _DISPLAY,
-    "AcademiaSD_QwenRefImages": _DISPLAY,
+    "AcademiaSD_MultiImageReference": "Academia SD Multi Image Reference 🖼️",
 }

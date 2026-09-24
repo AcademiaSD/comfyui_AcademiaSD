@@ -2,7 +2,8 @@ import { app } from "../../scripts/app.js";
 
 // Vale para cualquier modelo que coma varias imagenes de referencia; Qwen Image
 // 2.1 es solo el primero. Por eso ni el nodo ni este fichero llevan su nombre.
-const NODE_NAMES = ["AcademiaSD_MultiImageReference", "AcademiaSD_QwenRefImages"];
+const NODE_NAME = "AcademiaSD_MultiImageReference";
+const OUT_NAME = "AcademiaSD_MultiImageReferenceOut";
 
 const SLOTS = 10;         // los que maneja Qwen Image 2.1
 const COLS = 3;           // la grande y tres filas de tres: 1 + 9
@@ -17,7 +18,8 @@ const H = {
     pad: 8,
     gap: 4,
     head: 24,
-    bar: 16,        // la barra del rotulo, ENCIMA de la miniatura
+    proj: 22,       // nombre del proyecto y sus botones
+    bar: 16,       // la barra del rotulo, ENCIMA de la miniatura
     heroBar: 20,    // la del hero es mas alta: el rotulo va a 11 px
     chip: 24,       // ranura vacia: un cuadradito y ya
     // Una ranura CARGADA no mide una constante: las tres filas se reparten el
@@ -42,10 +44,16 @@ const HERO_W = { min: 80, max: 560 };
 const HERO_H = { min: 80, max: 560, def: 240 };
 const PLACE = { min: 0.02, max: 8 };        // los mismos topes que en Python
 
-const COL_MIN = 96;       // por debajo, "<image12>" y sus botones no caben
+// Los widgets que cambian lo que sale. Tambien son los que guarda un proyecto.
+const STATE_WIDGETS = ["width", "height", "scale_method", "crop", "pad_color", "outpaint"];
+
+const COL_MIN = 96;      // por debajo, "<image12>" y sus botones no caben
 const BASE_W = 548;
 
 const GREEN = "#2d9444";
+// El fondo donde no hay imagen. Azul y no negro: una foto con bordes negros no
+// se confunde con el panel.
+const VOID = "#0a1224";
 const RED = "#8c3030";
 
 // Copia literal de comfy/utils.py::common_upscale con crop = "center". El
@@ -86,7 +94,7 @@ function cssColor(text) {
     let t = String(text ?? "").trim().toLowerCase().replace(/^#/, "");
     t = NAMED[t] ?? t;
     if (t.length === 3) t = t.split("").map(c => c + c).join("");
-    return /^[0-9a-f]{6}$/.test(t) ? `#${t}` : "#ffffff";
+    return /^[0-9a-f]{6}$/.test(t) ? `#${t}` : "#000000";
 }
 
 // Un fichero de input/ puede venir como "subcarpeta/nombre.png".
@@ -111,15 +119,91 @@ async function uploadImage(file) {
     return data.subfolder ? `${data.subfolder}/${data.name}` : data.name;
 }
 
+const getJSON = async (url) => (await fetch(url)).json();
+const postJSON = async (url, data) => (await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
+})).json();
+
+const readableSize = (b) => b < 1024 * 1024 ? `${Math.ceil(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+
+// Out encuentra su Multi Image Reference por el TITULO, como Image Save & Send.
+// Renombrando el nodo principal caben varios en el mismo workflow.
+const sourcesNamed = (graph, title) =>
+    (graph?._nodes || []).filter(n => n.type === NODE_NAME && n.title === title);
+const sourceTitles = (graph) =>
+    [...new Set((graph?._nodes || []).filter(n => n.type === NODE_NAME).map(n => n.title))];
+
+// Las salidas no se ensenan en el nodo principal sino en Out: el panel es
+// grande y los cables salen de donde haga falta en el grafo.
+const dropOutputs = (node) => {
+    for (let i = (node.outputs?.length || 0) - 1; i >= 0; i--) node.removeOutput(i);
+};
+
 app.registerExtension({
     name: "AcademiaSD.MultiImageReference",
+
+    registerCustomNodes() {
+        class MultiImageReferenceOut extends LGraphNode {
+            static title = "Academia SD Multi Image Reference Out 🖼️";
+            static category = "Academia SD";
+
+            constructor(title) {
+                super(title);
+                // Solo existe en el frontend. Al encolar, su salida N se cambia
+                // por la salida N del nodo principal (resolveVirtualOutput), asi
+                // que las imagenes se cargan y reescalan una vez aunque haya
+                // varios Out tirando del mismo.
+                this.isVirtualNode = true;
+                this.serialize_widgets = true;
+                const options = {};
+                // Getter y no lista fija: la lista son los titulos de AHORA.
+                Object.defineProperty(options, "values", {
+                    get: () => sourceTitles(this.graph), enumerable: true,
+                });
+                this.addWidget("combo", "source", "", () => {}, options);
+                for (let i = 1; i <= SLOTS; i++) this.addOutput(`image_${i}`, "IMAGE");
+                // Cuantas referencias llegan de verdad al encoder: cuantas <imageN> hay.
+                this.addOutput("Reference_active", "INT");
+            }
+
+            onAdded(graph) {
+                // Con un solo Multi Image Reference en el grafo no hay nada que elegir.
+                const w = this.widgets[0];
+                const titles = sourceTitles(graph);
+                if (!w.value && titles.length === 1) w.value = titles[0];
+            }
+
+            source() {
+                const found = sourcesNamed(this.graph, this.widgets[0].value);
+                return found.length === 1 ? found[0] : null;
+            }
+
+            resolveVirtualOutput(slot) {
+                const name = this.widgets[0].value;
+                const found = sourcesNamed(this.graph, name);
+                if (found.length === 1) return { node: found[0], slot };
+                throw new Error(found.length
+                    ? `Multi Image Reference Out: ${found.length} nodes are titled "${name}". Give each one its own title.`
+                    : `Multi Image Reference Out: no Multi Image Reference titled "${name}".`);
+            }
+
+            // Resolution Calc pregunta al nodo del que sale el cable que
+            // fichero hay detras de esa salida.
+            asdRefFileForOutput(slot) {
+                return this.source()?.asdRefFileForOutput?.(slot) || null;
+            }
+        }
+        LiteGraph.registerNodeType(OUT_NAME, MultiImageReferenceOut);
+    },
+
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (!NODE_NAMES.includes(nodeData.name)) return;
+        if (nodeData.name !== NODE_NAME) return;
 
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             if (onNodeCreated) onNodeCreated.apply(this, arguments);
             const self = this;
+            dropOutputs(this);
 
             /* --- estado --- */
 
@@ -142,10 +226,13 @@ app.registerExtension({
             self.asdPlace = { x: 0.5, y: 0.5, scale: 1 };
             // Centro de la ventana de recorte sobre la imagen, modo custom.
             self.asdCropPos = { x: 0.5, y: 0.5 };
+            // Nombre del proyecto: la carpeta input/<nombre> de Save/Load/Delete.
+            self.asdProject = "";
 
-            // Lo que otro nodo puede preguntarle a este. Resolution Calc lo usa
-            // en "Get Size from Image": cada salida sirve un fichero distinto,
-            // asi que hay que decir cual segun por donde salga el cable.
+            // Lo que otro nodo puede preguntarle a este. Resolution Calc lo usa,
+            // a traves de Out, en "Get Size from Image": cada salida sirve un
+            // fichero distinto, asi que hay que decir cual segun por donde salga
+            // el cable.
             self.asdRefFileForOutput = (slotIndex) => self.asdSlots?.[slotIndex]?.file || null;
             // La de la ranura 1, que es la que fija el lienzo. Resolution Calc
             // la pide mirando hacia delante, sin necesidad de un cable de vuelta.
@@ -198,6 +285,7 @@ app.registerExtension({
                         };
                     });
                     if (typeof parsed.open === "boolean") self.asdOpen = parsed.open;
+                    if (typeof parsed.project === "string") self.asdProject = parsed.project;
                     if (parsed.heroH) self.asdHeroH = clamp(parsed.heroH, HERO_H.min, HERO_H.max);
                     const cp = parsed.cropPos;
                     if (cp && typeof cp === "object") {
@@ -218,6 +306,7 @@ app.registerExtension({
                 if (!dataW) return;
                 dataW.value = JSON.stringify({
                     open: self.asdOpen,
+                    project: self.asdProject,
                     heroH: self.asdHeroH,
                     place: self.asdPlace,
                     cropPos: self.asdCropPos,
@@ -239,18 +328,8 @@ app.registerExtension({
                 return tags;
             };
 
-            // Una ranura cuya salida no va a ninguna parte no pinta nada en
-            // pantalla: cargar ahi una imagen no la usaria nadie. Se ensenan las
-            // cableadas, y las que ya tengan fichero aunque se les quite el
-            // cable, que si no una imagen cargada desapareceria sin avisar.
-            const visibleSlots = () => {
-                const out = [];
-                for (let i = 1; i < SLOTS; i++) {
-                    const wired = (self.outputs?.[i]?.links?.length || 0) > 0;
-                    if (wired || self.asdSlots[i].file) out.push(i);
-                }
-                return out;
-            };
+            // La rejilla: todas menos la 1, que va aparte en grande.
+            const GRID = Array.from({ length: SLOTS - 1 }, (_, i) => i + 1);
 
             /* --- medidas --- */
 
@@ -281,8 +360,8 @@ app.registerExtension({
 
             const heroCardH = () => H.heroBar + heroBox().h + H.heroCap + 2;
             const gridRows = () => {
-                const vis = visibleSlots(), rows = [];
-                for (let i = 0; i < vis.length; i += COLS) rows.push(vis.slice(i, i + COLS));
+                const rows = [];
+                for (let i = 0; i < GRID.length; i += COLS) rows.push(GRID.slice(i, i + COLS));
                 return rows;
             };
 
@@ -310,7 +389,7 @@ app.registerExtension({
                 if (!self.asdOpen) return H.head;
                 const hs = rowHeights();
                 const grid = hs.reduce((a, b) => a + b, 0) + Math.max(0, hs.length - 1) * H.gap;
-                return H.head + H.gap + Math.max(grid, heroColH()) + H.pad;
+                return H.head + H.gap + H.proj + H.gap + Math.max(grid, heroColH()) + H.pad;
             };
 
             /* --- DOM --- */
@@ -333,6 +412,23 @@ app.registerExtension({
                     }
                     .asd-q-head:hover { border-color: #4a6ee0; }
                     .asd-q-count { margin-left: auto; color: #6f7883; font-variant-numeric: tabular-nums; }
+                    .asd-q-proj { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; height: ${H.proj}px; }
+                    .asd-q-pname {
+                        flex: 0 1 200px; min-width: 80px; height: 20px; box-sizing: border-box;
+                        padding: 0 6px; background: #161616; color: #ddd; font-size: 11px;
+                        border: 1px solid #3d3d3d; border-radius: 4px;
+                    }
+                    .asd-q-pname:focus { outline: none; border-color: #4a6ee0; }
+                    .asd-q-pbtn {
+                        height: 20px; padding: 0 8px; border: 1px solid #4a4a4a; border-radius: 4px;
+                        background: #242424; color: #ccc; font-size: 10px; cursor: pointer; white-space: nowrap;
+                    }
+                    .asd-q-pbtn:hover { border-color: #999; background: #333; }
+                    .asd-q-pbtn.del:hover { border-color: ${RED}; background: ${RED}; color: #fff; }
+                    .asd-q-pnote {
+                        margin-left: auto; min-width: 0; font-size: 10px; color: #9aa0a6;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    }
                     .asd-q-body { display: flex; gap: 6px; flex: 1 1 auto; min-height: 0; }
                     /* Filas flex y no CSS grid: una plantilla de columnas es la
                        misma para todas las filas, y aqui cada fila reparte su
@@ -349,11 +445,6 @@ app.registerExtension({
                         flex: 0 0 auto; width: ${H.chip}px; align-self: flex-start;
                     }
                     .asd-q-hero { display: flex; gap: 3px; flex: 0 0 auto; align-items: flex-start; }
-                    .asd-q-empty {
-                        display: flex; align-items: center;
-                        justify-content: center; height: ${H.chip - 4}px;
-                        color: #5f6570; font-size: 9px; font-style: italic;
-                    }
 
                     /* Una ranura vacia es una tira fina: no ocupa sitio hasta que se usa */
                     .asd-q-chip {
@@ -381,13 +472,10 @@ app.registerExtension({
                        proporcion real del fichero, asi que el recuadro de recorte
                        se puede colocar en porcentajes y sale bien a cualquier zoom. */
                     .asd-q-shot {
-                        flex: 1 1 auto; min-height: 0; background: #0b0b0b;
+                        flex: 1 1 auto; min-height: 0; background: ${VOID};
                         display: flex; align-items: center; justify-content: center;
                         cursor: zoom-in; overflow: hidden;
                     }
-                    /* La miniatura no necesita caja con proporcion: contain la
-                       ensena entera y no hay forma de que se deforme. */
-                    .asd-q-shot > img { object-fit: contain; }
                     /* Sin aspect-ratio a proposito: la proporcion la pone .asd-q-shot,
                        que se dimensiona desde JS. Pedirsela a CSS con un lado ya
                        definido hacia que max-height recortara sin encoger el otro
@@ -395,6 +483,13 @@ app.registerExtension({
                     .asd-q-fit { position: relative; overflow: hidden; width: 100%; height: 100%; }
                     .asd-q-place { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
                     .asd-q-card img { width: 100%; height: 100%; display: block; pointer-events: none; }
+                    /* La miniatura mide lo que mide la imagen dentro de la celda,
+                       y el borde blanco dice donde acaba, como el recuadro de la
+                       imagen 1. Lo de fuera es el panel, no la imagen. */
+                    .asd-q-card .asd-q-shot > img {
+                        width: auto; height: auto; max-width: 100%; max-height: 100%;
+                        box-sizing: border-box; border: 1px solid #fff;
+                    }
                     .asd-q-card.off img { filter: grayscale(1) brightness(.42); }
                     .asd-q-crop {
                         position: absolute; box-sizing: border-box;
@@ -427,7 +522,7 @@ app.registerExtension({
                     .asd-q-bar {
                         flex: 0 0 auto; height: ${H.bar}px; display: flex; align-items: center;
                         gap: 3px; padding: 0 2px 0 4px; background: #1b1b1b;
-                        border-bottom: 1px solid #2c2c2c;
+                        border-bottom: 1px solid #2c2c2c; cursor: grab;
                     }
                     .asd-q-tag {
                         font-family: monospace; font-size: 9px; font-weight: bold; color: #fff;
@@ -499,6 +594,16 @@ app.registerExtension({
                     <span class="asd-q-count"></span>
                     <span class="asd-q-chevron">&#9662;</span>
                 </div>
+                <div class="asd-q-proj">
+                    <input class="asd-q-pname" type="text" placeholder="project name" spellcheck="false"
+                           title="Project folder: ComfyUI/input/&lt;name&gt;">
+                    <button class="asd-q-pbtn asd-q-psave"
+                            title="Copy the references into input/&lt;name&gt; and save the node state there">&#128190; Save</button>
+                    <button class="asd-q-pbtn asd-q-pload" title="Load a saved project">&#128194; Load</button>
+                    <button class="asd-q-pbtn del asd-q-pdel"
+                            title="Delete the folder input/&lt;name&gt; and everything in it">&#128465; Delete</button>
+                    <span class="asd-q-pnote"></span>
+                </div>
                 <div class="asd-q-body">
                     <div class="asd-q-grid"></div>
                     <div class="asd-q-hero">
@@ -565,18 +670,67 @@ app.registerExtension({
                 refreshChrome();
             };
 
-            // Arrastrar y soltar. Hay que cortar el evento aqui: ComfyUI escucha
-            // el drop en el canvas y crearia un Load Image suelto al lado.
+            // Intercambiar dos ranuras, este vacia o no. El hueco se queda donde
+            // estaba la imagen; las <imageN> se renumeran solas en el repintado.
+            // El encuadre de la imagen 1 se hizo para OTRA foto, asi que si la 1
+            // cambia se recentra.
+            const swapSlots = (a, b) => {
+                if (a === b) return;
+                const s = self.asdSlots;
+                [s[a], s[b]] = [s[b], s[a]];
+                if (a === HERO || b === HERO) {
+                    self.asdPlace = { x: 0.5, y: 0.5, scale: 1 };
+                    self.asdCropPos = { x: 0.5, y: 0.5 };
+                }
+                commit();
+            };
+
+            // La misma imagen en la siguiente ranura vacia, dando la vuelta, y
+            // encendida. El fichero propio lo hace Save project.
+            const copySlot = (idx) => {
+                for (let k = 1; k < SLOTS; k++) {
+                    const j = (idx + k) % SLOTS;
+                    const dst = self.asdSlots[j];
+                    if (dst.file) continue;
+                    const src = self.asdSlots[idx];
+                    Object.assign(dst, { file: src.file, on: true, ver: dst.ver + 1, nw: src.nw, nh: src.nh });
+                    commit();
+                    return;
+                }
+                note("⚠ no empty slot");
+            };
+
+            // Arrastrar una ranura sobre otra. Lleva el id del nodo: soltarla en
+            // OTRO Multi Image Reference no tiene que hacer nada.
+            const SLOT_MIME = "application/x-academia-slot";
+            const dragSource = (el, idx) => {
+                el.draggable = true;
+                el.title = "Drag onto another slot to swap them";
+                el.addEventListener("dragstart", (e) => {
+                    e.stopPropagation();
+                    e.dataTransfer.setData(SLOT_MIME, `${self.id}:${idx}`);
+                    e.dataTransfer.effectAllowed = "move";
+                });
+            };
+
+            // Arrastrar y soltar: un fichero desde fuera, o otra ranura. Hay que
+            // cortar el evento aqui: ComfyUI escucha el drop en el canvas y
+            // crearia un Load Image suelto al lado.
             const dropTarget = (el, idx) => {
                 el.addEventListener("dragover", (e) => {
                     e.preventDefault(); e.stopPropagation();
-                    e.dataTransfer.dropEffect = "copy";
+                    e.dataTransfer.dropEffect = e.dataTransfer.types.includes(SLOT_MIME) ? "move" : "copy";
                     el.classList.add("drop");
                 });
                 el.addEventListener("dragleave", () => el.classList.remove("drop"));
                 el.addEventListener("drop", async (e) => {
                     e.preventDefault(); e.stopPropagation();
                     el.classList.remove("drop");
+                    const [node, from] = (e.dataTransfer.getData(SLOT_MIME) || "").split(":");
+                    if (from !== undefined) {
+                        if (node === String(self.id)) swapSlots(Number(from), idx);
+                        return;
+                    }
                     const file = e.dataTransfer?.files?.[0];
                     if (file && file.type.startsWith("image/")) await putFile(idx, file);
                 });
@@ -614,7 +768,7 @@ app.registerExtension({
             const peek = document.createElement("div");
             peek.style.cssText = `
                 position: absolute; inset: 0; z-index: 3; display: none;
-                background: #0b0b0b; align-items: center; justify-content: center;
+                background: ${VOID}; align-items: center; justify-content: center;
             `;
             const peekImg = document.createElement("img");
             peekImg.style.cssText = "max-width:100%; max-height:100%; object-fit:contain; width:auto; height:auto;";
@@ -725,14 +879,14 @@ app.registerExtension({
 
                 if (t === null || t === 0) {
                     // Sin destino no hay nada que encuadrar: la imagen y ya.
-                    hero.shot.style.background = "#0b0b0b";
+                    hero.shot.style.background = VOID;
                     setRect(hero.place, 0, 0, 100, 100);
                     hero.crop.style.display = "none";
                     line2 = t === null ? "size is linked \u2014 queue once" : "no resize";
                 } else if (!pad) {
                     const [tw, th] = t;
                     const custom = mode === "custom";
-                    hero.shot.style.background = "#0b0b0b";
+                    hero.shot.style.background = VOID;
                     setRect(hero.place, 0, 0, 100, 100);
                     const box = custom
                         ? customWindow(ow, oh, tw, th, self.asdCropPos.x, self.asdCropPos.y)
@@ -921,6 +1075,9 @@ app.registerExtension({
                                               : "Bypassed - click to activate",
                                  on ? "on" : "off", () => toggleSlot(idx));
                 btns.appendChild(power);
+                if (!big) btns.appendChild(mk("&#10548;", "Send to <image1> (swap with slot 1)", "",
+                                             () => swapSlots(idx, HERO)));
+                btns.appendChild(mk("&#10697;", "Copy to the next empty slot", "", () => copySlot(idx)));
                 // Reemplazar tiene boton propio porque el clic sobre la imagen
                 // pasa a ser "verla en grande", que es lo que se hace a menudo.
                 btns.appendChild(mk("&#8635;", "Replace this image", "", () => openPicker(idx)));
@@ -952,6 +1109,7 @@ app.registerExtension({
                     self.asdHome = home;
                 }
                 bar.appendChild(btns);
+                dragSource(bar, idx);
                 card.appendChild(bar);
 
                 const shot = document.createElement("div");
@@ -1089,16 +1247,11 @@ app.registerExtension({
                 return b;
             };
 
-            const updateCount = (tags, hidden) => {
+            const updateCount = (tags) => {
                 const active = tags.filter(t => t !== null).length;
                 const loaded = self.asdSlots.filter(s => s.file).length;
                 countEl.style.color = "#6f7883";
-                countEl.textContent = `${active} active / ${loaded} loaded`
-                                    + (hidden ? `  ·  ${hidden} unwired` : "");
-                countEl.title = hidden
-                    ? `${hidden} slots are hidden because their outputs go nowhere.\n`
-                    + "Connect image_N to show slot N."
-                    : "";
+                countEl.textContent = `${active} active / ${loaded} loaded`;
             };
 
             // Encender o apagar no cambia el tamano ni que ranuras se ven: solo
@@ -1119,7 +1272,7 @@ app.registerExtension({
                     ref.power.title = on ? "Active - click to bypass this slot"
                                          : "Bypassed - click to activate";
                 }
-                updateCount(tags, (SLOTS - 1) - visibleSlots().length);
+                updateCount(tags);
                 app.graph?.setDirtyCanvas(true, true);
             };
 
@@ -1128,34 +1281,27 @@ app.registerExtension({
                 self.asdGridEls = {};
                 self.asdRowEls = [];
                 const tags = liveTags();
-                const vis = visibleSlots();
-                updateCount(tags, (SLOTS - 1) - vis.length);
+                updateCount(tags);
                 chevron.innerHTML = self.asdOpen ? "&#9662;" : "&#9656;";
                 body.style.display = self.asdOpen ? "flex" : "none";
+                projEl.style.display = self.asdOpen ? "flex" : "none";
+                if (document.activeElement !== pname) pname.value = self.asdProject;
                 lightbox.style.display = "none";
                 hidePeek();
                 if (!self.asdOpen) return;
 
-
                 grid.replaceChildren();
-                if (!vis.length) {
-                    const note = document.createElement("div");
-                    note.className = "asd-q-empty";
-                    note.textContent = "connect image_2 … image_10 to open more slots";
-                    grid.appendChild(note);
-                } else {
-                    gridRows().forEach((row, r) => {
-                        const rowEl = document.createElement("div");
-                        rowEl.className = "asd-q-row";
-                        for (const i of row) {
-                            const el = makeCard(i, tags[i], false);
-                            self.asdGridEls[i] = el;
-                            rowEl.appendChild(el);
-                        }
-                        self.asdRowEls[r] = rowEl;
-                        grid.appendChild(rowEl);
-                    });
-                }
+                gridRows().forEach((row, r) => {
+                    const rowEl = document.createElement("div");
+                    rowEl.className = "asd-q-row";
+                    for (const i of row) {
+                        const el = makeCard(i, tags[i], false);
+                        self.asdGridEls[i] = el;
+                        rowEl.appendChild(el);
+                    }
+                    self.asdRowEls[r] = rowEl;
+                    grid.appendChild(rowEl);
+                });
                 applyGridHeights();
 
                 const heroEl = makeCard(HERO, tags[HERO], true);
@@ -1219,22 +1365,190 @@ app.registerExtension({
             // un estorbo, asi que el raton se queda aqui.
             container.addEventListener("mousedown", (e) => e.stopPropagation());
 
+            /* --- proyectos: input/<nombre> --- */
+
+            const projEl = container.querySelector(".asd-q-proj");
+            const pname = container.querySelector(".asd-q-pname");
+            const pnote = container.querySelector(".asd-q-pnote");
+            const loadBtn = container.querySelector(".asd-q-pload");
+
+            let noteTimer = null;
+            const note = (text, ms = 4000) => {
+                clearTimeout(noteTimer);
+                pnote.textContent = text;
+                pnote.title = text;
+                noteTimer = setTimeout(() => { pnote.textContent = ""; }, ms);
+            };
+
+            pname.addEventListener("input", () => { self.asdProject = pname.value; writeState(); });
+            // Lo que se teclea es del campo, no de los atajos del grafo.
+            pname.addEventListener("keydown", (e) => e.stopPropagation());
+
+            const saveProject = async () => {
+                const name = self.asdProject.trim();
+                if (!name) return note("⚠ name the project first");
+                try {
+                    const list = await getJSON("/academia/multiref/list");
+                    if ((list.projects || []).includes(name)
+                        && !confirm(`Project "${name}" already exists.\n\nOverwrite it with the current references?`)) return;
+                    const r = await postJSON("/academia/multiref/save", {
+                        name,
+                        state: {
+                            slots: self.asdSlots.map(s => ({ file: s.file, on: s.on })),
+                            place: self.asdPlace,
+                            cropPos: self.asdCropPos,
+                            heroH: self.asdHeroH,
+                            widgets: Object.fromEntries(STATE_WIDGETS.map(
+                                k => [k, self.widgets?.find(w => w.name === k)?.value])),
+                        },
+                    });
+                    if (r.status !== "success") return note(`⚠ ${r.message || "could not save"}`, 8000);
+                    self.asdProject = r.project;
+                    pname.value = r.project;
+                    writeState();
+                    note(`✔ saved in input/${r.project} (${r.images} images)`);
+                } catch (e) {
+                    note("⚠ no answer from the server");
+                }
+            };
+
+            const loadProject = async (name) => {
+                try {
+                    const r = await getJSON(`/academia/multiref/load?name=${encodeURIComponent(name)}`);
+                    if (r.status !== "success") return note(`⚠ ${r.message || "could not load"}`);
+                    // Pasa por readState, que es quien sabe validar el estado.
+                    dataW.value = JSON.stringify({ ...r.data, open: self.asdOpen, project: r.project });
+                    readState();
+                    for (const k of STATE_WIDGETS) {
+                        const w = self.widgets?.find(x => x.name === k);
+                        const v = r.data.widgets?.[k];
+                        if (w && v !== undefined && v !== null) w.value = v;
+                    }
+                    commit();
+                    syncIfChanged();
+                    note(r.missing?.length
+                        ? `⚠ loaded, file missing in slot(s) ${r.missing.join(", ")}`
+                        : `✔ loaded ${r.project}`, r.missing?.length ? 8000 : 4000);
+                } catch (e) {
+                    note("⚠ no answer from the server");
+                }
+            };
+
+            // El menu cuelga de document.body: dentro del panel lo recortaria
+            // el overflow del widget DOM.
+            let menu = null;
+            const outside = (e) => {
+                if (menu && !menu.contains(e.target) && e.target !== loadBtn) closeMenu();
+            };
+            const closeMenu = () => {
+                menu?.remove();
+                menu = null;
+                document.removeEventListener("mousedown", outside, true);
+            };
+
+            const openLoadMenu = async () => {
+                if (menu) return closeMenu();
+                let projects = [];
+                try { projects = (await getJSON("/academia/multiref/list")).projects || []; } catch (e) {}
+                menu = document.createElement("div");
+                menu.style.cssText = "position:fixed; z-index:10000; background:#1b1b1b;"
+                    + "border:1px solid #4a4a4a; border-radius:6px; padding:4px; max-height:280px;"
+                    + "overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.65); font-family:sans-serif;";
+                if (!projects.length) {
+                    const empty = document.createElement("div");
+                    empty.style.cssText = "padding:6px 10px; color:#777; font-size:12px;";
+                    empty.textContent = "no saved projects";
+                    menu.appendChild(empty);
+                }
+                for (const p of projects) {
+                    const row = document.createElement("div");
+                    row.style.cssText = "padding:6px 10px; color:#ddd; font-size:12px; cursor:pointer; border-radius:4px;";
+                    row.textContent = `📂 ${p}`;
+                    row.onmouseover = () => (row.style.background = "#33415e");
+                    row.onmouseout = () => (row.style.background = "transparent");
+                    row.addEventListener("click", () => { closeMenu(); loadProject(p); });
+                    menu.appendChild(row);
+                }
+                menu.addEventListener("wheel", (e) => e.stopPropagation());
+                const r = loadBtn.getBoundingClientRect();
+                menu.style.left = `${r.left}px`;
+                menu.style.top = `${r.bottom + 4}px`;
+                menu.style.minWidth = `${Math.max(160, r.width)}px`;
+                document.body.appendChild(menu);
+                document.addEventListener("mousedown", outside, true);
+            };
+
+            // Se borra el proyecto cuyo nombre esta en el campo, el que se esta
+            // mirando. Las imagenes que se anadieron desde otras carpetas no se
+            // tocan; las que el nodo coge de la del proyecto se van con ella.
+            const deleteProject = async () => {
+                const name = self.asdProject.trim();
+                if (!name) return note("⚠ no project name");
+                let info;
+                try {
+                    info = await getJSON(`/academia/multiref/inspect?name=${encodeURIComponent(name)}`);
+                } catch (e) {
+                    return note("⚠ no answer from the server");
+                }
+                if (!info.exists) return note(`⚠ "${name}" is not a saved project`);
+
+                const prefix = `${info.project}/`;
+                const used = self.asdSlots.map((s, i) => (s.file.startsWith(prefix) ? i + 1 : 0)).filter(Boolean);
+                if (!confirm(`Delete project "${info.project}"?\n\n`
+                    + `This removes the folder input/${info.project} and everything in it: `
+                    + `${info.files} file${info.files === 1 ? "" : "s"}, ${readableSize(info.bytes)}.\n`
+                    + (used.length ? `Slot${used.length === 1 ? "" : "s"} ${used.join(", ")} `
+                                   + "use images from this folder and will be emptied.\n" : "")
+                    + "Images added from other folders are not touched.\n\n"
+                    + "There is no undo and nothing goes to the recycle bin.")) return;
+
+                let r;
+                try {
+                    r = await postJSON("/academia/multiref/delete", { name: info.project });
+                } catch (e) {
+                    return note("⚠ no answer from the server");
+                }
+                if (r.status !== "success") return note(`⚠ ${r.message || "could not delete it"}`, 8000);
+                for (const s of self.asdSlots) {
+                    if (s.file.startsWith(prefix)) { s.file = ""; s.on = false; s.ver++; s.nw = s.nh = 0; }
+                }
+                self.asdProject = "";
+                commit();
+                note(`✔ deleted input/${r.project}`);
+            };
+
+            const onClick = (sel, fn) => container.querySelector(sel).addEventListener("click", (e) => {
+                e.stopPropagation();
+                fn();
+            });
+            onClick(".asd-q-psave", saveProject);
+            onClick(".asd-q-pload", openLoadMenu);
+            onClick(".asd-q-pdel", deleteProject);
+
             /* --- alta del widget y tamano --- */
 
-            const domW = this.addDOMWidget("UI", "HTML", container, { margin: 6 });
+            const MARGIN = 6;
+            const domW = this.addDOMWidget("UI", "HTML", container, { margin: MARGIN });
             domW.serialize = false;
             if (domW.options) {
                 domW.options.serialize = false;
                 // Alto exacto por las dos puntas: asi el hueco que reserva
                 // LiteGraph y el que ocupa el panel son el mismo, y el wrapper
                 // nunca sobra por debajo tapando lo que haya bajo el nodo.
-                domW.options.getMinHeight = () => panelHeight();
-                domW.options.getMaxHeight = () => panelHeight();
+                // El margen va dentro de lo reservado: sin sumarlo, plegado
+                // quedaban 12 px para la barra de 20 y salia cortada.
+                domW.options.getMinHeight = () => panelHeight() + MARGIN * 2;
+                domW.options.getMaxHeight = () => panelHeight() + MARGIN * 2;
             }
 
             const fit_ = () => {
-                const need = self.computeSize();
-                self.setSize([Math.max(minWidth(), self.size[0]), need[1]]);
+                const w = Math.max(minWidth(), self.size[0]);
+                self.setSize([w, self.computeSize()[1]]);
+                // computeSize cuenta 4 px por widget que el reparto real no usa,
+                // y quedaba una franja vacia bajo el panel. Se colocan los
+                // widgets y el nodo acaba donde acaba el panel.
+                self.arrange();
+                self.setSize([w, domW.y + domW.computedHeight]);
                 app.graph?.setDirtyCanvas(true, true);
             };
 
@@ -1252,12 +1566,22 @@ app.registerExtension({
             // pad_color hacia que encenderlos no repintara: el tirador seguia
             // oculto y el pie decia "padded" con el outpaint ya encendido,
             // hasta que el lienzo se repintara por cualquier otro motivo.
-            for (const name of ["width", "height", "scale_method", "crop", "pad_color", "outpaint"]) {
+            for (const name of STATE_WIDGETS) {
                 const w = self.widgets?.find(x => x.name === name);
                 if (!w) continue;
                 const prev = w.callback;
                 w.callback = function (...args) {
                     const r = prev?.apply(this, args);
+                    // El outpaint solo existe rellenando: encenderlo es pedir pad,
+                    // y salir de pad lo apaga.
+                    if (name === "outpaint" && w.value) {
+                        const crop = self.widgets?.find(x => x.name === "crop");
+                        if (crop && crop.value !== "pad") crop.value = "pad";
+                    }
+                    if (name === "crop" && w.value !== "pad") {
+                        const out = self.widgets?.find(x => x.name === "outpaint");
+                        if (out?.value) out.value = false;
+                    }
                     syncIfChanged();
                     return r;
                 };
@@ -1269,20 +1593,18 @@ app.registerExtension({
             const onSizes = () => syncIfChanged();
             window.addEventListener("academia:sizes-changed", onSizes);
 
-            // 3) Conectar o soltar un cable cambia de donde sale el tamano, y
-            // tambien que ranuras se ensenan.
+            // 3) Conectar o soltar un cable cambia de donde sale el tamano.
             const originalConn = this.onConnectionsChange;
             this.onConnectionsChange = function (...args) {
                 const r = originalConn?.apply(this, args);
                 syncIfChanged();
-                render();
-                fit_();
                 return r;
             };
 
             const originalRemoved = this.onRemoved;
             this.onRemoved = function () {
                 window.removeEventListener("academia:sizes-changed", onSizes);
+                closeMenu();
                 if (originalRemoved) originalRemoved.apply(this, arguments);
             };
 
@@ -1300,7 +1622,7 @@ app.registerExtension({
             readState();
             render();
             // El tamano inicial se pide tras el primer layout: antes de eso
-            // computeSize() aun no conoce las filas de los doce conectores.
+            // computeSize() aun no conoce las filas de los conectores.
             setTimeout(fit_, 0);
         };
 
@@ -1309,20 +1631,8 @@ app.registerExtension({
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function () {
             if (onConfigure) onConfigure.apply(this, arguments);
-            // configure restaura las salidas copiando indices sobre el array que
-            // ya existe, y NO lo recorta. Un workflow guardado cuando habia doce
-            // ranuras se trae las dos que ya no existen, en rojo y sin nada
-            // detras. Se quitan aqui para no obligar a recrear el nodo a mano.
-            //
-            // Se miran por NOMBRE, no por posicion: contar salidas se cargaria
-            // tambien Reference_active, que va detras de las imagenes.
-            const sobra = (o) => {
-                const m = /^image_(\d+)$/.exec(String(o && o.name || ""));
-                return !!m && Number(m[1]) > SLOTS;
-            };
-            for (let i = (this.outputs ? this.outputs.length : 0) - 1; i >= 0; i--) {
-                if (sobra(this.outputs[i])) this.removeOutput(i);
-            }
+            // configure vuelve a poner las salidas que se guardaron con el nodo.
+            dropOutputs(this);
             setTimeout(() => this.asdRefresh?.(), 32);
         };
     },
