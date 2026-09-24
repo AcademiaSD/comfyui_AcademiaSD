@@ -68,7 +68,7 @@ class AcademiaMultiImageReference:
                 "width": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 8}),
                 "height": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 8}),
                 "scale_method": (SCALE_METHODS, {"default": "lanczos"}),
-                "crop": (CROP_METHODS, {"default": "center"}),
+                "crop": (CROP_METHODS, {"default": "disabled"}),
                 # Solo pinta en modo pad. Admite "#RRGGBB", "RRGGBB", "#RGB" o
                 # los nombres white / black / grey.
                 "pad_color": ("STRING", {"default": "#000000"}),
@@ -270,7 +270,7 @@ class AcademiaMultiImageReference:
         return canvas
 
     def load_references(self, refs_data="", width=0, height=0,
-                        scale_method="lanczos", crop="center",
+                        scale_method="lanczos", crop="disabled",
                         pad_color="#000000", outpaint=False):
         # Una ranura apagada o vacia sale como None, que es exactamente lo que
         # Text Encode Qwen Image 2.1 descarta con su `if image is None: continue`.
@@ -294,7 +294,7 @@ class AcademiaMultiImageReference:
     # --- CACHE Y VALIDACION ---
 
     @classmethod
-    def IS_CHANGED(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="center",
+    def IS_CHANGED(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="disabled",
                    pad_color="#000000", outpaint=False):
         # refs_data ya entra en el hash del prompt, asi que lo unico que hay que
         # detectar aqui es que un FICHERO haya cambiado por fuera sin cambiar de
@@ -314,7 +314,7 @@ class AcademiaMultiImageReference:
         return m.hexdigest()
 
     @classmethod
-    def VALIDATE_INPUTS(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="center",
+    def VALIDATE_INPUTS(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="disabled",
                         pad_color="#000000", outpaint=False):
         # Una referencia que falta NO puede pasar en silencio. Qwen numera las
         # <imageN> por la posicion en la lista ya compactada, asi que perder una
@@ -442,7 +442,8 @@ async def multiref_save(request):
                       "cn": cn if file else None})
 
     content = {"kind": PROJECT_KIND, "version": 1, "project": safe, "slots": slots}
-    for key in ("place", "cropPos", "heroH", "cnRes", "widgets"):
+    # scene: lo que otros nodos Academia guardan con el proyecto (los prompts).
+    for key in ("place", "cropPos", "heroH", "cnRes", "widgets", "scene"):
         if key in state:
             content[key] = state[key]
 
@@ -506,6 +507,23 @@ async def multiref_keepmap(request):
         n += 1
     shutil.copyfile(src, os.path.join(folder, name))
     return web.json_response({"status": "success", "file": rel(name)})
+
+
+@PromptServer.instance.routes.post("/academia/multiref/open")
+async def multiref_open(request):
+    """Abre input/<proyecto> en el explorador. Como en Moviola: solo Windows, y
+    en la maquina que corre ComfyUI, no en la del navegador."""
+    body = await request.json()
+    safe, folder = _project_dir(body.get("name"))
+    if folder is None or _read_project(folder, safe) is None:
+        return _error("Not a saved project -- press Save first")
+    if not hasattr(os, "startfile"):
+        return _error("Opening a folder is Windows only: input/{}".format(safe))
+    try:
+        os.startfile(folder)
+    except OSError as exc:
+        return _error("Could not open input/{}: {}".format(safe, exc.strerror or exc))
+    return web.json_response({"status": "success", "project": safe})
 
 
 @PromptServer.instance.routes.get("/academia/multiref/inspect")

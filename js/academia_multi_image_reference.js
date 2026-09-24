@@ -518,6 +518,9 @@ app.registerExtension({
                 width: 100%; height: 100%; box-sizing: border-box; overflow: hidden;
                 display: flex; flex-direction: column; gap: 4px;
                 font-family: sans-serif; color: #ddd;
+                /* Arrastrar por el panel no es seleccionar una pagina: sin esto
+                   un arrastre fallido pinta de azul las miniaturas y los rotulos. */
+                user-select: none;
             `;
             container.innerHTML = `
                 <style>
@@ -537,6 +540,7 @@ app.registerExtension({
                         border: 1px solid #3d3d3d; border-radius: 4px;
                     }
                     .asd-q-pname:focus { outline: none; border-color: #4a6ee0; }
+                    .asd-q-pname { user-select: text; }
                     .asd-q-pbtn {
                         height: 20px; padding: 0 8px; border: 1px solid #4a4a4a; border-radius: 4px;
                         background: #242424; color: #ccc; font-size: 10px; cursor: pointer; white-space: nowrap;
@@ -720,6 +724,8 @@ app.registerExtension({
                     <button class="asd-q-pbtn asd-q-psave"
                             title="Copy the references into input/&lt;name&gt; and save the node state there">&#128190; Save</button>
                     <button class="asd-q-pbtn asd-q-pload" title="Load a saved project">&#128194; Load</button>
+                    <button class="asd-q-pbtn asd-q-popen"
+                            title="Open input/&lt;name&gt; in the file explorer (Windows, on the machine running ComfyUI)">&#128449; Open</button>
                     <button class="asd-q-pbtn del asd-q-pdel"
                             title="Delete the folder input/&lt;name&gt; and everything in it">&#128465; Delete</button>
                     <span class="asd-q-pnote"></span>
@@ -1127,7 +1133,7 @@ app.registerExtension({
                 return (w && h) ? [w, h] : 0;
             };
 
-            const cropMode = () => self.widgets?.find(x => x.name === "crop")?.value || "center";
+            const cropMode = () => self.widgets?.find(x => x.name === "crop")?.value || "disabled";
             const padColor = () => cssColor(self.widgets?.find(x => x.name === "pad_color")?.value);
             const outpaintOn = () => !!self.widgets?.find(x => x.name === "outpaint")?.value;
 
@@ -1687,6 +1693,38 @@ app.registerExtension({
             // Lo que se teclea es del campo, no de los atajos del grafo.
             pname.addEventListener("keydown", (e) => e.stopPropagation());
 
+            // La escena: lo que otros nodos Academia guardan con el proyecto
+            // (hoy los prompts). Cada uno entrega y recoge lo suyo por evento, y
+            // se le reconoce por tipo y titulo; este nodo no sabe nada de ellos.
+            const collectScene = () => {
+                const scene = [];
+                window.dispatchEvent(new CustomEvent("academia:project-collect", { detail: {
+                    add: (node, data) => {
+                        if (node.graph) scene.push({ type: node.type, title: node.title, data });
+                    },
+                } }));
+                return scene;
+            };
+
+            const applyScene = (scene) => {
+                const left = (Array.isArray(scene) ? scene : []).filter(p => p && typeof p === "object");
+                let applied = 0;
+                window.dispatchEvent(new CustomEvent("academia:project-apply", { detail: {
+                    take: (node) => {
+                        let i = left.findIndex(p => p.type === node.type && p.title === node.title);
+                        // Renombrado: vale si es el unico de su tipo aqui y alli.
+                        const alone = (node.graph?._nodes || []).filter(n => n.type === node.type).length === 1;
+                        if (i < 0 && alone && left.filter(p => p.type === node.type).length === 1) {
+                            i = left.findIndex(p => p.type === node.type);
+                        }
+                        if (i < 0) return null;
+                        applied++;
+                        return left.splice(i, 1)[0].data;
+                    },
+                } }));
+                return applied;
+            };
+
             const saveProject = async () => {
                 const name = self.asdProject.trim();
                 if (!name) return note("⚠ name the project first");
@@ -1702,6 +1740,7 @@ app.registerExtension({
                             cropPos: self.asdCropPos,
                             heroH: self.asdHeroH,
                             cnRes: self.asdCnRes,
+                            scene: collectScene(),
                             widgets: Object.fromEntries(STATE_WIDGETS.map(
                                 k => [k, self.widgets?.find(w => w.name === k)?.value])),
                         },
@@ -1730,9 +1769,12 @@ app.registerExtension({
                     }
                     commit();
                     syncIfChanged();
+                    const scene = applyScene(r.data.scene);
+                    app.graph?.setDirtyCanvas(true, true);
+                    const extra = scene ? ` + ${scene} node${scene === 1 ? "" : "s"}` : "";
                     note(r.missing?.length
-                        ? `⚠ loaded, file missing in slot(s) ${r.missing.join(", ")}`
-                        : `✔ loaded ${r.project}`, r.missing?.length ? 8000 : 4000);
+                        ? `⚠ loaded${extra}, file missing in slot(s) ${r.missing.join(", ")}`
+                        : `✔ loaded ${r.project}${extra}`, r.missing?.length ? 8000 : 4000);
                 } catch (e) {
                     note("⚠ no answer from the server");
                 }
@@ -1833,6 +1875,16 @@ app.registerExtension({
             });
             onClick(".asd-q-psave", saveProject);
             onClick(".asd-q-pload", openLoadMenu);
+            onClick(".asd-q-popen", async () => {
+                const name = self.asdProject.trim();
+                if (!name) return note("⚠ no project name");
+                try {
+                    const r = await postJSON("/academia/multiref/open", { name });
+                    note(r.status === "success" ? `✔ opened input/${r.project}` : `⚠ ${r.message}`, 6000);
+                } catch (e) {
+                    note(`⚠ ${e.message}`);
+                }
+            });
             onClick(".asd-q-pdel", deleteProject);
 
             /* --- alta del widget y tamano --- */
