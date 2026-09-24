@@ -1036,10 +1036,15 @@ app.registerExtension({
             // sobre otra ranura. Las miniaturas ya estan descargadas, asi que la
             // misma URL sale de la cache y no cuesta una peticion por tarjeta;
             // los 120 ms son solo para que barrer la rejilla no parpadee.
+            // Solo la foto la dispara, no la barra: ahi estan los botones.
+            // Quitarla tambien espera: dentro del lienzo el navegador puede
+            // avisar de salir y volver a entrar varias veces seguidas, y
+            // ocultarla en el acto hacia parpadear el recuadro de la imagen 1.
             let peekTimer = null;
+            let peekIdx = -1;
             const peek = document.createElement("div");
             peek.style.cssText = `
-                position: absolute; inset: 0; z-index: 3; display: none;
+                position: absolute; inset: 0; z-index: 3; display: none; pointer-events: none;
                 background: ${VOID}; align-items: center; justify-content: center;
             `;
             const peekImg = document.createElement("img");
@@ -1055,18 +1060,23 @@ app.registerExtension({
 
             const showPeek = (idx) => {
                 clearTimeout(peekTimer);
+                if (peekIdx === idx) return;             // ya la esta ensenando
                 peekTimer = setTimeout(() => {
                     const slot = self.asdSlots[idx];
-                    if (!slot.file || !self.asdHeroCardEl) return;
+                    // Sin imagen 1 en su sitio esta el "+ image 1", que no hace
+                    // de caja: la vista previa se salia y tapaba el panel entero.
+                    if (!slot.file || !self.asdSlots[HERO].file || !self.asdHeroCardEl) return;
                     peekImg.src = viewURL(shownFile(slot), slot.ver);
                     peekTag.textContent = `slot ${idx + 1}`;
                     self.asdHeroCardEl.appendChild(peek);
                     peek.style.display = "flex";
+                    peekIdx = idx;
                 }, 120);
             };
-            const hidePeek = () => {
+            const hidePeek = (now) => {
                 clearTimeout(peekTimer);
-                peek.style.display = "none";
+                const hide = () => { peek.style.display = "none"; peekIdx = -1; };
+                if (now === true) hide(); else peekTimer = setTimeout(hide, 150);
             };
 
             /* --- tamano de salida de la imagen 1 --- */
@@ -1473,8 +1483,8 @@ app.registerExtension({
 
                     self.asdHero = { img, fit, place, shot, crop: cropEl, handle, cap };
                 } else {
-                    card.addEventListener("mouseenter", () => showPeek(idx));
-                    card.addEventListener("mouseleave", hidePeek);
+                    shot.addEventListener("mouseenter", () => showPeek(idx));
+                    shot.addEventListener("mouseleave", () => hidePeek());
                 }
 
                 dropTarget(card, idx);
@@ -1562,7 +1572,7 @@ app.registerExtension({
                 projEl.style.display = self.asdOpen ? "flex" : "none";
                 if (document.activeElement !== pname) pname.value = self.asdProject;
                 lightbox.style.display = "none";
-                hidePeek();
+                hidePeek(true);             // las tarjetas se rehacen: nada que esperar
                 if (!self.asdOpen) return;
 
                 grid.replaceChildren();
