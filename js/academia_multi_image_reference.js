@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js";
 
 // Vale para cualquier modelo que coma varias imagenes de referencia; Qwen Image
 // 2.1 es solo el primero. Por eso ni el nodo ni este fichero llevan su nombre.
@@ -119,12 +120,104 @@ async function uploadImage(file) {
     return data.subfolder ? `${data.subfolder}/${data.name}` : data.name;
 }
 
-const getJSON = async (url) => (await fetch(url)).json();
-const postJSON = async (url, data) => (await fetch(url, {
+// Un 404 llega como texto, no como JSON: sin esto el aviso seria un error de
+// lectura en vez de decir que falta la ruta (ComfyUI sin reiniciar).
+const readJSON = async (resp) => {
+    if (!resp.headers.get("content-type")?.includes("json")) {
+        throw new Error(`${resp.status} ${resp.statusText} — restart ComfyUI?`);
+    }
+    return resp.json();
+};
+const getJSON = async (url) => readJSON(await fetch(url));
+const postJSON = async (url, data) => readJSON(await fetch(url, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data),
-})).json();
+}));
 
 const readableSize = (b) => b < 1024 * 1024 ? `${Math.ceil(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+
+/* --- mapas de ControlNet --- */
+
+// Lo que ofrece el boton CN. Son nodos de comfyui_controlnet_aux: anadir uno es
+// anadir una linea, con el nodo y el sufijo que lleva el fichero del mapa. Los
+// que no esten instalados no salen.
+const CN_PROCESSORS = [
+    { label: "Canny", node: "CannyEdgePreprocessor", suffix: "canny" },
+    { label: "Depth", node: "DepthAnythingV2Preprocessor", suffix: "depth" },
+    { label: "Pose", node: "DWPreprocessor", suffix: "pose" },
+    { label: "Lineart", node: "AnyLineArtPreprocessor_aux", suffix: "lineart" },
+    { label: "Soft edge", node: "TEEDPreprocessor", suffix: "softedge" },
+    { label: "Scribble", node: "Scribble_PiDiNet_Preprocessor", suffix: "scribble" },
+    { label: "Normal", node: "DSINE-NormalMapPreprocessor", suffix: "normal" },
+    { label: "Segmentation", node: "OneFormer-ADE20K-SemSegPreprocessor", suffix: "seg" },
+    { label: "MLSD", node: "M-LSDPreprocessor", suffix: "mlsd" },
+];
+const CN_BY_NODE = Object.fromEntries(CN_PROCESSORS.map(p => [p.node, p]));
+const CN_COLOR = "#6d4bc4";
+const CN_RES = { min: 64, max: 16384, def: 1024 };
+
+// Lo que se ensena y lo que sale por la ranura: el mapa si esta encendido.
+const shownFile = (slot) => (slot.cn?.on && slot.cn.map ? slot.cn.map : slot.file);
+
+// Los parametros de cada procesador salen de su propia definicion, asi que el
+// formulario siempre coincide con la version instalada.
+const cnSpecs = new Map();
+const cnSpec = async (node) => {
+    if (!cnSpecs.has(node)) {
+        const def = (await (await api.fetchApi(`/object_info/${encodeURIComponent(node)}`)).json())[node];
+        cnSpecs.set(node, { ...def.input.required, ...(def.input.optional || {}) });
+    }
+    return cnSpecs.get(node);
+};
+
+// Un mapa se genera con un prompt de tres nodos que no tiene nada que ver con
+// el workflow. Su final llega por el websocket, y puede llegar antes que la
+// respuesta del POST que lo encola: se apunta por si alguien lo pide despues.
+const cnWaiters = new Map();
+const cnEnded = new Map();
+for (const ev of ["execution_success", "execution_error", "execution_interrupted"]) {
+    api.addEventListener(ev, ({ detail }) => {
+        const id = detail?.prompt_id;
+        if (!id) return;
+        const waiter = cnWaiters.get(id);
+        if (waiter) {
+            cnWaiters.delete(id);
+            waiter({ ev, detail });
+            return;
+        }
+        cnEnded.set(id, { ev, detail });
+        if (cnEnded.size > 64) cnEnded.delete(cnEnded.keys().next().value);
+    });
+}
+const cnWait = (id) => new Promise((resolve) => {
+    const done = cnEnded.get(id);
+    if (done) { cnEnded.delete(id); resolve(done); } else cnWaiters.set(id, resolve);
+});
+
+// Genera el mapa de `file` y lo deja junto a el en input/. Devuelve su ruta.
+async function generateMap(file, proc, params, resolution, replace) {
+    const prompt = {
+        "1": { class_type: "LoadImage", inputs: { image: file } },
+        "2": { class_type: proc.node, inputs: { ...params, image: ["1", 0], resolution } },
+        "3": { class_type: "PreviewImage", inputs: { images: ["2", 0] } },
+    };
+    const resp = await api.fetchApi("/prompt", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, client_id: api.clientId }),
+    });
+    const queued = await resp.json();
+    if (!resp.ok) {
+        const nodeErr = Object.values(queued.node_errors || {})[0]?.errors?.[0];
+        throw new Error(nodeErr ? `${nodeErr.message}: ${nodeErr.details}` : queued.error?.message || "not queued");
+    }
+    const { ev, detail } = await cnWait(queued.prompt_id);
+    if (ev !== "execution_success") throw new Error(detail.exception_message || "interrupted");
+    const hist = await (await api.fetchApi(`/history/${queued.prompt_id}`)).json();
+    const image = hist[queued.prompt_id]?.outputs?.["3"]?.images?.[0];
+    if (!image) throw new Error("the processor gave no image");
+    const kept = await postJSON("/academia/multiref/keepmap", { image, source: file, suffix: proc.suffix, replace });
+    if (kept.status !== "success") throw new Error(kept.message || "could not keep the map");
+    return kept.file;
+}
 
 // Out encuentra su Multi Image Reference por el TITULO, como Image Save & Send.
 // Renombrando el nodo principal caben varios en el mismo workflow.
@@ -213,8 +306,10 @@ app.registerExtension({
             // proporcion de la zona de trabajo sale de ahi: sin ellos, cada vez
             // que se rehace la tarjeta hay un frame en que naturalWidth aun no
             // existe, la caja adivina otra forma y se ve el estiron.
+            // cn es el mapa de ControlNet de esa imagen: {proc, params, map, on}.
+            // nw y nh son siempre de lo que se ensena, el mapa o la imagen.
             self.asdSlots = Array.from({ length: SLOTS },
-                () => ({ file: "", on: false, ver: 0, nw: 0, nh: 0 }));
+                () => ({ file: "", on: false, ver: 0, nw: 0, nh: 0, cn: null }));
             self.asdCards = {};      // los elementos vivos de cada ranura
             self.asdGridEls = {};    // la celda de cada ranura
             self.asdRowEls = [];     // la caja de cada fila
@@ -228,15 +323,20 @@ app.registerExtension({
             self.asdCropPos = { x: 0.5, y: 0.5 };
             // Nombre del proyecto: la carpeta input/<nombre> de Save/Load/Delete.
             self.asdProject = "";
+            // Resolucion a la que se generan los mapas, la misma para todo el nodo.
+            self.asdCnRes = CN_RES.def;
 
             // Lo que otro nodo puede preguntarle a este. Resolution Calc lo usa,
             // a traves de Out, en "Get Size from Image": cada salida sirve un
             // fichero distinto, asi que hay que decir cual segun por donde salga
             // el cable.
-            self.asdRefFileForOutput = (slotIndex) => self.asdSlots?.[slotIndex]?.file || null;
+            self.asdRefFileForOutput = (slotIndex) => {
+                const slot = self.asdSlots?.[slotIndex];
+                return slot ? shownFile(slot) || null : null;
+            };
             // La de la ranura 1, que es la que fija el lienzo. Resolution Calc
             // la pide mirando hacia delante, sin necesidad de un cable de vuelta.
-            self.asdPrimaryRefFile = () => self.asdSlots?.[HERO]?.file || null;
+            self.asdPrimaryRefFile = () => self.asdRefFileForOutput(HERO);
 
             // Lo que usa Image Save & Send para devolver aqui una imagen recien
             // generada y poder seguir iterando sobre ella. Por defecto entra en
@@ -250,6 +350,7 @@ app.registerExtension({
                 slot.on = true;      // te la mandan para usarla
                 slot.ver++;          // que el navegador no reutilice la miniatura vieja
                 slot.nw = slot.nh = 0;   // otra imagen, otro tamano
+                slot.cn = null;      // el mapa era de la imagen anterior
                 commit();
                 return true;
             };
@@ -274,18 +375,27 @@ app.registerExtension({
                     // machacarlo.
                     const prev = self.asdSlots || [];
                     self.asdSlots = Array.from({ length: SLOTS }, (_, i) => {
-                        const file = String(slots[i]?.file || "");
-                        const same = file && prev[i]?.file === file;
-                        return {
-                            file,
+                        const c = slots[i]?.cn;
+                        const slot = {
+                            file: String(slots[i]?.file || ""),
                             on: !!slots[i]?.on,
-                            ver: 0,
-                            nw: same ? (prev[i].nw || 0) : 0,
-                            nh: same ? (prev[i].nh || 0) : 0,
+                            ver: 0, nw: 0, nh: 0,
+                            cn: c && typeof c === "object" && CN_BY_NODE[c.proc] ? {
+                                proc: c.proc,
+                                params: c.params && typeof c.params === "object" ? c.params : {},
+                                map: String(c.map || ""),
+                                on: !!c.on,
+                            } : null,
                         };
+                        if (slot.file && prev[i] && shownFile(prev[i]) === shownFile(slot)) {
+                            slot.nw = prev[i].nw || 0;
+                            slot.nh = prev[i].nh || 0;
+                        }
+                        return slot;
                     });
                     if (typeof parsed.open === "boolean") self.asdOpen = parsed.open;
                     if (typeof parsed.project === "string") self.asdProject = parsed.project;
+                    if (parsed.cnRes) self.asdCnRes = clamp(parsed.cnRes, CN_RES.min, CN_RES.max);
                     if (parsed.heroH) self.asdHeroH = clamp(parsed.heroH, HERO_H.min, HERO_H.max);
                     const cp = parsed.cropPos;
                     if (cp && typeof cp === "object") {
@@ -307,10 +417,11 @@ app.registerExtension({
                 dataW.value = JSON.stringify({
                     open: self.asdOpen,
                     project: self.asdProject,
+                    cnRes: self.asdCnRes,
                     heroH: self.asdHeroH,
                     place: self.asdPlace,
                     cropPos: self.asdCropPos,
-                    slots: self.asdSlots.map(s => ({ file: s.file, on: s.on })),
+                    slots: self.asdSlots.map(s => ({ file: s.file, on: s.on, cn: s.cn })),
                 });
             };
 
@@ -326,6 +437,13 @@ app.registerExtension({
                 let n = 0;
                 for (let i = 0; i < SLOTS; i++) if (isActive(self.asdSlots[i])) tags[i] = ++n;
                 return tags;
+            };
+
+            // Con el mapa encendido el rotulo dice cual: lo que sale ya no es la foto.
+            const tagText = (i, tag) => {
+                const s = self.asdSlots[i];
+                const map = s.cn?.on && s.cn.map ? ` ${CN_BY_NODE[s.cn.proc].suffix}` : "";
+                return (isActive(s) ? `<image${tag}>` : `${i + 1} off`) + map;
             };
 
             // La rejilla: todas menos la 1, que va aparte en grande.
@@ -539,6 +657,8 @@ app.registerExtension({
                     .asd-q-btn:hover { border-color: #999; background: #333; }
                     .asd-q-btn.on  { background: ${GREEN}; border-color: ${GREEN}; color: #fff; }
                     .asd-q-btn.off { background: ${RED}; border-color: ${RED}; color: #fff; }
+                    .asd-q-btn.cn { width: auto; padding: 0 2px; font-weight: bold; }
+                    .asd-q-btn.cn.lit { background: ${CN_COLOR}; border-color: ${CN_COLOR}; color: #fff; }
 
                     .asd-q-name {
                         flex: 0 0 auto; padding: 1px 4px; background: #1b1b1b; color: #99a0a8;
@@ -646,6 +766,8 @@ app.registerExtension({
                     slot.file = name;
                     slot.on = true;                  // cargar una imagen es querer usarla
                     slot.ver++;
+                    slot.nw = slot.nh = 0;
+                    slot.cn = null;
                     commit();
                 } catch (e) {
                     console.error("[MultiImageReference] upload failed:", e);
@@ -659,6 +781,7 @@ app.registerExtension({
                 slot.file = "";
                 slot.on = false;
                 slot.ver++;
+                slot.cn = null;
                 commit();
             };
 
@@ -686,18 +809,195 @@ app.registerExtension({
             };
 
             // La misma imagen en la siguiente ranura vacia, dando la vuelta, y
-            // encendida. El fichero propio lo hace Save project.
+            // encendida. Se copia la ORIGINAL: el mapa se genera aparte si hace
+            // falta. El fichero propio lo hace Save project.
             const copySlot = (idx) => {
                 for (let k = 1; k < SLOTS; k++) {
                     const j = (idx + k) % SLOTS;
                     const dst = self.asdSlots[j];
                     if (dst.file) continue;
                     const src = self.asdSlots[idx];
-                    Object.assign(dst, { file: src.file, on: true, ver: dst.ver + 1, nw: src.nw, nh: src.nh });
+                    Object.assign(dst, { file: src.file, on: true, ver: dst.ver + 1, nw: 0, nh: 0, cn: null });
                     commit();
                     return;
                 }
                 note("⚠ no empty slot");
+            };
+
+            /* --- menu CN: mapa de ControlNet de una ranura --- */
+
+            // Cuelga de document.body, como el de Load: dentro del panel lo
+            // recortaria el overflow del widget DOM.
+            let cnPop = null;
+            const outsideCN = (e) => { if (cnPop && !cnPop.contains(e.target)) closeCN(); };
+            const closeCN = () => {
+                cnPop?.remove();
+                cnPop = null;
+                document.removeEventListener("mousedown", outsideCN, true);
+            };
+
+            // Un campo por cada entrada del procesador que sea un ajuste:
+            // numeros, listas e interruptores. image y resolution los pone el nodo.
+            const cnField = (name, spec, params) => {
+                const [type, opt = {}] = spec;
+                const values = Array.isArray(type) ? type : (type === "COMBO" ? opt.options : null);
+                let input;
+                if (values) {
+                    input = document.createElement("select");
+                    for (const v of values) input.add(new Option(v, v));
+                    input.value = params[name] ?? opt.default ?? values[0];
+                    input.onchange = () => { params[name] = input.value; };
+                } else if (type === "INT" || type === "FLOAT") {
+                    input = document.createElement("input");
+                    input.type = "number";
+                    for (const k of ["min", "max", "step"]) if (opt[k] !== undefined) input[k] = opt[k];
+                    input.value = params[name] ?? opt.default ?? 0;
+                    input.onchange = () => { params[name] = Number(input.value); };
+                } else if (type === "BOOLEAN") {
+                    input = document.createElement("input");
+                    input.type = "checkbox";
+                    input.checked = !!(params[name] ?? opt.default);
+                    input.onchange = () => { params[name] = input.checked; };
+                } else {
+                    return null;
+                }
+                // Lo que no se toque sale con su valor por defecto.
+                if (params[name] === undefined) params[name] = values ? input.value : type === "BOOLEAN" ? input.checked : Number(input.value);
+                const row = document.createElement("label");
+                row.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:8px; margin:3px 0;";
+                const txt = document.createElement("span");
+                txt.textContent = name.replace(/_/g, " ");
+                input.style.cssText = "width:150px; background:#141414; color:#ddd; border:1px solid #444; border-radius:3px; font-size:11px;";
+                if (type === "BOOLEAN") input.style.width = "auto";
+                row.append(txt, input);
+                return row;
+            };
+
+            const openCN = async (idx, anchor) => {
+                const again = cnPop?.dataset.slot === String(idx);
+                closeCN();
+                if (again) return;
+                const slot = self.asdSlots[idx];
+
+                cnPop = document.createElement("div");
+                cnPop.dataset.slot = String(idx);
+                cnPop.style.cssText = "position:fixed; z-index:10000; width:300px; background:#1b1b1b;"
+                    + "border:1px solid #4a4a4a; border-radius:6px; padding:8px 10px;"
+                    + "box-shadow:0 8px 24px rgba(0,0,0,.65); font:11px sans-serif; color:#ccc;";
+                // Las teclas y la rueda son del menu, no del grafo.
+                for (const ev of ["keydown", "wheel"]) cnPop.addEventListener(ev, (e) => e.stopPropagation());
+                const r = anchor.getBoundingClientRect();
+                cnPop.style.left = `${Math.min(r.left, window.innerWidth - 320)}px`;
+                cnPop.style.top = `${r.bottom + 4}px`;
+                document.body.appendChild(cnPop);
+                document.addEventListener("mousedown", outsideCN, true);
+
+                const head = document.createElement("div");
+                head.style.cssText = "font-weight:bold; color:#ddd; margin-bottom:6px;";
+                head.textContent = `ControlNet map · slot ${idx + 1}`;
+                cnPop.appendChild(head);
+
+                const avail = CN_PROCESSORS.filter(p => LiteGraph.registered_node_types[p.node]);
+                if (!avail.length) {
+                    const msg = document.createElement("div");
+                    msg.textContent = "ControlNet maps need comfyui_controlnet_aux. Install it from ComfyUI Manager.";
+                    cnPop.appendChild(msg);
+                    return;
+                }
+
+                const status = document.createElement("div");
+                status.style.cssText = "min-height:14px; margin-top:6px; color:#9aa0a6;";
+                const say = (t) => { if (status.isConnected) status.textContent = t; };
+
+                // Mapa o imagen: se cambia sin generar nada.
+                if (slot.cn?.map) {
+                    const sw = document.createElement("button");
+                    sw.className = "asd-q-pbtn";
+                    sw.style.cssText = "width:100%; margin-bottom:6px;";
+                    sw.textContent = slot.cn.on
+                        ? `Showing the ${CN_BY_NODE[slot.cn.proc].label} map — switch to the image`
+                        : `Showing the image — switch to the ${CN_BY_NODE[slot.cn.proc].label} map`;
+                    sw.onclick = () => {
+                        slot.cn.on = !slot.cn.on;
+                        slot.ver++;
+                        slot.nw = slot.nh = 0;
+                        closeCN();
+                        commit();
+                    };
+                    cnPop.appendChild(sw);
+                }
+
+                const pick = document.createElement("select");
+                pick.style.cssText = "width:100%; background:#141414; color:#ddd; border:1px solid #444; border-radius:3px; font-size:11px; margin-bottom:4px;";
+                for (const p of avail) pick.add(new Option(p.label, p.node));
+                pick.value = avail.some(p => p.node === slot.cn?.proc) ? slot.cn.proc : avail[0].node;
+                cnPop.appendChild(pick);
+
+                const fields = document.createElement("div");
+                cnPop.appendChild(fields);
+                let params = {};
+                const showFields = async () => {
+                    fields.replaceChildren();
+                    params = { ...(slot.cn?.proc === pick.value ? slot.cn.params : {}) };
+                    try {
+                        const spec = await cnSpec(pick.value);
+                        for (const [name, s] of Object.entries(spec)) {
+                            if (name === "image" || name === "resolution") continue;
+                            const row = cnField(name, s, params);
+                            if (row) fields.appendChild(row);
+                        }
+                    } catch (e) {
+                        say("⚠ could not read the processor settings");
+                    }
+                };
+                pick.onchange = showFields;
+                await showFields();
+
+                const resRow = document.createElement("label");
+                resRow.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 3px; padding-top:6px; border-top:1px solid #333;";
+                const resIn = document.createElement("input");
+                resIn.type = "number";
+                resIn.min = CN_RES.min; resIn.max = CN_RES.max; resIn.step = 64;
+                resIn.value = self.asdCnRes;
+                resIn.style.cssText = "width:150px; background:#141414; color:#ddd; border:1px solid #444; border-radius:3px; font-size:11px;";
+                resIn.onchange = () => {
+                    self.asdCnRes = clamp(resIn.value, CN_RES.min, CN_RES.max);
+                    resIn.value = self.asdCnRes;
+                    writeState();
+                };
+                resRow.append(Object.assign(document.createElement("span"),
+                    { textContent: "resolution (all slots)" }), resIn);
+                cnPop.appendChild(resRow);
+
+                const go = document.createElement("button");
+                go.className = "asd-q-pbtn";
+                go.style.cssText = `width:100%; margin-top:4px; background:${CN_COLOR}; border-color:${CN_COLOR}; color:#fff;`;
+                go.textContent = "Generate map";
+                go.onclick = async () => {
+                    const proc = CN_BY_NODE[pick.value];
+                    const source = slot.file;
+                    const used = { ...params };
+                    go.disabled = true;
+                    say("queued … (the first run downloads the model)");
+                    try {
+                        const map = await generateMap(source, proc, used, self.asdCnRes, slot.cn?.map || "");
+                        // Mientras tanto la ranura ha podido cambiar de imagen:
+                        // ese mapa ya no es de nadie.
+                        if (slot.file !== source) return;
+                        slot.cn = { proc: proc.node, params: used, map, on: true };
+                        slot.ver++;
+                        slot.nw = slot.nh = 0;
+                        closeCN();
+                        commit();
+                        note(`✔ ${proc.label} map for slot ${self.asdSlots.indexOf(slot) + 1}`);
+                    } catch (e) {
+                        go.disabled = false;
+                        say(`⚠ ${e.message}`);
+                        note(`⚠ ${proc.label} map: ${e.message}`, 8000);
+                    }
+                };
+                cnPop.appendChild(go);
+                cnPop.appendChild(status);
             };
 
             // Arrastrar una ranura sobre otra. Lleva el id del nodo: soltarla en
@@ -755,8 +1055,8 @@ app.registerExtension({
             const openLightbox = (idx) => {
                 const slot = self.asdSlots[idx];
                 if (!slot.file) return;
-                lbImg.src = viewURL(slot.file, slot.ver);
-                lbCap.textContent = `slot ${idx + 1} · ${slot.file}`;
+                lbImg.src = viewURL(shownFile(slot), slot.ver);
+                lbCap.textContent = `slot ${idx + 1} · ${shownFile(slot)}`;
                 lightbox.style.display = "flex";
             };
 
@@ -786,7 +1086,7 @@ app.registerExtension({
                 peekTimer = setTimeout(() => {
                     const slot = self.asdSlots[idx];
                     if (!slot.file || !self.asdHeroCardEl) return;
-                    peekImg.src = viewURL(slot.file, slot.ver);
+                    peekImg.src = viewURL(shownFile(slot), slot.ver);
                     peekTag.textContent = `slot ${idx + 1}`;
                     self.asdHeroCardEl.appendChild(peek);
                     peek.style.display = "flex";
@@ -921,7 +1221,7 @@ app.registerExtension({
                                 : "padded \u00b7 nothing lost";
                 }
                 hero.cap.textContent = `${line1}\n${line2}`;
-                hero.cap.title = `${slot.file}\n${line1} \u00b7 ${line2}`;
+                hero.cap.title = `${shownFile(slot)}\n${line1} \u00b7 ${line2}`;
             };
 
             /* --- colocar la imagen a mano (outpaint) --- */
@@ -1057,7 +1357,7 @@ app.registerExtension({
                 tagEl.className = "asd-q-tag" + (on ? "" : " muted");
                 // Apagada no tiene etiqueta que ensenar, porque no llega al
                 // encoder: se pone el numero de ranura para saber cual es.
-                tagEl.textContent = on ? `<image${tag}>` : `${idx + 1} off`;
+                tagEl.textContent = tagText(idx, tag);
                 if (big) tagEl.style.fontSize = "11px";
                 bar.appendChild(tagEl);
 
@@ -1075,6 +1375,9 @@ app.registerExtension({
                                               : "Bypassed - click to activate",
                                  on ? "on" : "off", () => toggleSlot(idx));
                 btns.appendChild(power);
+                const cnBtn = mk("CN", "ControlNet map: pick a processor, generate, or switch back to the image",
+                                 "cn" + (slot.cn?.on && slot.cn.map ? " lit" : ""), () => openCN(idx, cnBtn));
+                btns.appendChild(cnBtn);
                 if (!big) btns.appendChild(mk("&#10548;", "Send to <image1> (swap with slot 1)", "",
                                              () => swapSlots(idx, HERO)));
                 btns.appendChild(mk("&#10697;", "Copy to the next empty slot", "", () => copySlot(idx)));
@@ -1115,7 +1418,7 @@ app.registerExtension({
                 const shot = document.createElement("div");
                 shot.className = "asd-q-shot";
                 const img = document.createElement("img");
-                img.src = viewURL(slot.file, slot.ver);
+                img.src = viewURL(shownFile(slot), slot.ver);
                 // NADA de loading="lazy". Son miniaturas locales, no ahorra nada, y
                 // paintHero no puede pintar el recuadro hasta que la imagen haya
                 // cargado: si el navegador decide que el panel no se ve -- al
@@ -1149,7 +1452,7 @@ app.registerExtension({
                     };
                     img.addEventListener("load", onLoad);
                     img.addEventListener("error", () => {
-                        console.warn("[MultiImageReference] no se pudo cargar", slot.file);
+                        console.warn("[MultiImageReference] no se pudo cargar", shownFile(slot));
                     });
                     if (img.complete) onLoad();
                     // decode() resuelve tambien cuando el load ya paso de largo.
@@ -1193,7 +1496,7 @@ app.registerExtension({
 
                     const cap = document.createElement("div");
                     cap.className = "asd-q-name hero";
-                    cap.textContent = slot.file;
+                    cap.textContent = shownFile(slot);
                     card.appendChild(cap);
 
                     self.asdHero = { img, fit, place, shot, crop: cropEl, handle, cap };
@@ -1267,7 +1570,7 @@ app.registerExtension({
                     ref.card.classList.toggle("off", !on);
                     ref.card.style.borderColor = on ? GREEN : RED;
                     ref.tag.className = "asd-q-tag" + (on ? "" : " muted");
-                    ref.tag.textContent = on ? `<image${tags[i]}>` : `${i + 1} off`;
+                    ref.tag.textContent = tagText(i, tags[i]);
                     ref.power.className = "asd-q-btn " + (on ? "on" : "off");
                     ref.power.title = on ? "Active - click to bypass this slot"
                                          : "Bypassed - click to activate";
@@ -1394,10 +1697,11 @@ app.registerExtension({
                     const r = await postJSON("/academia/multiref/save", {
                         name,
                         state: {
-                            slots: self.asdSlots.map(s => ({ file: s.file, on: s.on })),
+                            slots: self.asdSlots.map(s => ({ file: s.file, on: s.on, cn: s.cn })),
                             place: self.asdPlace,
                             cropPos: self.asdCropPos,
                             heroH: self.asdHeroH,
+                            cnRes: self.asdCnRes,
                             widgets: Object.fromEntries(STATE_WIDGETS.map(
                                 k => [k, self.widgets?.find(w => w.name === k)?.value])),
                         },
@@ -1493,12 +1797,13 @@ app.registerExtension({
                 if (!info.exists) return note(`⚠ "${name}" is not a saved project`);
 
                 const prefix = `${info.project}/`;
-                const used = self.asdSlots.map((s, i) => (s.file.startsWith(prefix) ? i + 1 : 0)).filter(Boolean);
+                const inside = (f) => !!f && f.startsWith(prefix);
+                const used = self.asdSlots.map((s, i) => (inside(s.file) || inside(s.cn?.map) ? i + 1 : 0)).filter(Boolean);
                 if (!confirm(`Delete project "${info.project}"?\n\n`
                     + `This removes the folder input/${info.project} and everything in it: `
                     + `${info.files} file${info.files === 1 ? "" : "s"}, ${readableSize(info.bytes)}.\n`
                     + (used.length ? `Slot${used.length === 1 ? "" : "s"} ${used.join(", ")} `
-                                   + "use images from this folder and will be emptied.\n" : "")
+                                   + "use images or maps from this folder and will lose them.\n" : "")
                     + "Images added from other folders are not touched.\n\n"
                     + "There is no undo and nothing goes to the recycle bin.")) return;
 
@@ -1510,7 +1815,12 @@ app.registerExtension({
                 }
                 if (r.status !== "success") return note(`⚠ ${r.message || "could not delete it"}`, 8000);
                 for (const s of self.asdSlots) {
-                    if (s.file.startsWith(prefix)) { s.file = ""; s.on = false; s.ver++; s.nw = s.nh = 0; }
+                    if (inside(s.file)) Object.assign(s, { file: "", on: false, cn: null });
+                    // El mapa se va con la carpeta; la imagen, si es de fuera, se queda.
+                    else if (inside(s.cn?.map)) s.cn = { ...s.cn, map: "", on: false };
+                    else continue;
+                    s.ver++;
+                    s.nw = s.nh = 0;
                 }
                 self.asdProject = "";
                 commit();
@@ -1605,6 +1915,7 @@ app.registerExtension({
             this.onRemoved = function () {
                 window.removeEventListener("academia:sizes-changed", onSizes);
                 closeMenu();
+                closeCN();
                 if (originalRemoved) originalRemoved.apply(this, arguments);
             };
 

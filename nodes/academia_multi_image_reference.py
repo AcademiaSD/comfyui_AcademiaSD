@@ -94,7 +94,11 @@ class AcademiaMultiImageReference:
 
     @staticmethod
     def _slots(refs_data):
-        """Siempre SLOT_COUNT ranuras {file, on}, venga lo que venga en el JSON."""
+        """Siempre SLOT_COUNT ranuras {file, on}, venga lo que venga en el JSON.
+
+        `file` es lo que sale por la ranura: su mapa de ControlNet si lo tiene
+        encendido, y si no la imagen.
+        """
         try:
             data = json.loads(refs_data) if refs_data else {}
         except Exception:
@@ -106,8 +110,12 @@ class AcademiaMultiImageReference:
         out = []
         for i in range(SLOT_COUNT):
             item = raw[i] if i < len(raw) and isinstance(raw[i], dict) else {}
+            cn = item.get("cn") if isinstance(item.get("cn"), dict) else {}
+            file = str(item.get("file") or "")
+            if file and cn.get("on") and cn.get("map"):
+                file = str(cn["map"])
             out.append({
-                "file": str(item.get("file") or ""),
+                "file": file,
                 "on": bool(item.get("on", False)),
             })
         return out
@@ -422,15 +430,19 @@ async def multiref_save(request):
     for i, slot in enumerate(state["slots"][:SLOT_COUNT]):
         slot = slot if isinstance(slot, dict) else {}
         file = str(slot.get("file") or "")
-        if file:
-            try:
+        cn = dict(slot["cn"]) if isinstance(slot.get("cn"), dict) else None
+        try:
+            if file:
                 file = _copy_into(file, folder, used)
-            except FileNotFoundError:
-                return _error("Slot {}: file not found ({})".format(i + 1, file))
-        slots.append({"file": file, "on": bool(slot.get("on")) and bool(file)})
+            if file and cn and cn.get("map"):
+                cn["map"] = _copy_into(str(cn["map"]), folder, used)
+        except FileNotFoundError as exc:
+            return _error("Slot {}: file not found ({})".format(i + 1, exc))
+        slots.append({"file": file, "on": bool(slot.get("on")) and bool(file),
+                      "cn": cn if file else None})
 
     content = {"kind": PROJECT_KIND, "version": 1, "project": safe, "slots": slots}
-    for key in ("place", "cropPos", "heroH", "widgets"):
+    for key in ("place", "cropPos", "heroH", "cnRes", "widgets"):
         if key in state:
             content[key] = state[key]
 
@@ -452,11 +464,48 @@ async def multiref_load(request):
     # Los nombres van relativos a input/, que es como los guarda el nodo.
     missing = []
     for i, slot in enumerate(data.get("slots") or []):
-        if isinstance(slot, dict) and slot.get("file"):
-            if not os.path.isfile(os.path.join(folder, slot["file"])):
-                missing.append(i + 1)
-            slot["file"] = "{}/{}".format(safe, slot["file"])
+        if not isinstance(slot, dict):
+            continue
+        cn = slot.get("cn") if isinstance(slot.get("cn"), dict) else {}
+        for owner, key in ((slot, "file"), (cn, "map")):
+            if owner.get(key):
+                if not os.path.isfile(os.path.join(folder, owner[key])) and i + 1 not in missing:
+                    missing.append(i + 1)
+                owner[key] = "{}/{}".format(safe, owner[key])
     return web.json_response({"status": "success", "project": safe, "data": data, "missing": missing})
+
+
+@PromptServer.instance.routes.post("/academia/multiref/keepmap")
+async def multiref_keepmap(request):
+    """Lleva el mapa que Preview Image acaba de dejar en temp/ junto a su imagen
+    original en input/, como <nombre>_<sufijo>.png.
+
+    `replace` es el mapa que ya tenia esa ranura: se pisa, que si no cada
+    prueba de ajustes dejaria un fichero mas. Cualquier otro que se llame igual
+    es de otra ranura y no se toca; el nuevo lleva _02, _03...
+    """
+    body = await request.json()
+    image = body.get("image") if isinstance(body.get("image"), dict) else {}
+    temp = os.path.abspath(folder_paths.get_temp_directory())
+    src = os.path.abspath(os.path.join(temp, str(image.get("subfolder") or ""), str(image.get("filename") or "")))
+    if image.get("type") != "temp" or os.path.commonpath([temp, src]) != temp or not os.path.isfile(src):
+        return _error("Map not found")
+
+    base = _input_dir()
+    orig = os.path.abspath(folder_paths.get_annotated_filepath(str(body.get("source") or "")))
+    suffix = _sanitize_project(body.get("suffix")).replace(" ", "_")
+    if os.path.commonpath([base, orig]) != base or not suffix:
+        return _error("Bad request")
+
+    folder, stem = os.path.dirname(orig), os.path.splitext(os.path.basename(orig))[0]
+    rel = lambda name: os.path.relpath(os.path.join(folder, name), base).replace(os.sep, "/")
+    replace = str(body.get("replace") or "")
+    name, n = "{}_{}.png".format(stem, suffix), 2
+    while os.path.exists(os.path.join(folder, name)) and rel(name) != replace:
+        name = "{}_{}_{:02d}.png".format(stem, suffix, n)
+        n += 1
+    shutil.copyfile(src, os.path.join(folder, name))
+    return web.json_response({"status": "success", "file": rel(name)})
 
 
 @PromptServer.instance.routes.get("/academia/multiref/inspect")
