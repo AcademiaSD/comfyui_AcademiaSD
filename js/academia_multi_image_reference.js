@@ -1099,7 +1099,7 @@ app.registerExtension({
                 return (w && h) ? [w, h] : 0;
             };
 
-            const cropMode = () => self.widgets?.find(x => x.name === "crop")?.value || "disabled";
+            const cropMode = () => self.widgets?.find(x => x.name === "crop")?.value || "pad";
             const padColor = () => cssColor(self.widgets?.find(x => x.name === "pad_color")?.value);
             const outpaintOn = () => !!self.widgets?.find(x => x.name === "outpaint")?.value;
 

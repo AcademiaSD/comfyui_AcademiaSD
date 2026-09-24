@@ -30,6 +30,17 @@ function target(type) {
     return picked.length === 1 ? picked[0] : undefined;
 }
 
+// Sin salidas en pantalla: nada puede colgar de el, y por eso un Run del
+// workflow no lo ejecuta nunca. `positive` tampoco se ensena: lo pone el boton.
+function hideSockets(node) {
+    for (let i = (node.outputs?.length || 0) - 1; i >= 0; i--) node.removeOutput(i);
+    const i = node.inputs?.findIndex(x => x.name === "positive") ?? -1;
+    if (i >= 0) node.removeInput(i);
+}
+
+const AREA ="resize:none; box-sizing:border-box; padding:6px; background:#141414; color:#ddd;"
+    + "border:1px solid #3d3d3d; border-radius:4px; font:12px sans-serif; line-height:1.35;";
+
 app.registerExtension({
     name: "AcademiaSD.PromptEnhancer",
     async beforeRegisterNodeDef(nodeType, nodeData) {
@@ -39,19 +50,27 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function () {
             if (onNodeCreated) onNodeCreated.apply(this, arguments);
             const self = this;
-            // Sin salidas en pantalla: nada puede colgar de el, y por eso un Run
-            // del workflow no lo ejecuta nunca.
-            for (let i = (this.outputs?.length || 0) - 1; i >= 0; i--) this.removeOutput(i);
+            hideSockets(this);
             this.properties ??= {};
+
+            // Un negativo es una lista corta: su caja, un tercio de la del prompt.
+            for (const [name, min, max] of [["prompt", 120], ["negative_prompt", 44, 70]]) {
+                const w = this.widgets?.find(x => x.name === name);
+                if (!w?.options) continue;
+                w.options.getMinHeight = () => min;
+                if (max) w.options.getMaxHeight = () => max;
+            }
 
             const box = document.createElement("div");
             box.style.cssText = "display:flex; flex-direction:column; gap:4px; width:100%; height:100%;"
                 + "box-sizing:border-box; font:11px sans-serif; color:#ccc;";
             box.innerHTML = `
-                <textarea spellcheck="false" placeholder="The enhanced prompt appears here. You can edit it before sending."
-                    style="flex:1 1 auto; min-height:60px; resize:none; box-sizing:border-box; padding:6px;
-                           background:#141414; color:#ddd; border:1px solid #3d3d3d; border-radius:4px;
-                           font:12px sans-serif; line-height:1.35;"></textarea>
+                <textarea class="asd-e-pos" spellcheck="false"
+                    placeholder="The enhanced prompt appears here. You can edit it before sending."
+                    style="flex:3 1 0; min-height:90px; ${AREA}"></textarea>
+                <textarea class="asd-e-neg" spellcheck="false"
+                    placeholder="The negative prompt appears here."
+                    style="flex:1 1 0; min-height:40px; ${AREA}"></textarea>
                 <div style="display:flex; gap:4px; align-items:center;">
                     <button class="asd-e-go">&#10024; Enhance prompt</button>
                     <button class="asd-e-send">&#10148; Send prompt</button>
@@ -62,18 +81,23 @@ app.registerExtension({
                 b.style.cssText = "height:22px; padding:0 10px; border:1px solid #4a4a4a; border-radius:4px;"
                     + "background:#242424; color:#ddd; font-size:11px; cursor:pointer; white-space:nowrap;";
             }
-            const text = box.querySelector("textarea");
+            const posText = box.querySelector(".asd-e-pos");
+            const negText = box.querySelector(".asd-e-neg");
             const goBtn = box.querySelector(".asd-e-go");
             const noteEl = box.querySelector(".asd-e-note");
             const note = (t) => { noteEl.textContent = t; noteEl.title = t; };
 
-            // El resultado vive en properties, que se guardan con el workflow.
+            // Los resultados viven en properties, que se guardan con el workflow.
             const show = () => {
-                text.value = self.properties.asd_result || "";
+                posText.value = self.properties.asd_result || "";
+                negText.value = self.properties.asd_negative || "";
                 note(self.properties.asd_ratio ? `aspect ratio ${self.properties.asd_ratio}` : "");
             };
-            text.addEventListener("input", () => { self.properties.asd_result = text.value; });
-            for (const ev of ["keydown", "keyup", "wheel"]) text.addEventListener(ev, (e) => e.stopPropagation());
+            posText.addEventListener("input", () => { self.properties.asd_result = posText.value; });
+            negText.addEventListener("input", () => { self.properties.asd_negative = negText.value; });
+            for (const area of [posText, negText]) {
+                for (const ev of ["keydown", "keyup", "wheel"]) area.addEventListener(ev, (e) => e.stopPropagation());
+            }
             box.addEventListener("mousedown", (e) => e.stopPropagation());
 
             goBtn.addEventListener("click", async () => {
@@ -89,10 +113,16 @@ app.registerExtension({
                     if (prompt[id].inputs.temperature > 0) {
                         prompt[id].inputs.seed = Math.floor(Math.random() * 2 ** 32);
                     }
+                    // El negativo es una segunda ejecucion del mismo nodo, que
+                    // recibe el positivo: ver el comentario en enhance().
+                    prompt.enh_second = structuredClone(prompt[id]);
+                    prompt.enh_second.inputs.positive = [id, 0];
                     prompt.enh_prompt = { class_type: "PreviewAny", inputs: { source: [id, 0] } };
-                    prompt.enh_ratio = { class_type: "PreviewAny", inputs: { source: [id, 1] } };
+                    prompt.enh_negative = { class_type: "PreviewAny", inputs: { source: ["enh_second", 1] } };
+                    prompt.enh_ratio = { class_type: "PreviewAny", inputs: { source: [id, 2] } };
                     const outputs = await runPrompt(prompt);
                     self.properties.asd_result = outputs.enh_prompt?.text?.[0] || "";
+                    self.properties.asd_negative = outputs.enh_negative?.text?.[0] || "";
                     self.properties.asd_ratio = outputs.enh_ratio?.text?.[0] || "";
                     show();
                 } catch (e) {
@@ -103,24 +133,20 @@ app.registerExtension({
             });
 
             box.querySelector(".asd-e-send").addEventListener("click", () => {
-                const positive = text.value.trim();
+                const positive = posText.value.trim();
                 if (!positive) return note("⚠ nothing to send yet");
                 const pos = target(POSITIVE);
                 if (pos === undefined) return note("⚠ several Positive nodes: select the one to send to");
                 if (!pos) return note("⚠ no Academia SD Positive node in the workflow");
                 pos.asdSetText(positive);
-                // El negativo solo si se ha escrito aqui: si llega por cable ya
-                // esta donde tiene que estar.
-                const negW = self.widgets?.find(w => w.name === "negative_prompt");
-                const negLinked = self.inputs?.some(i => i.name === "negative_prompt" && i.link != null);
-                const negative = negLinked ? "" : String(negW?.value || "").trim();
+                const negative = negText.value.trim();
                 const neg = negative ? target(NEGATIVE) : null;
                 if (neg) neg.asdSetText(negative);
                 app.graph.setDirtyCanvas(true, true);
                 note(neg ? "✔ sent to Positive and Negative" : "✔ sent to Positive");
             });
 
-            this.addDOMWidget("enhancer", "HTML", box, { serialize: false, getMinHeight: () => 180 });
+            this.addDOMWidget("enhancer", "HTML", box, { serialize: false, getMinHeight: () => 240 });
             this.asdShow = show;
             show();
         };
@@ -129,7 +155,7 @@ app.registerExtension({
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function () {
             if (onConfigure) onConfigure.apply(this, arguments);
-            for (let i = (this.outputs?.length || 0) - 1; i >= 0; i--) this.removeOutput(i);
+            hideSockets(this);
             this.asdShow?.();
         };
     },

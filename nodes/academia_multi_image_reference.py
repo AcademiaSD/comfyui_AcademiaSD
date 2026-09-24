@@ -31,11 +31,11 @@ SCALE_METHODS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
 # center   cubre el destino y recorta al centro         (common_upscale nativo)
 # custom   igual, pero la ventana se coloca a mano        (aqui)
 # pad      mete la imagen ENTERA y rellena el resto        (aqui)
-# disabled estira hasta el destino, deformando            (common_upscale nativo)
+# stretch  estira hasta el destino, deformando            (common_upscale nativo)
 #
 # center se deja intacto a proposito, delegando en ComfyUI: los workflows que ya
 # lo usan tienen que seguir dando el pixel exacto de antes.
-CROP_METHODS = ["center", "custom", "pad", "disabled"]
+CROP_METHODS = ["center", "custom", "pad", "stretch"]
 
 NAMED_COLORS = {
     "white": "ffffff", "black": "000000",
@@ -68,7 +68,7 @@ class AcademiaMultiImageReference:
                 "width": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 8}),
                 "height": ("INT", {"default": 0, "min": 0, "max": 16384, "step": 8}),
                 "scale_method": (SCALE_METHODS, {"default": "lanczos"}),
-                "crop": (CROP_METHODS, {"default": "disabled"}),
+                "crop": (CROP_METHODS, {"default": "pad"}),
                 # Solo pinta en modo pad. Admite "#RRGGBB", "RRGGBB", "#RGB" o
                 # los nombres white / black / grey.
                 "pad_color": ("STRING", {"default": "#000000"}),
@@ -213,10 +213,12 @@ class AcademiaMultiImageReference:
             return image
         tw, th = int(width), int(height)
 
-        # center y disabled son literalmente el Upscale Image nativo.
-        if crop in ("center", "disabled"):
+        # center y stretch son literalmente el Upscale Image nativo; alli stretch
+        # se llama "disabled".
+        if crop in ("center", "stretch"):
             samples = image.movedim(-1, 1)                  # NHWC -> NCHW
-            return comfy.utils.common_upscale(samples, tw, th, scale_method, crop).movedim(1, -1)
+            return comfy.utils.common_upscale(samples, tw, th, scale_method,
+                                              "center" if crop == "center" else "disabled").movedim(1, -1)
 
         # custom: la misma ventana que center -- la mayor que cubre el destino
         # sin deformar -- pero colocada donde se haya arrastrado en el panel.
@@ -270,7 +272,7 @@ class AcademiaMultiImageReference:
         return canvas
 
     def load_references(self, refs_data="", width=0, height=0,
-                        scale_method="lanczos", crop="disabled",
+                        scale_method="lanczos", crop="pad",
                         pad_color="#000000", outpaint=False):
         # Una ranura apagada o vacia sale como None, que es exactamente lo que
         # Text Encode Qwen Image 2.1 descarta con su `if image is None: continue`.
@@ -294,7 +296,7 @@ class AcademiaMultiImageReference:
     # --- CACHE Y VALIDACION ---
 
     @classmethod
-    def IS_CHANGED(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="disabled",
+    def IS_CHANGED(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="pad",
                    pad_color="#000000", outpaint=False):
         # refs_data ya entra en el hash del prompt, asi que lo unico que hay que
         # detectar aqui es que un FICHERO haya cambiado por fuera sin cambiar de
@@ -314,7 +316,7 @@ class AcademiaMultiImageReference:
         return m.hexdigest()
 
     @classmethod
-    def VALIDATE_INPUTS(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="disabled",
+    def VALIDATE_INPUTS(s, refs_data="", width=0, height=0, scale_method="lanczos", crop="pad",
                         pad_color="#000000", outpaint=False):
         # Una referencia que falta NO puede pasar en silencio. Qwen numera las
         # <imageN> por la posicion en la lista ya compactada, asi que perder una
