@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
+import { runPrompt } from "./academia_queue.js";
 
 // Vale para cualquier modelo que coma varias imagenes de referencia; Qwen Image
 // 2.1 es solo el primero. Por eso ni el nodo ni este fichero llevan su nombre.
@@ -169,50 +170,15 @@ const cnSpec = async (node) => {
     return cnSpecs.get(node);
 };
 
-// Un mapa se genera con un prompt de tres nodos que no tiene nada que ver con
-// el workflow. Su final llega por el websocket, y puede llegar antes que la
-// respuesta del POST que lo encola: se apunta por si alguien lo pide despues.
-const cnWaiters = new Map();
-const cnEnded = new Map();
-for (const ev of ["execution_success", "execution_error", "execution_interrupted"]) {
-    api.addEventListener(ev, ({ detail }) => {
-        const id = detail?.prompt_id;
-        if (!id) return;
-        const waiter = cnWaiters.get(id);
-        if (waiter) {
-            cnWaiters.delete(id);
-            waiter({ ev, detail });
-            return;
-        }
-        cnEnded.set(id, { ev, detail });
-        if (cnEnded.size > 64) cnEnded.delete(cnEnded.keys().next().value);
-    });
-}
-const cnWait = (id) => new Promise((resolve) => {
-    const done = cnEnded.get(id);
-    if (done) { cnEnded.delete(id); resolve(done); } else cnWaiters.set(id, resolve);
-});
-
-// Genera el mapa de `file` y lo deja junto a el en input/. Devuelve su ruta.
+// Genera el mapa de `file` con un prompt de tres nodos que no tiene nada que
+// ver con el workflow, y lo deja junto a la imagen en input/. Devuelve su ruta.
 async function generateMap(file, proc, params, resolution, replace) {
-    const prompt = {
+    const outputs = await runPrompt({
         "1": { class_type: "LoadImage", inputs: { image: file } },
         "2": { class_type: proc.node, inputs: { ...params, image: ["1", 0], resolution } },
         "3": { class_type: "PreviewImage", inputs: { images: ["2", 0] } },
-    };
-    const resp = await api.fetchApi("/prompt", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, client_id: api.clientId }),
     });
-    const queued = await resp.json();
-    if (!resp.ok) {
-        const nodeErr = Object.values(queued.node_errors || {})[0]?.errors?.[0];
-        throw new Error(nodeErr ? `${nodeErr.message}: ${nodeErr.details}` : queued.error?.message || "not queued");
-    }
-    const { ev, detail } = await cnWait(queued.prompt_id);
-    if (ev !== "execution_success") throw new Error(detail.exception_message || "interrupted");
-    const hist = await (await api.fetchApi(`/history/${queued.prompt_id}`)).json();
-    const image = hist[queued.prompt_id]?.outputs?.["3"]?.images?.[0];
+    const image = outputs["3"]?.images?.[0];
     if (!image) throw new Error("the processor gave no image");
     const kept = await postJSON("/academia/multiref/keepmap", { image, source: file, suffix: proc.suffix, replace });
     if (kept.status !== "success") throw new Error(kept.message || "could not keep the map");
