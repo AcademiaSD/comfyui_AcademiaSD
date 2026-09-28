@@ -259,6 +259,41 @@ A modern resolution calculator tailored for Megapixel-based models (like SDXL an
 
 ---
 
+## 🖼️ Academia SD Multi Image Reference
+![Academia SD Multi Image Reference](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Multi-Image.png)
+
+Ten reference images in one node, for `Text Encode Qwen Image 2.1` and anything else that takes several references at once. Neither the node nor its file carries a model name on purpose: what it holds are images.
+
+*   **Every slot is a switch.** Turning one off sends `None` down the same wire, which is exactly what the encoder drops with its `if image is None: continue`. Bypassing a reference needs no rewiring, no reroute and no second node. Loaded and active reads green, loaded and bypassed reads red.
+*   **The tag on each card is the one the encoder will really use.** Qwen numbers `<imageN>` by position in the list *after* the empty ones are dropped, so turning slot 1 off makes slot 2 become `<image1>`. Printing the slot number instead would lie the moment you bypass one in the middle, and you would find out in the picture rather than in a message.
+*   **A missing file stops the prompt** rather than being skipped quietly, for the same reason: losing one reference shifts every tag behind it.
+*   **Image 1 carries the resize**, which takes an Upscale and a Get Image Size out of the graph. It is the only one whose size matters -- the encoder builds its latent from the first reference it receives -- and there are four ways to reach the target: `center` crops to fill, `custom` crops with the window dragged where you want it, `pad` fits the whole image and fills the rest with `pad_color`, `stretch` distorts. `center` and `stretch` stay delegated to `comfy.utils`, so anything already using them returns the same pixels as before.
+*   **The panel shows what will happen, it does not describe it.** The white rectangle is the real crop window, computed with the same arithmetic as `common_upscale`. In `pad` you see the destination canvas with the image placed inside it, and with **Outpaint** on you drag that image, scale it by the corner or the wheel, and put a face at the top of a 9:16 canvas without leaving the node.
+*   **`Reference_active`** counts the references that actually reach the encoder -- on *and* with a file -- so it always matches the number of `<imageN>` tags in play.
+*   **ControlNet maps per slot.** The **CN** button runs one of nine `comfyui_controlnet_aux` processors -- Canny, Depth, Pose, Lineart, Soft edge, Scribble, Normal, Segmentation, MLSD -- with its own options and a node-wide resolution, queued on its own instead of by running the workflow. The map is kept next to its image as `name_canny.png` and becomes what that slot outputs; switching back and forth costs nothing, because nothing is regenerated.
+*   **Projects.** Save, load and delete a set of references in `input/<name>`, one file per slot. A project also carries the text of the Academia Positive and Negative prompt nodes and the maps made inside it, so it restores a state and not just a pile of pictures. **Open** shows the folder in the file explorer.
+*   **The panel earns its space.** Loaded slots share out the height of image 1 and the width of their row; empty ones close to a small square. Nothing is ever cropped to fill a card -- a reference has to be seen whole to know it is the right one -- and hovering a thumbnail shows it large in the image 1 box. Drop a file on a slot, or click it to browse.
+*   **Slots move.** Swap any slot with image 1 from its button, swap two by dragging a title bar, and copy a slot into the next empty one.
+*   **Academia SD Multi Image Reference Out** is a companion that exists only in the browser: link it by title and, on queue, it redirects its outputs to the source node's. It is there so ten cables do not have to cross the graph from wherever the panel happens to sit.
+
+---
+
+## ✨ Academia SD Prompt Enhancer
+![Academia SD Prompt Enhancer](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Prompt_enhancer.png)
+
+Rewrites a prompt with the same Qwen3-VL text encoder the image model already has loaded. No second model to download, nothing extra in VRAM.
+
+*   **Prompt, image, or both.** With an image it describes what it sees; with a prompt it expands it; with both it rewrites the prompt against the picture.
+*   **It runs on its own.** The **Enhance prompt** button queues this node by itself: the workflow does not run and nothing is sampled. Rewriting a line of text should not cost a generation.
+*   **Send prompt writes the result where it belongs**, into the Academia Positive and Negative nodes. `Send Positive` and `Send Negative` do it by themselves as soon as each result is ready.
+*   **A real negative prompt**, written from its own template and placed *after* whatever terms you typed, so yours are never dropped. It is a second execution on purpose: producing both in one pass hit a CUDA device-side assert.
+*   **Edit requests keep their instruction and every `<imageN>` tag.** Rewriting "make the shirt in `<image2>` red" must not lose which image it was talking about.
+*   **The system template is a `.md` file** in `enhancer_templates/`, one for the positive and one for the negative. Drop another one in and it appears in the list: the behaviour is text, not code.
+*   **Presets** above the prompt box -- Custom, Describe image1, Enhance prompt -- as starting points rather than modes.
+*   **`width` and `height` are inputs**, so the rewrite can be told the shape it is writing for, and `aspect_ratio` comes back out. `temperature`, `seed` and `max_length` are there for when it has to be reproducible, or longer.
+
+---
+
 ## ⏱️ Academia SD Time Calculator
 ![Academia SD Time Calculator](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/Time_calculator.png)
 
