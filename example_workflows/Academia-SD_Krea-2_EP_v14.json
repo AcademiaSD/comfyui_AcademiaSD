@@ -2,7 +2,7 @@
   "id": "94f53d2b-aef9-4511-aeb9-deec195a4155",
   "revision": 0,
   "last_node_id": 436,
-  "last_link_id": 844,
+  "last_link_id": 845,
   "nodes": [
     {
       "id": 323,
@@ -704,7 +704,7 @@
         }
       },
       "widgets_values": [
-        1026308167079307,
+        1014157414302341,
         "randomize",
         4,
         1,
@@ -713,7 +713,7 @@
         1
       ],
       "widgets_values_named": {
-        "seed": 1026308167079307,
+        "seed": 1014157414302341,
         "control_after_generate": "randomize",
         "steps": 4,
         "cfg": 1,
@@ -823,7 +823,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 35,
+      "order": 34,
       "mode": 0,
       "inputs": [
         {
@@ -918,7 +918,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 44,
+      "order": 43,
       "mode": 4,
       "inputs": [
         {
@@ -978,7 +978,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 41,
+      "order": 40,
       "mode": 0,
       "inputs": [
         {
@@ -1048,7 +1048,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 30,
+      "order": 29,
       "mode": 0,
       "inputs": [
         {
@@ -1127,7 +1127,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 29,
+      "order": 28,
       "mode": 0,
       "inputs": [
         {
@@ -1461,7 +1461,7 @@
         "collapsed": false,
         "pinned": true
       },
-      "order": 47,
+      "order": 45,
       "mode": 0,
       "inputs": [
         {
@@ -1792,7 +1792,7 @@
         178
       ],
       "flags": {},
-      "order": 39,
+      "order": 38,
       "mode": 0,
       "inputs": [
         {
@@ -1901,7 +1901,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 40,
+      "order": 44,
       "mode": 4,
       "inputs": [
         {
@@ -2004,7 +2004,7 @@
         132
       ],
       "flags": {},
-      "order": 46,
+      "order": 47,
       "mode": 4,
       "inputs": [
         {
@@ -2197,7 +2197,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 36,
+      "order": 35,
       "mode": 0,
       "inputs": [
         {
@@ -2395,7 +2395,7 @@
         348
       ],
       "flags": {},
-      "order": 43,
+      "order": 42,
       "mode": 0,
       "inputs": [
         {
@@ -2494,7 +2494,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 42,
+      "order": 41,
       "mode": 0,
       "inputs": [
         {
@@ -2712,7 +2712,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 37,
+      "order": 36,
       "mode": 0,
       "inputs": [
         {
@@ -3051,7 +3051,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 32,
+      "order": 31,
       "mode": 4,
       "inputs": [
         {
@@ -3178,7 +3178,7 @@
       "flags": {
         "collapsed": true
       },
-      "order": 45,
+      "order": 46,
       "mode": 4,
       "inputs": [
         {
@@ -3371,7 +3371,7 @@
         "collapsed": true,
         "pinned": true
       },
-      "order": 33,
+      "order": 32,
       "mode": 0,
       "inputs": [
         {
@@ -3516,58 +3516,6 @@
       "bgcolor": "#653"
     },
     {
-      "id": 213,
-      "type": "CLIPLoader",
-      "pos": [
-        -1026.8570520971873,
-        62.377169993842244
-      ],
-      "size": [
-        420,
-        110
-      ],
-      "flags": {},
-      "order": 26,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "CLIP",
-          "type": "CLIP",
-          "links": [
-            795,
-            843
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.3.60",
-        "Node name for S&R": "CLIPLoader",
-        "ue_properties": {
-          "widget_ue_connectable": {
-            "clip_name": true,
-            "type": true,
-            "device": true
-          },
-          "version": "7.1",
-          "input_ue_unconnectable": {}
-        }
-      },
-      "widgets_values": [
-        "qwen3vl_4b_fp8_scaled.safetensors",
-        "krea2",
-        "default"
-      ],
-      "widgets_values_named": {
-        "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
-        "type": "krea2",
-        "device": "default"
-      },
-      "color": "#323",
-      "bgcolor": "#535"
-    },
-    {
       "id": 367,
       "type": "AcademiaSD_Resolution",
       "pos": [
@@ -3579,7 +3527,7 @@
         222
       ],
       "flags": {},
-      "order": 31,
+      "order": 30,
       "mode": 0,
       "inputs": [
         {
@@ -3646,7 +3594,7 @@
         688.6939052749351
       ],
       "flags": {},
-      "order": 27,
+      "order": 26,
       "mode": 0,
       "inputs": [],
       "outputs": [],
@@ -3748,68 +3696,6 @@
       ]
     },
     {
-      "id": 436,
-      "type": "AcademiaSD_PositivePrompt",
-      "pos": [
-        -1605.3156499099443,
-        -279.2457241947916
-      ],
-      "size": [
-        529.4553415048304,
-        676.1725424439486
-      ],
-      "flags": {},
-      "order": 28,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "clip",
-          "type": "CLIP",
-          "link": null
-        },
-        {
-          "name": "prompt",
-          "shape": 7,
-          "type": "STRING",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "CONDITIONING",
-          "type": "CONDITIONING",
-          "links": null
-        },
-        {
-          "name": "STRING",
-          "type": "STRING",
-          "links": [
-            844
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "comfyui_fearnworksnodes",
-        "ver": "0.1.2",
-        "Node name for S&R": "AcademiaSD_PositivePrompt"
-      },
-      "widgets_values": [
-        "The image is a vertical realistic photograph of a woman with dark, wavy, shoulder-length hair, submerged underwater with her head tilted back and eyes closed, surrounded by numerous small, rising bubbles that cling to her skin and hair; the background consists of deep blue ocean water with subtle gradient lighting, fading from lighter near the surface to darker below, and the soft, diffused ambient light highlights her face and skin texture, while tiny particles of suspended water droplets shimmer around her, enhancing the tranquil underwater atmosphere. The woman wears a thin gold chain necklace, visible at her neck, and appears relaxed with an expression of serenity; the overall composition uses symmetrical balance and cool tones to evoke calmness and introspection.",
-        ""
-      ],
-      "widgets_values_named": {
-        "text": "The image is a vertical realistic photograph of a woman with dark, wavy, shoulder-length hair, submerged underwater with her head tilted back and eyes closed, surrounded by numerous small, rising bubbles that cling to her skin and hair; the background consists of deep blue ocean water with subtle gradient lighting, fading from lighter near the surface to darker below, and the soft, diffused ambient light highlights her face and skin texture, while tiny particles of suspended water droplets shimmer around her, enhancing the tranquil underwater atmosphere. The woman wears a thin gold chain necklace, visible at her neck, and appears relaxed with an expression of serenity; the overall composition uses symmetrical balance and cool tones to evoke calmness and introspection.",
-        "UI": ""
-      },
-      "color": "#232",
-      "bgcolor": "#353",
-      "asd_expanded": false,
-      "asd_current_list": "default_positive_prompt",
-      "asd_collapsed_height": 676.1725424439486,
-      "asd_expanded_height": 676.5773242928611,
-      "asd_tray_height": 250
-    },
-    {
       "id": 408,
       "type": "PrimitiveStringMultiline",
       "pos": [
@@ -3824,7 +3710,7 @@
         "collapsed": true,
         "pinned": true
       },
-      "order": 34,
+      "order": 39,
       "mode": 0,
       "inputs": [
         {
@@ -3873,7 +3759,7 @@
         760.4552333353711
       ],
       "flags": {},
-      "order": 38,
+      "order": 37,
       "mode": 0,
       "inputs": [
         {
@@ -3915,7 +3801,7 @@
         "qwen_image_rewriter.md",
         "qwen_image_negative.md",
         1.5,
-        479376764468546,
+        344647711335461,
         "randomize",
         1024,
         null,
@@ -3927,7 +3813,7 @@
         "template": "qwen_image_rewriter.md",
         "negative_template": "qwen_image_negative.md",
         "temperature": 1.5,
-        "seed": 479376764468546,
+        "seed": 344647711335461,
         "control_after_generate": "randomize",
         "max_length": 1024,
         "prompt": "Describe the image in great detail: the characters, the clothing, the background, the objects and textures, the lighting, and the style.",
@@ -3936,6 +3822,121 @@
       },
       "color": "#232",
       "bgcolor": "#353"
+    },
+    {
+      "id": 213,
+      "type": "CLIPLoader",
+      "pos": [
+        -1026.8570520971873,
+        62.377169993842244
+      ],
+      "size": [
+        420,
+        110
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            795,
+            843,
+            845
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.3.60",
+        "Node name for S&R": "CLIPLoader",
+        "ue_properties": {
+          "widget_ue_connectable": {
+            "clip_name": true,
+            "type": true,
+            "device": true
+          },
+          "version": "7.1",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "qwen3vl_4b_fp8_scaled.safetensors",
+        "krea2",
+        "default"
+      ],
+      "widgets_values_named": {
+        "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+        "type": "krea2",
+        "device": "default"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 436,
+      "type": "AcademiaSD_PositivePrompt",
+      "pos": [
+        -1605.3156499099443,
+        -279.2457241947916
+      ],
+      "size": [
+        529.4553415048304,
+        676.1725424439486
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 845
+        },
+        {
+          "name": "prompt",
+          "shape": 7,
+          "type": "STRING",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": null
+        },
+        {
+          "name": "STRING",
+          "type": "STRING",
+          "links": [
+            844
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui_fearnworksnodes",
+        "ver": "0.1.2",
+        "Node name for S&R": "AcademiaSD_PositivePrompt"
+      },
+      "widgets_values": [
+        "The image is a vertical realistic photograph of a woman with dark, wavy, shoulder-length hair, submerged underwater with her head tilted back and eyes closed, surrounded by numerous small, rising bubbles that cling to her skin and hair; the background consists of deep blue ocean water with subtle gradient lighting, fading from lighter near the surface to darker below, and the soft, diffused ambient light highlights her face and skin texture, while tiny particles of suspended water droplets shimmer around her, enhancing the tranquil underwater atmosphere. The woman wears a thin gold chain necklace, visible at her neck, and appears relaxed with an expression of serenity; the overall composition uses symmetrical balance and cool tones to evoke calmness and introspection.",
+        ""
+      ],
+      "widgets_values_named": {
+        "text": "The image is a vertical realistic photograph of a woman with dark, wavy, shoulder-length hair, submerged underwater with her head tilted back and eyes closed, surrounded by numerous small, rising bubbles that cling to her skin and hair; the background consists of deep blue ocean water with subtle gradient lighting, fading from lighter near the surface to darker below, and the soft, diffused ambient light highlights her face and skin texture, while tiny particles of suspended water droplets shimmer around her, enhancing the tranquil underwater atmosphere. The woman wears a thin gold chain necklace, visible at her neck, and appears relaxed with an expression of serenity; the overall composition uses symmetrical balance and cool tones to evoke calmness and introspection.",
+        "UI": ""
+      },
+      "color": "#232",
+      "bgcolor": "#353",
+      "asd_expanded": false,
+      "asd_current_list": "default_positive_prompt",
+      "asd_collapsed_height": 676.1725424439486,
+      "asd_expanded_height": 676.5773242928611,
+      "asd_tray_height": 250
     }
   ],
   "links": [
@@ -4618,6 +4619,14 @@
       408,
       0,
       "STRING"
+    ],
+    [
+      845,
+      213,
+      0,
+      436,
+      0,
+      "CLIP"
     ]
   ],
   "groups": [
@@ -4735,10 +4744,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.47361826447682104,
+      "scale": 0.7627669511225652,
       "offset": [
-        2615.4576575258375,
-        687.0675702412069
+        2589.3207104928542,
+        811.5668945239919
       ]
     },
     "frontendVersion": "1.52.7",
