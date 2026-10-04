@@ -75,6 +75,113 @@ def _strip_think(text):
     return re.sub(r"<think>.*?(?:</think>|$)", "", text, flags=re.DOTALL).strip()
 
 
+def _hexes(colors, limit):
+    out = []
+    for c in colors if isinstance(colors, list) else []:
+        m = re.fullmatch(r"#?([0-9a-fA-F]{6})", str(c).strip())
+        if m:
+            out.append("#" + m.group(1).upper())
+    return out[:limit]
+
+
+def _bbox_caption(data):
+    """Caption JSON con cajas (plantillas bbox json) en el formato de Ideogram 4, que
+    usaran tambien Ideogram 4.5 y FLUX.3: orden de claves fijo, hex en mayusculas y
+    cajas [y1, x1, y2, x2] en 0-1000. Qwen3-VL localiza en su formato nativo
+    bbox_2d [x1, y1, x2, y2], asi que aqui se le da la vuelta."""
+    sd_in = data.get("style_description") if isinstance(data.get("style_description"), dict) else {}
+    sd = {"aesthetics": str(sd_in.get("aesthetics", "")), "lighting": str(sd_in.get("lighting", ""))}
+    if str(sd_in.get("medium", "")).lower().startswith("photo"):
+        sd["photo"] = str(sd_in.get("photo", ""))
+        sd["medium"] = "photograph"
+    else:
+        sd["medium"] = str(sd_in.get("medium", ""))
+        sd["art_style"] = str(sd_in.get("art_style", ""))
+    palette = _hexes(sd_in.get("color_palette"), 16)
+    if palette:
+        sd["color_palette"] = palette
+
+    cd = data["compositional_deconstruction"]
+    elements, seen = [], set()
+    for e in cd.get("elements") or []:
+        if not isinstance(e, dict):
+            continue
+        el = {"type": "text" if e.get("type") == "text" else "obj"}
+        box = e.get("bbox_2d")
+        if isinstance(box, list) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box):
+            x1, y1, x2, y2 = (max(0, min(1000, int(round(v)))) for v in box)
+            el["bbox"] = [min(y1, y2), min(x1, x2), max(y1, y2), max(x1, x2)]
+        if el["type"] == "text":
+            el["text"] = str(e.get("text", ""))
+        el["desc"] = str(e.get("desc", ""))
+        # En escenas abarrotadas el modelo a veces entra en bucle y repite el mismo
+        # elemento decenas de veces: misma caja o misma descripcion no se repiten.
+        keys = {("desc", el.get("text", ""), el["desc"][:60].lower())}
+        if "bbox" in el:
+            keys.add(("box", el["type"], tuple(el["bbox"])))
+        if keys & seen:
+            continue
+        seen |= keys
+        palette = _hexes(e.get("color_palette"), 5)
+        if palette:
+            el["color_palette"] = palette
+        elements.append(el)
+
+    caption = {"high_level_description": str(data.get("high_level_description", "")), "style_description": sd,
+               "compositional_deconstruction": {"background": str(cd.get("background", "")), "elements": elements}}
+    return json.dumps(caption, ensure_ascii=False, separators=(",", ":"))
+
+
+def _close_json(text):
+    """Cierra la cadena, las listas y los objetos que hayan quedado abiertos."""
+    stack, in_str, esc = [], False, False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack:
+            stack.pop()
+    text = re.sub(r"[,:\s]+$", "", text + ('"' if in_str else ""))
+    return text + "".join(reversed(stack))
+
+
+def _repair_tail(fragment):
+    """Un objeto cortado: se cierra, quitando elementos del final hasta que sea valido."""
+    while True:
+        try:
+            return json.loads(_close_json(fragment))
+        except ValueError:
+            k = max(fragment.rfind("},"), fragment.rfind("}]"))
+            if k <= 0:
+                return None
+            fragment = fragment[:k + 1]
+
+
+def _repair_caption(text):
+    """Un caption JSON largo llega a veces partido en varios objetos seguidos, sin
+    cerrar (cortado por max_length) o las dos cosas: se juntan los trozos y el
+    ultimo se cierra, quitando el elemento que quedo a medias."""
+    dec, merged, i = json.JSONDecoder(), {}, text.find("{")
+    while i >= 0:
+        try:
+            obj, i = dec.raw_decode(text, i)
+        except ValueError:
+            obj, i = _repair_tail(text[i:]), -1
+        if isinstance(obj, dict):
+            merged.update(obj)
+        if i >= 0:
+            i = text.find("{", i)
+    return merged if isinstance(merged.get("compositional_deconstruction"), dict) else None
+
+
 def _parse(text):
     """(orden de edicion, descripcion, ratio) de la respuesta. Si el modelo no
     devuelve un JSON limpio, el texto entero es la descripcion: mejor eso que
@@ -84,11 +191,17 @@ def _parse(text):
     if start >= 0 and end > start:
         try:
             data = json.loads(text[start:end + 1])
+            if isinstance(data, dict) and isinstance(data.get("compositional_deconstruction"), dict):
+                return "", _bbox_caption(data), str(data.get("aspect_ratio") or "").strip()
             if isinstance(data, dict) and isinstance(data.get("rewritten_prompt"), str):
                 return (str(data.get("edit_instruction") or "").strip(), data["rewritten_prompt"].strip(),
                         str(data.get("wh_ratio") or "").strip())
         except ValueError:
             pass
+    if '"compositional_deconstruction"' in text:
+        data = _repair_caption(text)
+        if data is not None:
+            return "", _bbox_caption(data), str(data.get("aspect_ratio") or "").strip()
     # Cortado por max_length a mitad del JSON: vale la descripcion que haya.
     cut = re.search(r'"rewritten_prompt"\s*:\s*"(.*)', text, flags=re.DOTALL)
     if cut:
@@ -142,7 +255,9 @@ class AcademiaPromptEnhancer:
     def INPUT_TYPES(s):
         templates = _templates()
         negatives = [t for t in templates if "negative" in t] or templates
-        positives = [t for t in templates if "negative" not in t] or templates
+        # La de Qwen-Image sigue siendo la de serie aunque otra vaya antes por orden alfabetico.
+        positives = sorted((t for t in templates if "negative" not in t),
+                           key=lambda t: t != "qwen_image_rewriter.md") or templates
         return {
             "required": {
                 "clip": ("CLIP", {"tooltip": "A Qwen3-VL text encoder, like the one Qwen Image 2.1 loads. "
@@ -218,6 +333,9 @@ class AcademiaPromptEnhancer:
         ratio = _ratio(width, height)
         instruction, description, model_ratio = _parse(generate(
             _read_template(template), _user_message(prompt, negative_prompt, image is not None, ratio), max_length))
+        # Un caption JSON se devuelve tal cual: anteponerle texto lo dejaria invalido.
+        if description.startswith('{"high_level_description"'):
+            return (description, negative_prompt, ratio or model_ratio)
         return (_compose(prompt, instruction, description), negative_prompt, ratio or model_ratio)
 
 
