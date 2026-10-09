@@ -21,7 +21,7 @@ QUE HACEN ESTOS NODOS
    imagen que ve Qwen es peor).
 2. Opcionalmente (bind_voice, experimental) atan la voz a la cara: la voz de un
    personaje y sus fotogramas viajan en un unico bloque "video_audio", que es
-   como el modelo vio caras y voces juntas en su entrenamiento -- comparten
+   como el modelo vio caras y voces juntas en el entrenamiento -- comparten
    origen temporal en el RoPE. Sin validar: ese bloque afirma que el fotograma
    n va con el instante n del audio, y un RefMod son fotos sueltas.
 3. Escriben solos el bloque subject_definitions / retention_analysis con la
@@ -351,7 +351,7 @@ def te_frames(ref, mode, n, vae, max_side):
 
     Qwen agrupa los fotogramas de dos en dos en un mismo parche temporal. Dos
     fotos distintas en un parche se funden en una; por eso en "up_to_n" y "all"
-    cada foto va DUPLICADA en su propio bloque, y Qwen la ve entera.
+    cada foto va DUPLICADA en un bloque propio, y Qwen la ve entera.
     "every_4th_pairs" reproduce el comportamiento antiguo (cada 4 fotos, por
     parejas): lo mas barato, suficiente con un solo RefMod.
 
@@ -455,7 +455,7 @@ def _save_preview(img):
 
 
 class AcademiaSD_H3RefModCharacter:
-    """Un personaje: su RefMod visual, su voz y como diferenciarlo de los demas."""
+    """Un personaje: el RefMod visual, la voz y como diferenciarlo de los demas."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -672,12 +672,12 @@ def _native_refs(width, height, length, ref_image_size, kwargs, vae, audio_vae):
 
     Mismo redimensionado, mismo orden y mismas funciones de ComfyUI que
     MiniMaxH3ReferenceToVideo.execute: imagenes, luego videos (la banda sonora
-    de cada uno con su <Audio j> justo antes de su <Video k>) y, aparte, los
+    de cada uno con la etiqueta <Audio j> justo antes de la <Video k>) y, aparte, los
     audios sueltos. Se devuelven separados porque el Encode los coloca
     alrededor de los personajes: las imagenes y videos nativos van PRIMERO, asi
     los prompts de Ref2VA que ya citan "<Picture 1>" a mano siguen valiendo; los
     audios sueltos van al FINAL, para no quedar justo delante de la cara de un
-    personaje y "regalarle" su voz.
+    personaje y "regalarle" la voz.
 
     The official node's references, built exactly as it does. Native images and
     videos go first so existing "<Picture 1>" prompts keep working; standalone
@@ -775,7 +775,7 @@ class AcademiaSD_H3RefModEncode:
                 "length": ("INT", {"default": 124, "min": 5, "max": 3600, "step": 17}),
                 "stack_pictures": (STACK_MODES, {"default": "up_to_n", "tooltip":
                                    "Cuantas fotos de cada RefMod ve el text encoder. Mas fotos = menos mezcla, "
-                                   "mas lento.\nup_to_n: hasta N fotos, cada una en su bloque. all: todas. "
+                                   "mas lento.\nup_to_n: hasta N fotos, cada una en un bloque propio. all: todas. "
                                    "every_4th_pairs: cada 4, por parejas (lo mas ligero, comportamiento antiguo)."}),
                 "stack_pictures_n": ("INT", {"default": 8, "min": 1, "max": 64}),
                 "te_max_side": ("INT", {"default": 768, "min": 256, "max": 2048, "step": 32, "tooltip":
@@ -796,7 +796,7 @@ class AcademiaSD_H3RefModEncode:
                  ("vae", ("VAE", {"tooltip": "VAE de video de H3: para ref_image/ref_video y para RefMods sin "
                                              "fotos guardadas."})),
                  ("audio_vae", ("VAE", {"tooltip": "VAE de audio de H3: solo para ref_audio y bandas sonoras "
-                                                   "de ref_video. Los RefMods ya traen su audio codificado."})),
+                                                   "de ref_video. Los RefMods ya traen el audio codificado."})),
                  ("first_frame", ("IMAGE", {"tooltip": "FL2VA: primer fotograma, como en MiniMax H3 Image to Video "
                                                        "(<Picture 1> para Qwen + fotograma ancla)."})),
                  ("last_frame", ("IMAGE", {"tooltip": "FL2VA: ultimo fotograma, como en MiniMax H3 Image to Video."}))]
@@ -983,7 +983,7 @@ class AcademiaSD_H3RefModEncode:
                 continue
             for a in re.findall(r"<Audio \d+>", seg):
                 if e["alabel"] and a != e["alabel"]:
-                    warnings.append("CONTRADICCION: {} ({}) habla con {}, pero su voz es {}. / {} speaks with "
+                    warnings.append("CONTRADICCION: {} ({}) habla con {}, pero le corresponde {}. / {} speaks with "
                                     "{} but their voice is {}.".format(e["subject"], e["name"], a, e["alabel"],
                                                                       e["name"], a, e["alabel"]))
             for s in re.findall(r"\((S\d+)\)", seg):

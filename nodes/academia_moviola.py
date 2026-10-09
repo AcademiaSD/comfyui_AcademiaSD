@@ -78,7 +78,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.4.10"
+    ACADEMIASD_VERSION = "2.4.16"
 
 try:
     from safetensors.torch import load_file as _st_load
