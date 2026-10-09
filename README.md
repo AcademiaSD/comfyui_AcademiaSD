@@ -367,6 +367,8 @@ One node per character; chain them through the `characters` input.
 
 ### 2. AcademiaSD H3 RefMod Encode
 
+Drop-in replacement for **MiniMax H3 Reference to Video**: it has the same native inputs (`ref_image_0…8`, `ref_video_0…2` + `ref_video_audio_0…2`, `ref_audio_0…2`, `audio_vae`, `ref_image_size`) plus `characters`. With no characters it produces exactly the same conditioning as the official node (verified tensor by tensor). Order: native images and videos first — so existing prompts citing `<Picture 1>` by hand keep working — then the characters, then native standalone audios (last, so they never sit right before a character's face). First/last frame (FL2VA-style) works by chaining the native **Add Guide for MiniMax H3** after it.
+
 Replaces **MiniMax H3 Reference to Video**. It already carries the references: connect `positive` and `latent` straight to the sampler, with no RefMod Apply.
 
 *   Presents each RefMod to Qwen with its native label (`<Video n>`, `<Picture n>`, `<Audio n>`) in the same order as the DiT blocks.

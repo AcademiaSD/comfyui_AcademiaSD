@@ -664,8 +664,103 @@ def _subject_block(entries, prompt):
     return out
 
 
+NATIVE_IMAGES, NATIVE_VIDEOS, NATIVE_AUDIOS = 9, 3, 3
+
+
+def _native_refs(width, height, length, ref_image_size, kwargs, vae, audio_vae):
+    """Las referencias del nodo oficial "MiniMax H3 Reference to Video", identicas.
+
+    Mismo redimensionado, mismo orden y mismas funciones de ComfyUI que
+    MiniMaxH3ReferenceToVideo.execute: imagenes, luego videos (la banda sonora
+    de cada uno con su <Audio j> justo antes de su <Video k>) y, aparte, los
+    audios sueltos. Se devuelven separados porque el Encode los coloca
+    alrededor de los personajes: las imagenes y videos nativos van PRIMERO, asi
+    los prompts de Ref2VA que ya citan "<Picture 1>" a mano siguen valiendo; los
+    audios sueltos van al FINAL, para no quedar justo delante de la cara de un
+    personaje y "regalarle" su voz.
+
+    The official node's references, built exactly as it does. Native images and
+    videos go first so existing "<Picture 1>" prompts keep working; standalone
+    audios go last so they never sit right before a character's face.
+    """
+    from comfy_extras.nodes_minimax_h3 import (
+        _resize, _encode_ref_audio, adapt_canvas, CANVAS_MULTIPLE, REF_IMAGE_SHORT_EDGE, FPS,
+        temporal_shape)
+    frame_count = temporal_shape(length)[0]
+    head_items, head_blocks, tail_items, tail_blocks, names = [], [], [], [], []
+
+    for i in range(NATIVE_IMAGES):
+        img = kwargs.get("ref_image_%d" % i)
+        if img is None:
+            continue
+        h, w = img.shape[1], img.shape[2]
+        if ref_image_size == "match":
+            scale = min(1.0, math.sqrt((width * height) / (w * h)))
+        else:
+            scale = min(1.0, REF_IMAGE_SHORT_EDGE / min(w, h))
+        tw = max(CANVAS_MULTIPLE, round(w * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
+        th = max(CANVAS_MULTIPLE, round(h * scale / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
+        resized = _resize(img[:1], tw, th, "disabled")
+        head_items.append({"type": "image", "data": resized})
+        names.append(("image", "ref_image_%d" % i))
+        if vae is not None:
+            z = vae.encode(resized)
+            head_blocks.append({"kind": "image", "latent_h": th // 16, "latent_w": tw // 16, "latent": z})
+
+    for i in range(NATIVE_VIDEOS):
+        video_frames = kwargs.get("ref_video_%d" % i)
+        if video_frames is None:
+            continue
+        soundtrack = kwargs.get("ref_video_audio_%d" % i)
+        vh, vw = video_frames.shape[1], video_frames.shape[2]
+        cw, ch = adapt_canvas(vw, vh)
+        if vw * vh < cw * ch:
+            cw = max(CANVAS_MULTIPLE, round(vw / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
+            ch = max(CANVAS_MULTIPLE, round(vh / CANVAS_MULTIPLE) * CANVAS_MULTIPLE)
+        frames = _resize(video_frames, cw, ch, "disabled")
+        if frames.shape[0] > frame_count:
+            frames = frames[:frame_count]
+        n = frames.shape[0]
+        if n < 5:
+            raise ValueError("MiniMax H3 reference videos need at least 5 frames (~0.2s at 24 fps)")
+        while n % 17 != 5:
+            n -= 1
+        frames = frames[:n]
+        if soundtrack is not None:
+            head_items.append({"type": "audio"})
+            names.append(("audio", "ref_video_audio_%d" % i))
+        sample_idx = list(range(0, frames.shape[0], FPS // 2))
+        head_items.append({"type": "video", "data": frames[sample_idx],
+                           "timestamps": [k / 2.0 for k in range(len(sample_idx))]})
+        names.append(("video", "ref_video_%d" % i))
+        if vae is None:
+            continue
+        z = vae.encode(frames)
+        audio_latent, ref_audio_t = (None, 0)
+        if soundtrack is not None and audio_vae is not None:
+            audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, soundtrack)
+        head_blocks.append({"kind": "video_audio" if ref_audio_t else "video",
+                            "latent_t": z.shape[2], "latent_h": ch // 16, "latent_w": cw // 16,
+                            "ref_audio_t": ref_audio_t, "latent": z, "audio_latent": audio_latent})
+
+    tail_names = []
+    for i in range(NATIVE_AUDIOS):
+        audio = kwargs.get("ref_audio_%d" % i)
+        if audio is None:
+            continue
+        tail_items.append({"type": "audio"})
+        tail_names.append(("audio", "ref_audio_%d" % i))
+        if audio_vae is not None:
+            audio_latent, ref_audio_t = _encode_ref_audio(audio_vae, audio)
+            tail_blocks.append({"kind": "audio", "ref_audio_t": ref_audio_t, "audio_latent": audio_latent})
+
+    return head_items, head_blocks, names, tail_items, tail_blocks, tail_names
+
+
 class AcademiaSD_H3RefModEncode:
-    """Sustituye al nodo nativo "MiniMax H3 Reference to Video" cuando se usan RefMods."""
+    """Sustituye al nodo nativo "MiniMax H3 Reference to Video": mismas entradas
+    nativas mas los personajes con RefMods. Sin personajes se comporta igual que
+    el oficial. / Drop-in replacement for the official Reference to Video node."""
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -687,14 +782,27 @@ class AcademiaSD_H3RefModEncode:
                                 "Lado largo maximo de las fotos que ve Qwen. 768 es la resolucion nativa de H3."}),
                 "auto_subject_block": ("BOOLEAN", {"default": True, "tooltip":
                                        "Escribe subject_definitions y retention_analysis si el prompt no los trae."}),
+                # Al final a proposito: los workflows guardados asignan los
+                # widgets por orden. / Last on purpose: widgets map by position.
+                "ref_image_size": (["match", "max"], {"default": "match", "tooltip":
+                                   "Como el nodo oficial: 'match' escala cada ref_image al area de la generacion; "
+                                   "'max' usa lado corto 2048 (mas fiel, mas lento)."}),
             },
-            "optional": {
-                "characters": (CHARACTERS_TYPE,),
-                "h3_mods": ("H3_REF_MODS", {"tooltip":
-                            "Opcional: salida 'mods' de ComfyUI-MiniMaxH3Mod. Cada referencia se trata como "
-                            "un sujeto sin nombre. / Optional mods from ComfyUI-MiniMaxH3Mod."}),
-                "vae": ("VAE", {"tooltip": "VAE de video de H3. Solo hace falta para RefMods sin fotos guardadas."}),
-            },
+            "optional": dict(
+                [("characters", (CHARACTERS_TYPE,)),
+                 ("h3_mods", ("H3_REF_MODS", {"tooltip":
+                              "Opcional: salida 'mods' de ComfyUI-MiniMaxH3Mod. Cada referencia se trata como "
+                              "un sujeto sin nombre. / Optional mods from ComfyUI-MiniMaxH3Mod."})),
+                 ("vae", ("VAE", {"tooltip": "VAE de video de H3: para ref_image/ref_video y para RefMods sin "
+                                             "fotos guardadas."})),
+                 ("audio_vae", ("VAE", {"tooltip": "VAE de audio de H3: solo para ref_audio y bandas sonoras "
+                                                   "de ref_video. Los RefMods ya traen su audio codificado."}))]
+                + [("ref_image_%d" % i, ("IMAGE",)) for i in range(NATIVE_IMAGES)]
+                + [("ref_video_%d" % i, ("IMAGE", {"tooltip": "Fotogramas a 24 fps (2-15 s)"}))
+                   for i in range(NATIVE_VIDEOS)]
+                + [("ref_video_audio_%d" % i, ("AUDIO", {"tooltip": "Banda sonora del ref_video con el mismo numero"}))
+                   for i in range(NATIVE_VIDEOS)]
+                + [("ref_audio_%d" % i, ("AUDIO",)) for i in range(NATIVE_AUDIOS)]),
         }
 
     RETURN_TYPES = ("CONDITIONING", "LATENT", "STRING", "STRING")
@@ -706,7 +814,8 @@ class AcademiaSD_H3RefModEncode:
                    "sin RefMod Apply.")
 
     def encode(self, clip, prompt, width, height, length, stack_pictures, stack_pictures_n,
-               te_max_side, auto_subject_block, characters=None, h3_mods=None, vae=None):
+               te_max_side, auto_subject_block, ref_image_size="match", characters=None, h3_mods=None,
+               vae=None, audio_vae=None, **kwargs):
         from comfy_extras.nodes_minimax_h3 import _empty_av_latent
 
         chars = list(characters or []) + _from_h3mod(h3_mods)
@@ -717,6 +826,17 @@ class AcademiaSD_H3RefModEncode:
         def label(kind):
             count[kind] += 1
             return "<{} {}>".format({"image": "Picture", "video": "Video", "audio": "Audio"}[kind], count[kind])
+
+        # Referencias nativas de Ref2VA: imagenes y videos delante; los audios
+        # sueltos se anaden al final, despues de los personajes.
+        head_items, head_blocks, head_names, tail_items, tail_blocks, tail_names = _native_refs(
+            width, height, length, ref_image_size, kwargs, vae, audio_vae)
+        items.extend(head_items)
+        blocks.extend(head_blocks)
+        for kind, name in head_names:
+            mapping.append("{} = {}".format(label(kind), name))
+        if (head_names or tail_names) and vae is None and any(k != "audio" for k, _ in head_names):
+            mapping.append("(!) ref_image/ref_video sin VAE: solo condicionan el texto, como en el nodo oficial.")
 
         for i, ch in enumerate(chars, 1):
             vis = ch["visual"] if ch["visual_strength"] > 0 else None
@@ -776,6 +896,11 @@ class AcademiaSD_H3RefModEncode:
                     i, ch["name"], vlabel or "-", " + " + alabel if alabel else "",
                     " (voz atada / voice bound)" if bound else ""))
 
+        items.extend(tail_items)
+        blocks.extend(tail_blocks)
+        for kind, name in tail_names:
+            mapping.append("{} = {}".format(label(kind), name))
+
         warnings = []
         # ETIQUETAS ESCRITAS A MANO: la trampa que cambiaba las voces.
         #
@@ -791,7 +916,13 @@ class AcademiaSD_H3RefModEncode:
         # model to swap the voices. The @Name.voice / .video / .S aliases are
         # resolved from the actual order.
         raw = prompt or ""
-        if entries and re.search(r"<(Audio|Video|Picture|Subject) \d+>|\(S\d+\)", raw):
+        # Las referencias nativas (ref_image/ref_video/ref_audio) se citan a
+        # mano con razon, como en el nodo oficial; solo se avisa si la etiqueta
+        # escrita es de un PERSONAJE. / Native refs are legitimately cited by
+        # hand; warn only about labels that belong to a character.
+        char_labels = {e["vlabel"] for e in entries} | {e["alabel"] for e in entries}
+        hand = set(re.findall(r"<(?:Audio|Video|Picture) \d+>", raw))
+        if entries and (hand & char_labels or re.search(r"<Subject \d+>|\(S\d+\)", raw)):
             warnings.append("El prompt trae etiquetas escritas a mano (<Audio n>, <Video n>, <Subject n>, (Sn)). "
                             "Si cambias el orden de los personajes dejan de coincidir: usa @Nombre, "
                             "@Nombre.voice, @Nombre.video y @Nombre.S. / Hand-written labels found: use the "
