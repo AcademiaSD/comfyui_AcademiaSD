@@ -348,6 +348,41 @@ The switch itself, and the part that moves everything else.
 
 ---
 
+## 🎭 Academia SD H3 RefMods (multi-character)
+
+Two nodes for using several MiniMax H3 RefMods in one shot without the faces blending, one character being cloned, or the voices swapping.
+
+**Why it happens.** A classic RefMod is added to the conditioning *after* text encoding: the DiT attends its latents, but the text encoder (Qwen) never sees the subject. With one RefMod that is enough. With two or three, nothing tells the model which one is which — the prompt cannot cite `<Video 1>` because that label does not exist in the sequence.
+
+### 1. AcademiaSD H3 RefMod Character
+
+One node per character; chain them through the `characters` input.
+
+*   **`visual_refmod`** — any RefMod: LoRAlab, ComfyUI-MiniMaxH3Mod, bundles, old or new.
+*   **`audio_refmod`** — `(auto)` takes the bundle's audio or the sibling `name_audio` file that LoRAlab writes.
+*   **`name` / `appearance` / `voice_description`** — write in `appearance` what sets this character *apart from the others* ("oval face" vs "square jaw"). No negatives: H3 is distilled and ignores them.
+*   **`bind_voice`** *(experimental)* — puts the voice and the face in one native `video_audio` block (shared temporal origin), the way H3 saw faces and voices together in training. Off by default and unvalidated: that block claims picture *n* goes with audio instant *n*, and a RefMod is scattered stills. Compare the same seed with and without it.
+*   **`audio_max_seconds`** — trims the voice to its first N seconds (0 = all). Give every character a voice of the same length: the longer one tends to win and leak into the others.
+*   **`show_preview`** — shows the first encoded picture of the subject. New RefMods carry it inside the file; older ones need the H3 video `vae` connected.
+
+### 2. AcademiaSD H3 RefMod Encode
+
+Replaces **MiniMax H3 Reference to Video**. It already carries the references: connect `positive` and `latent` straight to the sampler, with no RefMod Apply.
+
+*   Presents each RefMod to Qwen with its native label (`<Video n>`, `<Picture n>`, `<Audio n>`) in the same order as the DiT blocks.
+*   **`stack_pictures`** — how many pictures of each RefMod Qwen sees. `up_to_n` (default, `stack_pictures_n` = 8) and `all` give each picture its own block; `every_4th_pairs` is the lightest. More pictures = less bleed, slower encode.
+*   **`auto_subject_block`** — writes `subject_definitions` and `retention_analysis` with the right numbering if the prompt does not have them.
+*   **Aliases — never hand-write `<Audio 1>`, `<Video 1>` or `(S1)`.** Those numbers follow the order of the characters, so reordering them makes the prompt itself ask the model to swap the voices. Write `@Name` (→ `<Subject n> Name`), `@Name.voice` (→ their `<Audio n>`), `@Name.video` (→ their `<Video n>`) and `@Name.S` (→ `Sn`). `reference_map` flags any hand-written label that contradicts the mapping.
+*   **`vae`** — only needed for RefMods without stored pictures (older ones): their frames are decoded for Qwen. They work, but Qwen sees a worse image than with a new RefMod.
+*   **`h3_mods`** — optionally takes the `mods` output of ComfyUI-MiniMaxH3Mod's loader.
+*   `final_prompt` and `reference_map` show exactly what was sent and which label belongs to whom.
+
+> ⚠️ **Experimental — two voices in the same shot are not reliable yet.** In our tests with two characters and two audio RefMods, the voices came out swapped in most configurations (consistently per configuration, not per seed). Use these nodes for several *faces*; for dialogue, one speaker per shot is the safe option for now.
+
+> RefMods created with **LoRAlab Trainer Studio** from this version on store the source pictures (JPEG) next to the latents, so Qwen sees the real photos with no VAE decode. The files stay compatible with every other RefMod loader.
+
+---
+
 # 🎞️ Moviola Nodes
 
 A chained-generation system for MiniMax-H3: each take starts where the last one
