@@ -796,7 +796,10 @@ class AcademiaSD_H3RefModEncode:
                  ("vae", ("VAE", {"tooltip": "VAE de video de H3: para ref_image/ref_video y para RefMods sin "
                                              "fotos guardadas."})),
                  ("audio_vae", ("VAE", {"tooltip": "VAE de audio de H3: solo para ref_audio y bandas sonoras "
-                                                   "de ref_video. Los RefMods ya traen su audio codificado."}))]
+                                                   "de ref_video. Los RefMods ya traen su audio codificado."})),
+                 ("first_frame", ("IMAGE", {"tooltip": "FL2VA: primer fotograma, como en MiniMax H3 Image to Video "
+                                                       "(<Picture 1> para Qwen + fotograma ancla)."})),
+                 ("last_frame", ("IMAGE", {"tooltip": "FL2VA: ultimo fotograma, como en MiniMax H3 Image to Video."}))]
                 + [("ref_image_%d" % i, ("IMAGE",)) for i in range(NATIVE_IMAGES)]
                 + [("ref_video_%d" % i, ("IMAGE", {"tooltip": "Fotogramas a 24 fps (2-15 s)"}))
                    for i in range(NATIVE_VIDEOS)]
@@ -826,6 +829,28 @@ class AcademiaSD_H3RefModEncode:
         def label(kind):
             count[kind] += 1
             return "<{} {}>".format({"image": "Picture", "video": "Video", "audio": "Audio"}[kind], count[kind])
+
+        # FL2VA: primer/ultimo fotograma exactamente como MiniMaxH3ImageToVideo.
+        # Qwen los ve como "<Picture 1>: ..." -- el mismo texto que produce su
+        # tokenize(images=...) -- y el DiT los recibe como fotogramas ancla, no
+        # como referencias. Van los primeros para conservar esa numeracion.
+        # FL2VA first/last frames, exactly as the official node: <Picture n> for
+        # Qwen plus keyframes for the DiT.
+        keyframes = []
+        first_frame, last_frame = kwargs.pop("first_frame", None), kwargs.pop("last_frame", None)
+        if first_frame is not None or last_frame is not None:
+            from comfy_extras.nodes_minimax_h3 import _resize, temporal_shape
+            if vae is None:
+                raise ValueError("first_frame/last_frame need the video VAE.")
+            frame_count = temporal_shape(length)[0]
+            for img, idx, crop, name in ((first_frame, 0, "disabled", "first_frame"),
+                                         (last_frame, frame_count - 1, "center", "last_frame")):
+                if img is None:
+                    continue
+                img = _resize(img[:1], width, height, crop)
+                items.append({"type": "image", "data": img})
+                keyframes.append({"resolved_frame_index": idx, "latent": vae.encode(img)})
+                mapping.append("{} = {}".format(label("image"), name))
 
         # Referencias nativas de Ref2VA: imagenes y videos delante; los audios
         # sueltos se anaden al final, despues de los personajes.
@@ -977,6 +1002,8 @@ class AcademiaSD_H3RefModEncode:
         cond = clip.encode_from_tokens_scheduled(tokens)
         if blocks:
             cond = node_helpers.conditioning_set_values(cond, {"minimax_refs": blocks})
+        if keyframes:
+            cond = node_helpers.conditioning_set_values(cond, {"minimax_keyframes": keyframes})
         latent, _ = _empty_av_latent(width, height, length)
 
         ref_map = "\n".join(mapping) or "No RefMods."

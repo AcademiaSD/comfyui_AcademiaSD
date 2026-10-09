@@ -346,6 +346,17 @@ The switch itself, and the part that moves everything else.
 *   **🤏 Folds down to almost nothing:** The group list collapses away, leaving just the lever and a one-line summary. Unfold it only when you need to reassign something.
 *   **⚙️ Options:** Bypass or Mute for the off side, apply the active side on workflow load, and label push — rename `FL2VA` once on the switch and the Models nodes that follow it pick the name up.
 
+### 🔢 Fast Switch · Counter
+
+The Toggle's sibling for "how many": a stepped slider **OFF, 1, 2, 3…** that turns groups on by level. Built for reference images and RefMods — one group per image or character, and the slider decides how many are in play.
+
+*   **🔴 OFF / 🟢 ON:** at 0 the left label reads `OFF` in red; at 1 or more it turns into `ON` in green, and the right side shows the count (`3/8`). Both words can be renamed (double-click the label, or ⚙).
+*   **🎚️ Stepped slider:** drag it and it snaps to each step, click anywhere on the track to jump there, or use the mouse wheel for ±1. Click the label to go OFF and back to the last value; click the number for +1.
+*   **📋 Levels, not sides:** fold the panel open and give each group a level (`–`, 1, 2, 3…). `–` means this counter never touches the group. Type a filter (e.g. `Ref`) and press **🔢** to number the visible groups 1, 2, 3… in one go.
+*   **➕ Cumulative or exact:** *Cumulative* (default) — value 3 turns on levels 1, 2 and 3 and bypasses the rest. *Exact* — value 3 turns on only level 3, to pick one option among several.
+*   **⚙️ Options:** number of steps (up to 32), Bypass or Mute for the off groups, apply on workflow load, rename, re-apply, unassign all.
+*   **🔌 `value` output (INT):** the current number, in case you want to wire it somewhere.
+
 ---
 
 ## 🎭 Academia SD H3 RefMods (multi-character)
@@ -367,7 +378,7 @@ One node per character; chain them through the `characters` input.
 
 ### 2. AcademiaSD H3 RefMod Encode
 
-Drop-in replacement for **MiniMax H3 Reference to Video**: it has the same native inputs (`ref_image_0…8`, `ref_video_0…2` + `ref_video_audio_0…2`, `ref_audio_0…2`, `audio_vae`, `ref_image_size`) plus `characters`. With no characters it produces exactly the same conditioning as the official node (verified tensor by tensor). Order: native images and videos first — so existing prompts citing `<Picture 1>` by hand keep working — then the characters, then native standalone audios (last, so they never sit right before a character's face). First/last frame (FL2VA-style) works by chaining the native **Add Guide for MiniMax H3** after it.
+Drop-in replacement for **MiniMax H3 Reference to Video**: it has the same native inputs (`ref_image_0…8`, `ref_video_0…2` + `ref_video_audio_0…2`, `ref_audio_0…2`, `audio_vae`, `ref_image_size`) plus `characters`. With no characters it produces exactly the same conditioning as the official node (verified tensor by tensor). Order: native images and videos first — so existing prompts citing `<Picture 1>` by hand keep working — then the characters, then native standalone audios (last, so they never sit right before a character's face). It also replaces **MiniMax H3 Image to Video** (FL2VA): its `first_frame` / `last_frame` inputs do exactly what the official node does — `<Picture 1>` / `<Picture 2>` for the text encoder plus keyframes at the first and last frame (verified tensor by tensor) — and they combine with RefMods. A workflow can therefore keep one Encode in the Ref2VA branch and another in the FL2VA branch, both fed by the same characters.
 
 Replaces **MiniMax H3 Reference to Video**. It already carries the references: connect `positive` and `latent` straight to the sampler, with no RefMod Apply.
 

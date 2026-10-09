@@ -277,12 +277,62 @@ class AcademiaFastSwitchToggle:
         return ()
 
 
+class AcademiaFastSwitchCounter:
+    """Un deslizador por pasos: OFF, 1, 2, 3... Con el valor N enciende los
+    grupos de nivel <= N (o solo el de nivel N, en modo exacto) y pasa por
+    bypass los demas. Pensado para activar referencias o RefMods de uno en uno
+    sin ir grupo por grupo. Como el Toggle, todo ocurre en el navegador; aqui
+    solo se devuelve el valor por si alguien quiere cablearlo.
+
+    A stepped slider: OFF, 1, 2, 3... Value N enables the groups of level <= N
+    (or exactly N) and bypasses the rest. The value is also an INT output.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "switch_data": ("STRING", {
+                    "default": "{}",
+                    "multiline": False,
+                    "tooltip": "Serialized state of the switch. Managed by the node UI.",
+                }),
+            },
+        }
+
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("value",)
+    FUNCTION = "run"
+    OUTPUT_NODE = False
+    CATEGORY = "AcademiaSD/Switch"
+    DESCRIPTION = ("A stepped switch: OFF, 1, 2, 3... Value N turns on the groups "
+                   "assigned to levels 1..N (or only level N in exact mode) and "
+                   "bypasses the others. Outputs the value as an INT.")
+
+    @classmethod
+    def IS_CHANGED(cls, switch_data="{}", **kwargs):
+        return switch_data
+
+    def run(self, switch_data="{}", **kwargs):
+        data = _parse(switch_data)
+        try:
+            value = max(0, int(data.get("value", 0)))
+        except (TypeError, ValueError):
+            value = 0
+        lab = data.get("labels") or {}
+        label = str(lab.get("on") or "ON") if value else str(lab.get("off") or "OFF")
+        print("[Fast Switch v{}] counter {} ({})".format(ACADEMIASD_VERSION, value, label))
+        return (value,)
+
+
 NODE_CLASS_MAPPINGS = {
     "Academia_Fast_Switch_Models": AcademiaFastSwitchModels,
     "Academia_Fast_Switch_Toggle": AcademiaFastSwitchToggle,
+    "Academia_Fast_Switch_Counter": AcademiaFastSwitchCounter,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "Academia_Fast_Switch_Models": "Academia SD Fast Switch · Models 🅰️🅱️",
     "Academia_Fast_Switch_Toggle": "Academia SD Fast Switch · Toggle 🎚️",
+    "Academia_Fast_Switch_Counter": "Academia SD Fast Switch · Counter 🔢",
 }
