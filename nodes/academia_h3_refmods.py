@@ -454,6 +454,35 @@ def _save_preview(img):
     return {"filename": name, "subfolder": "", "type": "temp"}
 
 
+def _fmt(n):
+    """12345 -> '12.345' (separador de miles a la espanola)."""
+    return "{:,}".format(int(n)).replace(",", ".")
+
+
+def _char_tokens(ch):
+    """(visuales, audio) que el personaje inyecta, con fuerza 0 = no cuenta."""
+    vis = ch["visual"].tokens if ch.get("visual") is not None and ch["visual_strength"] > 0 else 0
+    aud = ch["audio"].tokens if ch.get("audio") is not None and ch["audio_strength"] > 0 else 0
+    return vis, aud
+
+
+def _token_report(char, chars):
+    """Datos para el panel bajo la imagen. / Data for the panel under the picture."""
+    vis, aud = _char_tokens(char)
+    rep = {"name": char["name"], "visual": vis, "audio": aud, "total": vis + aud,
+           "chain": sum(sum(_char_tokens(c)) for c in chars), "index": len(chars)}
+    v = char.get("visual")
+    if v is not None:
+        rep["frames"] = int(v.latent.shape[2])
+        rep["size"] = "{}x{}".format(int(v.latent.shape[4]) * 16, int(v.latent.shape[3]) * 16)
+        rep["pictures"] = bool(v.frame_keys)
+    a = char.get("audio")
+    if a is not None:
+        rep["seconds"] = round(float(a.latent.shape[-1]) / 40.0, 1)
+    rep["text"] = "{} tok".format(_fmt(rep["total"]))
+    return rep
+
+
 class AcademiaSD_H3RefModCharacter:
     """Un personaje: el RefMod visual, la voz y como diferenciarlo de los demas."""
 
@@ -581,19 +610,24 @@ class AcademiaSD_H3RefModCharacter:
             notes.append("audio: {:.1f} s, {} tokens".format(audio.latent.shape[-1] / 40.0, audio.tokens))
         info = "{} -> character #{}\n".format(char["name"], len(chars)) + "\n".join(notes)
 
+        # Lo que se ve debajo de la imagen: los tokens que este personaje anade
+        # a la secuencia del DiT y el total de la cadena hasta aqui (el ultimo
+        # nodo muestra lo que recibe el Encode). Va en claves propias de "ui"
+        # para que lo pinte el JS del nodo y no la vista previa nativa.
+        # Shown under the picture: this character's DiT reference tokens and the
+        # chain total so far. Custom "ui" keys, drawn by the node's own JS.
+        ui = {"asd_tokens": [_token_report(char, chars)]}
+
         preview = torch.zeros(1, 64, 64, 3)
-        ui = None
         if show_preview and visual is not None:
             pic = first_picture(visual, vae)
             if pic is None:
                 info += "\npreview: conecta el VAE para ver RefMods antiguos / connect the VAE"
             else:
                 preview = pic.unsqueeze(0)
-                ui = {"images": [_save_preview(pic)]}
+                ui["asd_preview"] = [_save_preview(pic)]
         print("[AcademiaSD H3 RefMod] " + info.replace("\n", " | "))
-        if ui:
-            return {"ui": ui, "result": (chars, preview, info)}
-        return (chars, preview, info)
+        return {"ui": ui, "result": (chars, preview, info)}
 
 
 # ══════════════════════════════════════════════════════════════════════════

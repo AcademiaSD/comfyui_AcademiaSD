@@ -367,7 +367,11 @@ Two nodes for using several MiniMax H3 RefMods in one shot without the faces ble
 
 ### 1. AcademiaSD H3 RefMod Character
 
+![AcademiaSD H3 RefMod Character](https://raw.githubusercontent.com/AcademiaSD/miscellaneous-drawer/main/node-images/H3_RefMod_Character.jpg)
+
 One node per character; chain them through the `characters` input.
+
+*   **🧮 Token panel (under the picture):** after each run the node shows what this character adds to the DiT sequence — visual tokens (frames · canvas · stored pictures or VAE decode), audio tokens (seconds, after `audio_max_seconds`), the character's total, and the **chain total** up to this node (the last node of the chain shows exactly what reaches the Encode). A strength of 0 shows as `off` and does not count. Reference tokens are paid on every sampling step, so this is the number to watch when a render gets slow.
 
 *   **`visual_refmod`** — any RefMod: LoRAlab, ComfyUI-MiniMaxH3Mod, bundles, old or new.
 *   **`audio_refmod`** — `(auto)` takes the bundle's audio or the sibling `name_audio` file that LoRAlab writes.
