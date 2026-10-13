@@ -137,13 +137,32 @@ def _list_refmods():
 
 
 def _find(name):
-    name = str(name or "").replace("\\", "/")
-    if not name or name in (NONE, AUTO) or ".." in name.split("/"):
+    """Ruta del RefMod `name`, SIEMPRE dentro de una carpeta de RefMods.
+
+    El nombre llega de un widget, y un prompt enviado por la API puede poner ahi
+    cualquier cosa. Quitar ".." no basta: con una ruta absoluta o con unidad
+    ("C:/..."), os.path.join descarta la carpeta base entera. Por eso se
+    rechazan esas formas y, ademas, el fichero final tiene que quedar dentro de
+    la carpeta, comprobado sobre la ruta real.
+
+    Path of RefMod `name`, always inside a RefMods folder. Absolute and drive
+    paths are refused and the resolved file must stay inside the folder.
+    """
+    name = str(name or "").replace("\\", "/").strip()
+    if not name or name in (NONE, AUTO):
         return None
+    if (name.startswith("/") or ":" in name or os.path.isabs(name)
+            or ".." in name.split("/")):
+        raise ValueError("RefMod '{}': expected a name under models/refmods, not a path.".format(name))
     for d in _dirs():
-        p = os.path.join(d, name + ".safetensors")
-        if os.path.isfile(p):
-            return os.path.abspath(p)
+        root = os.path.realpath(d)
+        p = os.path.realpath(os.path.join(root, name + ".safetensors"))
+        try:
+            inside = os.path.commonpath([root, p]) == root
+        except ValueError:                     # otra unidad / another drive
+            inside = False
+        if inside and os.path.isfile(p):
+            return p
     raise FileNotFoundError("RefMod '{}' not found in: {}".format(name, ", ".join(_dirs())))
 
 
