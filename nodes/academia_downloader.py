@@ -120,8 +120,50 @@ def _sub_seguro(base, subfolder):
     return destino if _dentro_de(base, destino) else None
 
 
+# SOLO MODELOS, Y SOLO EN CARPETAS DE MODELOS.
+#
+# El nodo descarga lo que se le pida, asi que el destino y el tipo de fichero
+# los decide el servidor, no el cliente: si no, una URL a un .py guardada en
+# custom_nodes se ejecutaria en el siguiente arranque de ComfyUI. Se aceptan las
+# mismas extensiones que ya se listan para los repositorios de Hugging Face, y
+# las carpetas son las que ComfyUI registra para modelos (o un nombre simple
+# dentro de models/), nunca custom_nodes ni una ruta.
+#
+# MODEL FILES ONLY, AND ONLY INTO MODEL FOLDERS. Destination and file type are
+# decided server side: otherwise a URL to a .py saved into custom_nodes would run
+# on the next ComfyUI start.
+MODEL_EXTS = (".safetensors", ".gguf", ".ckpt", ".pt", ".bin", ".pth", ".onnx", ".sft")
+BLOCKED_FOLDERS = {"custom_nodes"}
+EXTRA_FOLDERS = ["checkpoints", "unet", "diffusion_models", "loras", "vae", "text_encoders",
+                 "clip", "controlnet", "upscale_models", "embeddings"]
+_FOLDER_NAME = re.compile(r"^[A-Za-z0-9_\-]+$")
+
+
+def _models_root():
+    return getattr(folder_paths, "models_dir", None) or os.path.join(folder_paths.base_path, "models")
+
+
+def allowed_folders():
+    names = set(folder_paths.folder_names_and_paths.keys()) | set(EXTRA_FOLDERS)
+    return sorted(n for n in names if n not in BLOCKED_FOLDERS and _FOLDER_NAME.match(str(n)))
+
+
+def is_model_file(filename):
+    return bool(filename) and os.path.basename(filename).lower().endswith(MODEL_EXTS)
+
+
+def _folder_bases(folder_name):
+    """Raices validas para esa carpeta, o [] si no es una carpeta de modelos."""
+    if folder_name not in allowed_folders():
+        return []
+    paths = list(folder_paths.get_folder_paths(folder_name) or [])
+    if paths:
+        return paths
+    return [os.path.join(_models_root(), folder_name)]
+
+
 def find_existing_file(folder_name, subfolder, filename):
-    paths = folder_paths.get_folder_paths(folder_name)
+    paths = _folder_bases(folder_name)
     if not paths: return None
     for base_path in paths:
         check_path = _sub_seguro(base_path, subfolder)
@@ -133,9 +175,11 @@ def find_existing_file(folder_name, subfolder, filename):
     return None
 
 def get_download_target_path(folder_name, subfolder):
-    paths = folder_paths.get_folder_paths(folder_name)
-    target_base = paths[0] if paths else os.path.join(folder_paths.base_path, "models", folder_name)
-    for p in paths or []:
+    paths = _folder_bases(folder_name)
+    if not paths:
+        return None
+    target_base = paths[0]
+    for p in paths:
         if os.path.basename(os.path.normpath(p)) == folder_name:
             target_base = p
             break
@@ -253,11 +297,7 @@ async def save_download_preset(request):
 
 @PromptServer.instance.routes.get("/academia/folders")
 async def get_folders(request):
-    raw_folders = list(folder_paths.folder_names_and_paths.keys())
-    for ef in ["checkpoints", "unet", "diffusion_models", "loras", "vae", "text_encoders", "clip", "controlnet", "upscale_models", "embeddings"]:
-        if ef not in raw_folders: raw_folders.append(ef)
-    raw_folders.sort()
-    return web.json_response(raw_folders)
+    return web.json_response(allowed_folders())
 
 @PromptServer.instance.routes.post("/academia/parse_url")
 async def parse_url(request):
@@ -338,6 +378,11 @@ async def download_file(request):
         filename, _ = await asyncio.to_thread(get_file_info_from_url, url, civ_t, hf_t)
         if not filename: return web.json_response({"status": "error", "message": "Auth required or invalid link."})
 
+    filename = os.path.basename(filename)
+    if not is_model_file(filename):
+        return web.json_response({"status": "error", "message": "Only model files can be downloaded ({}).".format(
+            ", ".join(MODEL_EXTS))}, status=400)
+
     if find_existing_file(folder, subfolder, filename):
         return web.json_response({"status": "exists", "message": "File already exists."})
 
@@ -346,6 +391,8 @@ async def download_file(request):
         return web.json_response({"status": "error", "message": "Invalid destination folder."}, status=400)
 
     file_path = os.path.join(destino, filename)
+    if not _dentro_de(destino, file_path):
+        return web.json_response({"status": "error", "message": "Invalid file name."}, status=400)
     ACTIVE_DOWNLOADS[url] = {"progress": 0}
     asyncio.create_task(asyncio.to_thread(background_download_task, url, file_path, civ_t, hf_t))
     

@@ -17,6 +17,7 @@ This tool scans your ComfyUI directories (including secondary paths defined in `
 ## Key Features
 
 *   **⚡ Non-Blocking Background Downloads:** Downloading large models does not freeze ComfyUI. The application runs downloads in secondary threads.
+*   **🔒 Models only, into model folders only:** downloads are limited to model files (`.safetensors`, `.gguf`, `.ckpt`, `.pt`, `.pth`, `.bin`, `.onnx`, `.sft`) and to ComfyUI's model folders. `custom_nodes` and paths that try to leave the models directory are refused, so a link can never drop code into your installation.
 *   **🔄 Dual Platform Support:** Paste direct download URLs from **Civitai** or **HuggingFace**.
 *   **📦 Automatic HuggingFace Repository Parsing:** When pasting a HuggingFace repository link, it automatically fetches and displays a dropdown list of available model files (e.g., `.safetensors`, `.gguf`, `.ckpt`).
 *   **💾 Local Duplicate Detection:** Automatically checks if the file already exists in your local folders or shared directories (e.g., Automatic1111/Forge) using ComfyUI’s path resolution system.
@@ -160,6 +161,7 @@ This node handles the acquisition and initialization of Vision Language Models d
   - `low_vram`: Toggle to enable memory-efficient loading for GPUs with limited VRAM.
 - **Outputs:**
   - `MODEL`: The loaded VLM model ready for inference.
+- **Safety:** code shipped inside a model repository is never executed. Use models that `transformers` supports natively (Qwen2-VL, Qwen2.5-VL, Qwen3-VL and their fine-tunes).
 
 ### 2. AcademiaSD Captioner
 The core engine for image interrogation. It uses the loaded model to analyze visual content based on a natural language prompt.

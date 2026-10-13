@@ -11,33 +11,22 @@ from transformers import AutoProcessor, BitsAndBytesConfig
 
 loaded_data = {"model": None, "processor": None, "path": None}
 
-_VISION_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "..", "..", "..", "models", "vision")
-_FLAG_REMOTE_CODE = os.path.join(_VISION_DIR, "allow_remote_code.flag")
-
-
-def _remote_code_permitido():
-    """Whether the model repository's own code is allowed to run.
-
-    With that option on, transformers executes the Python shipped inside the
-    model repository. repo_id comes from a widget, so anyone able to reach
-    /prompt could name a repository of their own and have it run on the user's
-    machine.
-
-    The permission cannot be a widget: whoever sends the prompt sets every
-    widget in it. It has to live where only someone with access to the machine
-    can put it, so it is a file on disk.
-    """
-    return os.path.exists(_FLAG_REMOTE_CODE)
-
-
+# NUNCA SE EJECUTA CODIGO DEL REPOSITORIO DEL MODELO.
+#
+# transformers puede ejecutar el Python que trae un repositorio de Hugging Face
+# (trust_remote_code). Aqui repo_id llega de un widget, asi que cualquiera que
+# pueda enviar un prompt a ComfyUI podria nombrar un repositorio propio y hacer
+# que se ejecute en la maquina. La opcion esta siempre apagada y no hay forma de
+# encenderla: los modelos para los que existe este nodo (Qwen2-VL, Qwen2.5-VL,
+# Qwen3-VL) los soporta transformers de forma nativa y no la necesitan.
+#
+# MODEL REPOSITORY CODE NEVER RUNS. trust_remote_code is always off: repo_id comes
+# from a widget, and the Qwen-VL models this node is for are native in
+# transformers.
 _AVISO_REMOTE_CODE = (
-    "[AcademiaSD] Model '{repo}' asks to run code shipped inside the model "
-    "repository (trust_remote_code).\n"
-    "That is disabled for safety: anyone able to reach the ComfyUI port could "
-    "load a malicious repository and run code on your machine.\n"
-    "If you trust this model, allow it by creating this file:\n"
-    "  {flag}"
+    "[AcademiaSD] Model '{repo}' needs to run code shipped inside the model "
+    "repository. That is not supported, for safety: use a "
+    "model that transformers supports natively (e.g. Qwen2-VL, Qwen2.5-VL, Qwen3-VL)."
 )
 
 class AcademiaModelLoader:
@@ -101,8 +90,6 @@ class AcademiaModelLoader:
         if low_vram == "enable":
             quant_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 
-        permitir_codigo = _remote_code_permitido()
-
         try:
             # target_dir es una carpeta local ya descargada, no un repo remoto:
             # aqui no hay revision que fijar.
@@ -110,19 +97,16 @@ class AcademiaModelLoader:
                 target_dir,
                 torch_dtype=torch.float16,
                 device_map="auto",
-                trust_remote_code=permitir_codigo,
                 quantization_config=quant_config
             ).eval()
 
             loaded_data["processor"] = AutoProcessor.from_pretrained(  # nosec B615
-                target_dir, trust_remote_code=permitir_codigo)
+                target_dir)
         except Exception as e:
-            if not permitir_codigo:
-                # transformers pide esa opcion cuando el repositorio trae codigo
-                # de modelado propio. Explicamos como habilitarlo en vez de soltar
-                # el error crudo, que no dice como salir del paso.
-                aviso = _AVISO_REMOTE_CODE.format(
-                    repo=repo_id, flag=os.path.abspath(_FLAG_REMOTE_CODE))
+            # transformers pide trust_remote_code cuando el repositorio trae
+            # codigo de modelado propio: se explica en vez de soltar el error crudo.
+            if "remote_code" in str(e):
+                aviso = _AVISO_REMOTE_CODE.format(repo=repo_id)
                 print(aviso)
                 raise RuntimeError(aviso) from e
             raise
