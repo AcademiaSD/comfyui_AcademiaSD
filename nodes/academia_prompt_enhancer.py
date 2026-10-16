@@ -254,17 +254,44 @@ def _parse(text):
 
 
 def _parse_negative(text):
-    """Los terminos de la respuesta, venga en JSON o como lista suelta."""
+    """Los terminos de la respuesta, venga en JSON o como lista suelta.
+
+    El upsampler de FLUX.3 esta tan entrenado para describir que a veces
+    ignora la plantilla del negativo: vuelve a escribir el caption del
+    positivo y deja la lista al final, tras "Negative prompt:". Entonces vale
+    solo lo que va detras. Y un trozo de mas de seis palabras no es un
+    termino sino una frase del caption: fuera, o el negativo acaba siendo una
+    copia del positivo y con CFG anula la guia."""
     text = _strip_think(text)
     start, end = text.find("{"), text.rfind("}")
+    found = False
     if start >= 0 and end > start:
         try:
             data = json.loads(text[start:end + 1])
             if isinstance(data, dict) and isinstance(data.get("negative_prompt"), str):
-                text = data["negative_prompt"]
+                text, found = data["negative_prompt"], True
         except ValueError:
             pass
-    return [t.strip(" -*\"'.") for t in re.split(r"[,\n]", text) if t.strip(" -*\"'.")]
+    marks = [] if found else list(re.finditer(r'negative[ _]prompt"?\s*[:=]\s*', text, flags=re.IGNORECASE))
+    if marks:
+        text = text[marks[-1].end():]
+    terms, term_words, phrase_words = [], 0, 0
+    for t in re.split(r"[,;\n]", text):
+        t = re.sub(r"^(?:or|and)\s+", "", t.strip(" -*\"'.{}[]"), flags=re.IGNORECASE).strip(" -*\"'.")
+        n = len(t.split())
+        if not n:
+            continue
+        if n <= 6:
+            terms.append(t)
+            term_words += n
+        else:
+            phrase_words += n
+    # Sin JSON ni "Negative prompt:" y la mayor parte del texto en frases: es
+    # un caption, no una lista. Sus trozos cortos ("soft light") son cosas que
+    # el positivo pide.
+    if not found and not marks and phrase_words >= term_words:
+        return []
+    return terms
 
 
 def _compose(prompt, instruction, description):
