@@ -63,26 +63,47 @@ def _is_flux3(template):
     return template.lower().startswith("flux3")
 
 
-def _flux3_message(prompt, negative, has_image, ratio):
+def _is_flux3_edit(template):
+    return _is_flux3(template) and "edit" in template.lower()
+
+
+def _flux3_message(prompt, negative, n_images, ratio, edit=False):
     """El upsampler de FLUX.3 esta entrenado con la peticion tal cual, precedida
-    si acaso de la linea TARGET CANVAS: sin el envoltorio de las otras plantillas."""
-    parts = ["TARGET CANVAS: " + ratio] if ratio else []
+    si acaso de la linea TARGET CANVAS: sin el envoltorio de las otras plantillas.
+    El de edicion recibe solo la peticion: las imagenes ya van delante, en orden,
+    y el tamano lo pone la primera referencia."""
+    parts = ["TARGET CANVAS: " + ratio] if ratio and not edit else []
     if prompt:
         parts.append(prompt)
-    if has_image:
-        parts.append("Use the image above as the reference; the request wins wherever the two disagree."
-                     if prompt else "Caption the image above.")
+    if n_images and not edit:
+        refs, role = (("the image above", "the reference") if n_images == 1 else
+                      ("the images above, in order", "references"))
+        parts.append("Use {} as {}; the request wins wherever they disagree.".format(refs, role)
+                     if prompt else "Caption {}.".format(refs))
     if negative:
         parts.append("It must not contain: " + negative)
     return "\n".join(parts)
 
 
-def _negative_message(prompt, negative, has_image, positive):
+def _fit(image, max_pixels=1024 * 1024):
+    """Una referencia a no mas de ~1 MP: el codificador de vision de Qwen3.5
+    la procesaria entera, y diez fotos grandes son decenas de miles de tokens."""
+    import comfy.utils
+    h, w = int(image.shape[1]), int(image.shape[2])
+    if h * w <= max_pixels:
+        return image
+    k = (max_pixels / float(h * w)) ** 0.5
+    return comfy.utils.common_upscale(image.movedim(-1, 1), max(16, int(w * k)), max(16, int(h * k)),
+                                      "area", "disabled").movedim(1, -1)
+
+
+def _negative_message(prompt, negative, n_images, positive):
     parts = []
     if prompt:
         parts.append("Request:\n" + prompt)
-    if has_image:
-        parts.append("The image above is the reference.")
+    if n_images:
+        parts.append("The image above is the reference." if n_images == 1 else
+                     "The images above are the references, in order (the first image, the second image, ...).")
     parts.append("Positive prompt that will be rendered:\n" + positive)
     if negative:
         parts.append("Negative terms the user already wrote (they are kept, do not repeat them):\n" + negative)
@@ -295,7 +316,12 @@ class AcademiaPromptEnhancer:
                                                   "about 500 words; too few cuts the answer."}),
             },
             "optional": {
-                "image": ("IMAGE",),
+                "image": ("IMAGE", {"tooltip": "The first reference image."}),
+                # Las referencias 2 a 10 solo las ven las plantillas Flux3Klein: el
+                # upsampler de FLUX.3 mira todas las imagenes de la edicion, en orden.
+                **{"image_{}".format(i): ("IMAGE", {"tooltip": "Reference image {}. Only the Flux3Klein "
+                                                               "templates use it.".format(i)})
+                   for i in range(2, 11)},
                 "prompt": ("STRING", {"multiline": True, "default": ""}),
                 "negative_prompt": ("STRING", {"multiline": True, "default": ""}),
                 "width": ("INT", {"forceInput": True}),
@@ -322,11 +348,22 @@ class AcademiaPromptEnhancer:
                 for n in (template, negative_template) if n in _templates()]
 
     def enhance(self, clip, template, negative_template, temperature, seed, max_length,
-                image=None, prompt=None, negative_prompt=None, width=None, height=None, positive=None):
+                image=None, prompt=None, negative_prompt=None, width=None, height=None, positive=None,
+                **more):
         prompt = (prompt or "").strip()
         negative_prompt = (negative_prompt or "").strip()
         if not prompt and image is None:
             raise ValueError("Prompt Enhancer needs a prompt, an image, or both")
+        if _is_flux3_edit(template) and not prompt:
+            raise ValueError("Prompt Enhancer: the Flux3 edit template needs a written request")
+
+        # Las de Qwen-Image siguen viendo solo la primera, como siempre; las de
+        # FLUX.3, todas las que lleguen, en orden y a ~1 MP.
+        images = [image[:1]] if image is not None else []
+        if _is_flux3(template):
+            images += [more[k][:1] for k in ("image_{}".format(i) for i in range(2, 11))
+                       if more.get(k) is not None]
+            images = [_fit(im) for im in images]
 
         def generate(system, user, length):
             # La conversacion entera a mano, en formato Qwen3: empezar por
@@ -335,8 +372,8 @@ class AcademiaPromptEnhancer:
             # solo gastaria tokens.
             text = ("<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}{}<|im_end|>\n"
                     "<|im_start|>assistant\n<think>\n\n</think>\n\n").format(
-                        system, VISION_BLOCK if image is not None else "", user)
-            tokens = clip.tokenize(text, images=[image[:1]] if image is not None else [])
+                        system, VISION_BLOCK * len(images), user)
+            tokens = clip.tokenize(text, images=images)
             ids = clip.generate(tokens, do_sample=temperature > 0, max_length=length,
                                 temperature=max(temperature, 0.01), top_k=64, top_p=0.95, min_p=0.05,
                                 repetition_penalty=1.05, seed=seed)
@@ -349,12 +386,14 @@ class AcademiaPromptEnhancer:
         # de este mismo nodo, que recibe el positivo ya hecho.
         if positive is not None:
             terms = _parse_negative(generate(_read_template(negative_template),
-                                             _negative_message(prompt, negative_prompt, image is not None, positive), 256))
+                                             _negative_message(prompt, negative_prompt, len(images), positive), 256))
             return (positive, _merge_negative(negative_prompt, terms), "")
 
         ratio = _ratio(width, height)
-        message = (_flux3_message if _is_flux3(template) else _user_message)(
-            prompt, negative_prompt, image is not None, ratio)
+        if _is_flux3(template):
+            message = _flux3_message(prompt, negative_prompt, len(images), ratio, _is_flux3_edit(template))
+        else:
+            message = _user_message(prompt, negative_prompt, image is not None, ratio)
         instruction, description, model_ratio = _parse(generate(_read_template(template), message, max_length))
         if _is_flux3(template):
             # Texto llano: sin comillas alrededor aunque el modelo las ponga.

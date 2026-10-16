@@ -213,6 +213,9 @@ app.registerExtension({
                             led.style.backgroundColor = "yellow"; led.title = `Downloading...`;
                             btn.innerText = `⏳ ${data.progress >= 0 ? data.progress + "%" : "..."}`; 
                             btn.disabled = true; btn.style.background = "#555";
+                        } else if (data.failed) {
+                            led.style.backgroundColor = "red"; led.title = `Download failed: ${data.failed}`;
+                            btn.innerText = "⚠ Retry"; btn.title = data.failed; btn.disabled = false; btn.style.background = "#883322";
                         } else if (data.message === "auth_required") {
                             led.style.backgroundColor = "#ff00ff"; led.title = "API Key Required";
                             btn.innerText = "Need Token"; btn.disabled = false; btn.style.background = "#aa00aa";
@@ -234,12 +237,23 @@ app.registerExtension({
                     led.style.backgroundColor = "yellow";
                     
                     try {
-                        await fetch("/academia/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                        const res = await fetch("/academia/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+                        const start = await res.json().catch(() => ({}));
+                        if (start.status === "error") {
+                            led.style.backgroundColor = "red"; led.title = start.message || "Download failed";
+                            btn.innerText = "⚠ Retry"; btn.title = led.title; btn.disabled = false; btn.style.background = "#883322";
+                            return;
+                        }
+                        // Hasta que termine o falle: si no, una descarga rechazada
+                        // seguia preguntando cada 3 s para siempre.
                         const poll = setInterval(async () => {
                             const data = await checkRowStatus(row);
-                            if(data && data.exists && !data.is_downloading) clearInterval(poll);
+                            if (!data || data.is_downloading) return;
+                            clearInterval(poll);
                         }, 3000);
-                    } catch (e) {}
+                    } catch (e) {
+                        led.style.backgroundColor = "red"; btn.innerText = "⚠ Retry"; btn.disabled = false;
+                    }
                 };
 
                 let draggedRow = null;

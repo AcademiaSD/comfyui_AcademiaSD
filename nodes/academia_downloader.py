@@ -15,6 +15,9 @@ HEADERS = {
 }
 
 ACTIVE_DOWNLOADS = {}
+# Por que fallo la ultima descarga de cada URL. /academia/check lo entrega una
+# vez y lo borra: asi la fila sabe que tiene que dejar de esperar.
+FAILED_DOWNLOADS = {}
 
 # Una sesion HTTP por hilo. Reutiliza la conexion entre las varias peticiones que
 # hace cada descarga (comprobar cabeceras, seguir redirecciones, bajar el fichero)
@@ -50,11 +53,23 @@ def format_size(size_bytes):
 
 # Los parametros de token van vacios por defecto: eso significa "sin token",
 # no una credencial escrita en el codigo.
+def _host_is(url, domain):
+    """True si la URL es https y el servidor es domain o un subdominio. Mirar si
+    el texto aparece en la URL no basta: "https://otra.web/?huggingface.co"
+    tambien lo contiene, y se llevaria el token guardado."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" and (host == domain or host.endswith("." + domain))
+
+
 def get_headers_with_auth(url, civitai_token="", hf_token=""):  # nosec B107
     req_headers = HEADERS.copy()
-    if "civitai.com" in url and civitai_token:
+    if civitai_token and _host_is(url, "civitai.com"):
         req_headers["Authorization"] = f"Bearer {civitai_token}"
-    elif "huggingface.co" in url and hf_token:
+    elif hf_token and _host_is(url, "huggingface.co"):
         req_headers["Authorization"] = f"Bearer {hf_token}"
     return req_headers
 
@@ -212,6 +227,13 @@ def background_download_task(url, file_path, civitai_token="", hf_token=""):  # 
         os.replace(temp_path, file_path)
     except Exception as e:
         if os.path.exists(temp_path): os.remove(temp_path)
+        code = getattr(getattr(e, "response", None), "status_code", None)
+        if code in (401, 403):
+            FAILED_DOWNLOADS[url] = "HTTP {}: the token was rejected or the repository needs access".format(code)
+        elif code:
+            FAILED_DOWNLOADS[url] = "HTTP {}".format(code)
+        else:
+            FAILED_DOWNLOADS[url] = type(e).__name__
     finally:
         ACTIVE_DOWNLOADS.pop(url, None)
 
@@ -230,6 +252,23 @@ def _read_tokens():
         return data if isinstance(data, dict) else {}
     except Exception:
         return {}
+
+
+def _request_tokens(data):
+    """(civitai, huggingface) para una peticion. El campo del navegador trae la
+    mascara (o nada) cuando el token esta guardado y no se ha vuelto a escribir:
+    entonces vale el guardado. Sin esto se mandaba "****" como token y solo
+    funcionaba la primera descarga despues de teclearlo."""
+    saved = None
+    out = []
+    for field, key in (("civitai_token", "civitai"), ("hf_token", "huggingface")):
+        value = str(data.get(field) or "").strip()
+        if not value or value == TOKEN_MASK:
+            if saved is None:
+                saved = _read_tokens()
+            value = str(saved.get(key) or "").strip()
+        out.append(value)
+    return tuple(out)
 
 
 @PromptServer.instance.routes.get("/academia/tokens")
@@ -303,7 +342,7 @@ async def get_folders(request):
 async def parse_url(request):
     data = await request.json()
     url = data.get("url", "")
-    hf_token = data.get("hf_token", "")
+    hf_token = _request_tokens(data)[1]
     if "huggingface.co" in url and "/resolve/" not in url and "/blob/" not in url:
         match = re.search(r"huggingface\.co/([^/]+/[^/?#]+)(?:/tree/([^/?#]+))?", url)
         if match:
@@ -326,12 +365,13 @@ async def check_file(request):
     folder = data.get("folder")
     subfolder = data.get("subfolder", "").strip()
     filename_hint = data.get("filename", "").strip() 
-    civ_t, hf_t = data.get("civitai_token", "").strip(), data.get("hf_token", "").strip()
+    civ_t, hf_t = _request_tokens(data)
     
     if not url or url == "none": return web.json_response({"status": "error", "exists": False})
 
     if url in ACTIVE_DOWNLOADS:
         return web.json_response({"status": "success", "exists": False, "is_downloading": True, "progress": ACTIVE_DOWNLOADS[url].get("progress", -1)})
+    failed = FAILED_DOWNLOADS.pop(url, None)
 
     filename = os.path.basename(filename_hint) if filename_hint else ""
     filesize = "Unknown"
@@ -360,7 +400,8 @@ async def check_file(request):
                 try: filesize = format_size(os.path.getsize(find_existing_file(folder, subfolder, filename)))
                 except Exception: pass
 
-    return web.json_response({"status": "success", "exists": exists, "filename": filename, "filesize": filesize, "is_downloading": False})
+    return web.json_response({"status": "success", "exists": exists, "filename": filename, "filesize": filesize,
+                              "is_downloading": False, "failed": None if exists else failed})
 
 @PromptServer.instance.routes.post("/academia/download")
 async def download_file(request):
@@ -368,7 +409,7 @@ async def download_file(request):
     url = data.get("url", "").strip()
     folder, subfolder = data.get("folder"), data.get("subfolder", "").strip()
     filename = data.get("filename", "").strip()
-    civ_t, hf_t = data.get("civitai_token", "").strip(), data.get("hf_token", "").strip()
+    civ_t, hf_t = _request_tokens(data)
     
     if not url: return web.json_response({"status": "error", "message": "Invalid URL."})
     if url in ACTIVE_DOWNLOADS: return web.json_response({"status": "started", "message": "Already downloading."})
@@ -393,6 +434,7 @@ async def download_file(request):
     file_path = os.path.join(destino, filename)
     if not _dentro_de(destino, file_path):
         return web.json_response({"status": "error", "message": "Invalid file name."}, status=400)
+    FAILED_DOWNLOADS.pop(url, None)
     ACTIVE_DOWNLOADS[url] = {"progress": 0}
     asyncio.create_task(asyncio.to_thread(background_download_task, url, file_path, civ_t, hf_t))
     

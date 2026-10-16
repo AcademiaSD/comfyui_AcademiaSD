@@ -30,12 +30,27 @@ function target(type) {
     return picked.length === 1 ? picked[0] : undefined;
 }
 
+// Las referencias 2 a 10 no se ensenan: las pone el boton (ver addReferences).
+const HIDDEN_INPUTS = ["positive", ...Array.from({ length: 9 }, (_, k) => `image_${k + 2}`)];
+
 // Sin salidas en pantalla: nada puede colgar de el, y por eso un Run del
 // workflow no lo ejecuta nunca. `positive` tampoco se ensena: lo pone el boton.
 function hideSockets(node) {
     for (let i = (node.outputs?.length || 0) - 1; i >= 0; i--) node.removeOutput(i);
-    const i = node.inputs?.findIndex(x => x.name === "positive") ?? -1;
-    if (i >= 0) node.removeInput(i);
+    for (let i = (node.inputs?.length || 0) - 1; i >= 0; i--) {
+        if (HIDDEN_INPUTS.includes(node.inputs[i].name)) node.removeInput(i);
+    }
+}
+
+// Si `image` llega de la primera salida del Multi Image Reference, las otras
+// nueve salidas del mismo nodo entran como image_2 ... image_10: un solo cable
+// y el upsampler de FLUX.3 ve todas las referencias, en orden. Desde cualquier
+// otro nodo, solo esa imagen, como siempre.
+function addReferences(prompt, id) {
+    const src = prompt[id].inputs.image;
+    if (!Array.isArray(src) || src[1] !== 0) return;
+    if (prompt[src[0]]?.class_type !== "AcademiaSD_MultiImageReference") return;
+    for (let k = 2; k <= 10; k++) prompt[id].inputs[`image_${k}`] = [src[0], k - 1];
 }
 
 // Cada preset pone un texto de partida en la caja del prompt y elige las
@@ -56,6 +71,7 @@ const PRESETS = {
     },
     "Enhance prompt Flux3": { template: "Flux3Klein_enhance.md", negative: "Flux3Klein_enhance_neg.md" },
     "Describe image Flux3": { text: "", template: "Flux3Klein_describe.md", negative: "Flux3Klein_describe_neg.md" },
+    "Edit image Flux3": { template: "Flux3Klein_edit.md", negative: "Flux3Klein_edit_neg.md" },
 };
 
 // Pone el valor solo si la plantilla existe en la lista del combo.
@@ -188,6 +204,7 @@ app.registerExtension({
                     const id = String(self.id);
                     if (!output[id]) throw new Error("the node is bypassed or muted");
                     const prompt = upstream(output, id);
+                    addReferences(prompt, id);
                     // Cada pulsacion es un intento nuevo: sin esto ComfyUI
                     // devolveria el resultado anterior desde su cache.
                     if (prompt[id].inputs.temperature > 0) {
