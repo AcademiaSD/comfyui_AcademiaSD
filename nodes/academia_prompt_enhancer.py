@@ -275,6 +275,10 @@ def _parse_negative(text):
     marks = [] if found else list(re.finditer(r'negative[ _]prompt"?\s*[:=]\s*', text, flags=re.IGNORECASE))
     if marks:
         text = text[marks[-1].end():]
+        # Cortada por max_length a media lista: el ultimo trozo puede ser
+        # media palabra ("shifted fra"). Si la lista no se cerro, fuera.
+        if not re.search(r'"\s*\}?\s*$', text.split("\n")[0]):
+            text = text.rsplit(",", 1)[0]
     terms, term_words, phrase_words = [], 0, 0
     for t in re.split(r"[,;\n]", text):
         t = re.sub(r"^(?:or|and)\s+", "", t.strip(" -*\"'.{}[]"), flags=re.IGNORECASE).strip(" -*\"'.")
@@ -286,10 +290,10 @@ def _parse_negative(text):
             term_words += n
         else:
             phrase_words += n
-    # Sin JSON ni "Negative prompt:" y la mayor parte del texto en frases: es
-    # un caption, no una lista. Sus trozos cortos ("soft light") son cosas que
-    # el positivo pide.
-    if not found and not marks and phrase_words >= term_words:
+    # La mayor parte del texto en frases: es un caption, no una lista, venga o
+    # no dentro del JSON. Sus trozos cortos ("soft light") son cosas que el
+    # positivo pide.
+    if phrase_words >= term_words:
         return []
     return terms
 
@@ -392,19 +396,20 @@ class AcademiaPromptEnhancer:
                        if more.get(k) is not None]
             images = [_fit(im) for im in images]
 
-        def generate(system, user, length):
+        def generate(system, user, length, start=""):
             # La conversacion entera a mano, en formato Qwen3: empezar por
             # <|im_start|> hace que el tokenizer no le ponga su propia
             # plantilla. El bloque <think> vacio apaga el razonamiento, que aqui
-            # solo gastaria tokens.
+            # solo gastaria tokens. `start` es el comienzo de la respuesta, ya
+            # escrito: el modelo solo puede continuarlo.
             text = ("<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}{}<|im_end|>\n"
-                    "<|im_start|>assistant\n<think>\n\n</think>\n\n").format(
-                        system, VISION_BLOCK * len(images), user)
+                    "<|im_start|>assistant\n<think>\n\n</think>\n\n{}").format(
+                        system, VISION_BLOCK * len(images), user, start)
             tokens = clip.tokenize(text, images=images)
             ids = clip.generate(tokens, do_sample=temperature > 0, max_length=length,
                                 temperature=max(temperature, 0.01), top_k=64, top_p=0.95, min_p=0.05,
                                 repetition_penalty=1.05, seed=seed)
-            return clip.decode(ids)
+            return start + clip.decode(ids)
 
         # Una generacion por ejecucion, nunca dos. ComfyUI limpia entre nodo y
         # nodo lo que deja preparado una generacion en la GPU; una segunda en la
@@ -412,8 +417,14 @@ class AcademiaPromptEnhancer:
         # "device-side assert" de CUDA. Por eso el negativo es otra ejecucion
         # de este mismo nodo, que recibe el positivo ya hecho.
         if positive is not None:
+            # El upsampler de FLUX.3 esta entrenado para describir y, con la
+            # plantilla del negativo, suele volver a escribir el caption. Con
+            # la respuesta ya abierta como la lista JSON, solo le queda
+            # continuar la lista.
+            start = '{"negative_prompt": "' if _is_flux3(negative_template) else ""
             terms = _parse_negative(generate(_read_template(negative_template),
-                                             _negative_message(prompt, negative_prompt, len(images), positive), 256))
+                                             _negative_message(prompt, negative_prompt, len(images), positive),
+                                             256, start))
             return (positive, _merge_negative(negative_prompt, terms), "")
 
         ratio = _ratio(width, height)
