@@ -38,14 +38,34 @@ function hideSockets(node) {
     if (i >= 0) node.removeInput(i);
 }
 
-// Textos de partida para la caja del prompt. Custom la deja vacia.
+// Cada preset pone un texto de partida en la caja del prompt y elige las
+// plantillas. Custom no toca las plantillas. Un text undefined deja la caja
+// como esta: el upsampler de FLUX.3 quiere la idea del usuario tal cual, y
+// una orden como "Improve the prompt..." la tomaria por la imagen a pintar.
 const PRESETS = {
-    "Custom": "",
-    "Describe image1": "Describe the image in great detail: the characters, the clothing, the background, "
-        + "the objects and textures, the lighting, and the style.",
-    "Enhance prompt": "Improve the prompt by including details that do not exist in the prompt, such as "
-        + "scenery, lighting, clothing, and more.",
+    "Custom": { text: "" },
+    "Describe image1": {
+        text: "Describe the image in great detail: the characters, the clothing, the background, "
+            + "the objects and textures, the lighting, and the style.",
+        template: "qwen_image_rewriter.md", negative: "qwen_image_negative.md",
+    },
+    "Enhance prompt": {
+        text: "Improve the prompt by including details that do not exist in the prompt, such as "
+            + "scenery, lighting, clothing, and more.",
+        template: "qwen_image_rewriter.md", negative: "qwen_image_negative.md",
+    },
+    "Enhance prompt Flux3": { template: "Flux3Klein_enhance.md", negative: "Flux3Klein_enhance_neg.md" },
+    "Describe image Flux3": { text: "", template: "Flux3Klein_describe.md", negative: "Flux3Klein_describe_neg.md" },
 };
+
+// Pone el valor solo si la plantilla existe en la lista del combo.
+function pick(node, name, value) {
+    const w = node.widgets?.find(x => x.name === name);
+    const values = w?.options?.values;
+    if (!w || !value || (Array.isArray(values) && !values.includes(value))) return;
+    w.value = value;
+    w.callback?.(value);
+}
 
 const AREA ="resize:none; box-sizing:border-box; padding:6px; background:#141414; color:#ddd;"
     + "border:1px solid #3d3d3d; border-radius:4px; font:12px sans-serif; line-height:1.35;";
@@ -76,7 +96,10 @@ app.registerExtension({
             const promptW = this.widgets?.find(x => x.name === "prompt");
             if (promptW) {
                 const presetW = this.addWidget("combo", "preset", "Custom", (v) => {
-                    promptW.value = PRESETS[v] ?? "";
+                    const p = PRESETS[v] || {};
+                    if (p.text !== undefined) promptW.value = p.text;
+                    pick(self, "template", p.template);
+                    pick(self, "negative_template", p.negative);
                     app.graph?.setDirtyCanvas(true, true);
                 }, { values: Object.keys(PRESETS), serialize: false });
                 presetW.serialize = false;

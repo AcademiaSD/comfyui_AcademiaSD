@@ -59,6 +59,24 @@ def _user_message(prompt, negative, has_image, ratio):
     return "\n\n".join(parts)
 
 
+def _is_flux3(template):
+    return template.lower().startswith("flux3")
+
+
+def _flux3_message(prompt, negative, has_image, ratio):
+    """El upsampler de FLUX.3 esta entrenado con la peticion tal cual, precedida
+    si acaso de la linea TARGET CANVAS: sin el envoltorio de las otras plantillas."""
+    parts = ["TARGET CANVAS: " + ratio] if ratio else []
+    if prompt:
+        parts.append(prompt)
+    if has_image:
+        parts.append("Use the image above as the reference; the request wins wherever the two disagree."
+                     if prompt else "Caption the image above.")
+    if negative:
+        parts.append("It must not contain: " + negative)
+    return "\n".join(parts)
+
+
 def _negative_message(prompt, negative, has_image, positive):
     parts = []
     if prompt:
@@ -254,14 +272,18 @@ class AcademiaPromptEnhancer:
     @classmethod
     def INPUT_TYPES(s):
         templates = _templates()
-        negatives = [t for t in templates if "negative" in t] or templates
+        is_neg = lambda t: "negative" in t or t.endswith("_neg.md")
+        negatives = sorted((t for t in templates if is_neg(t)),
+                           key=lambda t: t != "qwen_image_negative.md") or templates
         # La de Qwen-Image sigue siendo la de serie aunque otra vaya antes por orden alfabetico.
-        positives = sorted((t for t in templates if "negative" not in t),
+        positives = sorted((t for t in templates if not is_neg(t)),
                            key=lambda t: t != "qwen_image_rewriter.md") or templates
         return {
             "required": {
-                "clip": ("CLIP", {"tooltip": "A Qwen3-VL text encoder, like the one Qwen Image 2.1 loads. "
-                                             "It sees the image and writes the prompt."}),
+                "clip": ("CLIP", {"tooltip": "A Qwen3-VL text encoder, like the one Qwen Image 2.1 loads, or, "
+                                             "for the Flux3Klein templates, the FLUX.3 prompt upsampler "
+                                             "(qwen3.5_9b_flux3_prompt_upsampler). It sees the image and "
+                                             "writes the prompt."}),
                 "template": (templates, {"default": positives[0] if positives else ""}),
                 "negative_template": (templates, {"default": negatives[0] if negatives else ""}),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 1.5, "step": 0.05,
@@ -331,8 +353,12 @@ class AcademiaPromptEnhancer:
             return (positive, _merge_negative(negative_prompt, terms), "")
 
         ratio = _ratio(width, height)
-        instruction, description, model_ratio = _parse(generate(
-            _read_template(template), _user_message(prompt, negative_prompt, image is not None, ratio), max_length))
+        message = (_flux3_message if _is_flux3(template) else _user_message)(
+            prompt, negative_prompt, image is not None, ratio)
+        instruction, description, model_ratio = _parse(generate(_read_template(template), message, max_length))
+        if _is_flux3(template):
+            # Texto llano: sin comillas alrededor aunque el modelo las ponga.
+            description = description.strip().strip('"').strip()
         # Un caption JSON se devuelve tal cual: anteponerle texto lo dejaria invalido.
         if description.startswith('{"high_level_description"'):
             return (description, negative_prompt, ratio or model_ratio)
