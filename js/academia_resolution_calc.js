@@ -66,12 +66,14 @@ function parseRatio(text) {
 }
 
 // El tamano que Python ha visto de verdad, por nodo. Es lo unico que vale
-// cuando la imagen no viene de un fichero.
+// cuando la imagen no viene de un fichero. Se apunta de que fichero era: si el
+// Load Image cambia de imagen (a mano o con Save & Send) la medida ya no vale.
 const seenSizes = new Map();
 api.addEventListener("academia.rescalc.image_size", (e) => {
     const d = e.detail || {};
     if (!d.node_id || !d.width || !d.height) return;
-    seenSizes.set(String(d.node_id), { w: d.width, h: d.height });
+    const node = app.graph?.getNodeById(d.node_id);
+    seenSizes.set(String(d.node_id), { w: d.width, h: d.height, file: node?.asdImageFile?.() ?? null });
 });
 
 app.registerExtension({
@@ -313,6 +315,7 @@ app.registerExtension({
                     }
                     return null;
                 };
+                this.asdImageFile = findImageFile;
 
                 // Sin cable de entrada, se mira a QUIEN le estamos dando el tamano.
                 // Tirar un cable de imagen hacia aca cerraria un ciclo -- este
@@ -425,7 +428,7 @@ app.registerExtension({
                     // fichero de origen ya no diga el tamano que llega aqui.
                     const linked = self.inputs?.find(i => i.type === "IMAGE")?.link != null;
                     const seen = linked ? seenSizes.get(String(self.id)) : null;
-                    if (seen) {
+                    if (seen && seen.file === findImageFile()) {
                         applyReference(seen.w, seen.h);
                         app.graph.setDirtyCanvas(true, true);
                         return;
