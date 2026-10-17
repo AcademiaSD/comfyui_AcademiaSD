@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import random
 from math import gcd
 
 # Las instrucciones del modelo viven en .md junto al paquete, no en el codigo:
@@ -29,6 +30,29 @@ def _read_template(name):
         raise ValueError("Prompt Enhancer: template '{}' not found in enhancer_templates".format(name))
     with open(os.path.join(TEMPLATES_DIR, name), "r", encoding="utf-8") as f:
         return f.read().strip()
+
+
+_VARIATION = re.compile(r"<!--\s*variation\s*\n(.*?)-->", re.DOTALL)
+
+
+def _variation(template, seed):
+    """(plantilla sin el bloque, sugerencia). Un bloque <!-- variation --> con
+    lineas "clave: a | b | c" saca una opcion de cada lista segun la seed: un
+    modelo pequeno, ante peticiones parecidas, elige siempre lo mas probable, y
+    asi cada seed le propone otro modo, lugar u hora. El modelo no ve el bloque."""
+    m = _VARIATION.search(template)
+    if not m:
+        return template, ""
+    rng = random.Random(seed)
+    picks = []
+    for line in m.group(1).splitlines():
+        key, _, options = line.partition(":")
+        options = [o.strip() for o in options.split("|") if o.strip()]
+        if key.strip() and options:
+            picks.append("{}: {}".format(key.strip(), rng.choice(options)))
+    hint = ("Use these choices wherever the request leaves them open; the request always wins: "
+            + "; ".join(picks) + ".") if picks else ""
+    return (template[:m.start()] + template[m.end():]).strip(), hint
 
 
 def _ratio(width, height):
@@ -134,6 +158,15 @@ def _negative_message(prompt, negative, n_images, positive):
     if negative:
         parts.append("Negative terms the user already wrote (they are kept, do not repeat them):\n" + negative)
     return "\n\n".join(parts)
+
+
+_LABEL = re.compile(r"^\W*(?:final\s+|enhanced\s+|rewritten\s+)?(?:output|prompt|answer)\W*:\W*", re.IGNORECASE)
+
+
+def _strip_label(text):
+    """Los modelos pequenos anteponen a veces "**Final Output:**" o "Prompt:" al
+    texto llano, y acabaria dentro del prompt de la imagen."""
+    return _LABEL.sub("", text.strip(), count=1).strip().strip('"').strip()
 
 
 def _strip_think(text):
@@ -460,7 +493,10 @@ class AcademiaPromptEnhancer:
                                      _is_flux3_edit(template))
         else:
             message = _user_message(prompt, negative_prompt, image is not None, ratio)
-        instruction, description, model_ratio = _parse(generate(_read_template(template), message, max_length))
+        system, hint = _variation(_read_template(template), seed)
+        if hint:
+            message += "\n\n" + hint
+        instruction, description, model_ratio = _parse(generate(system, message, max_length))
         if _is_flux3(template):
             # Texto llano: sin comillas alrededor aunque el modelo las ponga.
             description = description.strip().strip('"').strip()
@@ -474,7 +510,7 @@ class AcademiaPromptEnhancer:
         # Un caption JSON se devuelve tal cual: anteponerle texto lo dejaria invalido.
         if description.startswith('{"high_level_description"'):
             return (description, negative_prompt, ratio or model_ratio)
-        return (_compose(prompt, instruction, description), negative_prompt, ratio or model_ratio)
+        return (_compose(prompt, instruction, _strip_label(description)), negative_prompt, ratio or model_ratio)
 
 
 NODE_CLASS_MAPPINGS = {

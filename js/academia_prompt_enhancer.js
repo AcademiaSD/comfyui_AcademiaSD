@@ -72,6 +72,7 @@ const PRESETS = {
     "Enhance prompt Flux3": { template: "Flux3Klein_enhance.md", negative: "Flux3Klein_enhance_neg.md" },
     "Describe image Flux3": { text: "", template: "Flux3Klein_describe.md", negative: "Flux3Klein_describe_neg.md" },
     "Edit image Flux3": { template: "Flux3Klein_edit.md", negative: "Flux3Klein_edit_neg.md" },
+    "Enhance prompt Moss": { template: "MossImage_enhance.md", negative: "MossImage_enhance_neg.md" },
 };
 
 // Pone el valor solo si la plantilla existe en la lista del combo.
