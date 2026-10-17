@@ -67,6 +67,32 @@ def _is_flux3_edit(template):
     return _is_flux3(template) and "edit" in template.lower()
 
 
+ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"]
+_REF_TAG = re.compile(r"<\s*(ref_image_|image)\s*(\d+)\s*>", re.IGNORECASE)
+_ORDINAL_REF = re.compile(r"\b[Tt]he (" + "|".join(ORDINALS) + r")(?: reference)? (?:image|picture|photo)\b")
+
+
+def _has_ref_tags(prompt):
+    return bool(_REF_TAG.search(prompt or ""))
+
+
+def _tags_to_ordinals(prompt):
+    """<ref_image_1> -> "the second image" para el upsampler de FLUX.3, que
+    nombra las referencias por orden y tiene prohibidos los tokens entre <>.
+    <ref_image_N> cuenta desde 0 (formato de FLUX.3); <imageN>, desde 1
+    (formato de Qwen). Asi no confunde la imagen 0 con la primera."""
+    def sub(m):
+        n = int(m.group(2)) + (1 if m.group(1).lower() == "ref_image_" else 0)
+        return "the {} image".format(ORDINALS[n - 1]) if 1 <= n <= len(ORDINALS) else m.group(0)
+    return _REF_TAG.sub(sub, prompt or "")
+
+
+def _ordinals_to_tags(text):
+    """Al reves: "the second image" -> <ref_image_1>, la etiqueta que FLUX.3
+    entiende en el prompt. Solo se aplica si el usuario escribio etiquetas."""
+    return _ORDINAL_REF.sub(lambda m: "<ref_image_{}>".format(ORDINALS.index(m.group(1)) ), text)
+
+
 def _flux3_message(prompt, negative, n_images, ratio, edit=False):
     """El upsampler de FLUX.3 esta entrenado con la peticion tal cual, precedida
     si acaso de la linea TARGET CANVAS: sin el envoltorio de las otras plantillas.
@@ -422,20 +448,29 @@ class AcademiaPromptEnhancer:
             # la respuesta ya abierta como la lista JSON, solo le queda
             # continuar la lista.
             start = '{"negative_prompt": "' if _is_flux3(negative_template) else ""
+            request = _tags_to_ordinals(prompt) if _is_flux3(negative_template) else prompt
             terms = _parse_negative(generate(_read_template(negative_template),
-                                             _negative_message(prompt, negative_prompt, len(images), positive),
+                                             _negative_message(request, negative_prompt, len(images), positive),
                                              256, start))
             return (positive, _merge_negative(negative_prompt, terms), "")
 
         ratio = _ratio(width, height)
         if _is_flux3(template):
-            message = _flux3_message(prompt, negative_prompt, len(images), ratio, _is_flux3_edit(template))
+            message = _flux3_message(_tags_to_ordinals(prompt), negative_prompt, len(images), ratio,
+                                     _is_flux3_edit(template))
         else:
             message = _user_message(prompt, negative_prompt, image is not None, ratio)
         instruction, description, model_ratio = _parse(generate(_read_template(template), message, max_length))
         if _is_flux3(template):
             # Texto llano: sin comillas alrededor aunque el modelo las ponga.
             description = description.strip().strip('"').strip()
+            # Si el usuario nombro las referencias con etiquetas, vuelven como
+            # <ref_image_N> donde el upsampler escribio "the second image".
+            if _has_ref_tags(prompt):
+                description = _ordinals_to_tags(description)
+            # Sin _compose: las <imageN> de Qwen ya vuelven como <ref_image_N>,
+            # y anteponer la peticion original estropearia el caption.
+            return (description, negative_prompt, ratio or model_ratio)
         # Un caption JSON se devuelve tal cual: anteponerle texto lo dejaria invalido.
         if description.startswith('{"high_level_description"'):
             return (description, negative_prompt, ratio or model_ratio)
