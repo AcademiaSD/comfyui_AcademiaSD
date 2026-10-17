@@ -2,8 +2,8 @@ import { app } from "../../scripts/app.js";
 import { runPrompt } from "./academia_queue.js";
 
 const NODE_NAME = "AcademiaSD_PromptEnhancer";
-const POSITIVE = "AcademiaSD_PositivePrompt";
-const NEGATIVE = "AcademiaSD_NegativePrompt";
+export const POSITIVE = "AcademiaSD_PositivePrompt";
+export const NEGATIVE = "AcademiaSD_NegativePrompt";
 
 // El nodo y todo aquello de lo que depende, sacado del prompt del workflow: el
 // cargador del CLIP, la imagen, lo que llegue por cable. Nada mas se ejecuta.
@@ -23,7 +23,7 @@ function upstream(output, id) {
 
 // A que Positive o Negative se manda: el unico que haya, o, si hay varios, el
 // que este seleccionado. undefined = hay varios y ninguno elegido.
-function target(type) {
+export function target(type) {
     const all = (app.graph?._nodes || []).filter(n => n.type === type && n.asdSetText);
     if (all.length <= 1) return all[0] || null;
     const picked = all.filter(n => app.canvas?.selected_nodes?.[n.id]);

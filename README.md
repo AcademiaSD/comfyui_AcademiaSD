@@ -367,6 +367,24 @@ The Toggle's sibling for "how many": a stepped slider **OFF, 1, 2, 3…** that t
 
 ---
 
+## 🗺️ Academia SD MOSS Layout
+
+A box editor for MOSS-Image's layout prompts: place text, objects and characters on a canvas and the node writes the JSON the model understands.
+
+![Academia SD MOSS Layout](assets/moss_layout.webp)
+
+*   **Canvas with the real proportions:** it follows `width` and `height`, also when they come from a Resolution Calc, and fits whatever size you give the node.
+*   **Three kinds of box**, the ones MOSS-Image accepts: **Text** (exact wording, line breaks kept), **Object** and **Character**. Drag to move, drag the corners to resize; each box has a description, plus optional tags and palette. A **Scene** field holds the global description (with meta tags, canvas type and palette).
+*   **Background image:** connect an `image` (a Load Image shows up at once; anything else after the first run) and set its opacity to place the boxes over a reference. It never reaches the model.
+*   **Analyze Image:** connect a Qwen3-VL to `vlm` (a Load CLIP, the same kind the Prompt Enhancer uses) and press the button: it looks at the background image and places a box for every character, object and text block it finds, with descriptions and the exact text, plus a description of the whole scene. It runs only that analysis (the helper node `AcademiaSD MOSS Layout Analyze`); if there are boxes already, it asks whether to replace them or add the new ones. Box placement depends on the model: Qwen3-VL 8B is much more precise than 4B, and abliterated or heavily quantized versions lose precision.
+*   **Auto send:** on, every change rebuilds the JSON and writes it into the `Academia SD CLIP Text Encode (Positive)` node, and the negative prompt into the `(Negative)` one, as the Prompt Enhancer does (with several, select the one to send to). Generate JSON Prompt sends both again. The text lands in their boxes, so you can still edit it there; no need to wire the `prompt` output (a wired Positive locks its box). Off, the JSON panel is used as it is, so you can edit it by hand, and nothing is sent.
+*   **Save JSON / Load JSON:** save the layout (boxes, scene fields and JSON) under a name in `comfyui_AcademiaSD/moss_layouts/` and load it back from a list. The editor also keeps the last state in `moss_layouts/current.json`: a new MOSS Layout node starts from it, and it appears first in the Load list.
+*   **Generate JSON Prompt** shows the JSON in the panel on the right, with a line confirming how many boxes went in. Boxes are stored as fractions of the canvas, so changing the resolution keeps them in place; on each run they become pixels for the real size, exactly as OpenMOSS's own `compile_prompt.py` does (centered coordinates, `yxyx`).
+*   **The JSON looks compact on purpose:** one line, no spaces, as in the official pipeline, because that is what the model was trained on. The panel shows it indented to read it.
+*   **Outputs:** `positive` and `negative` CONDITIONING (encoded with the `clip` input; the negative is plain text and can stay empty, as in the official pipeline) and `prompt` (the JSON). Every box goes into the JSON; one without a description gets a generic one ("An object", "A character"). Only text boxes without text are left out, since there is nothing to render.
+
+---
+
 ## 🔀 Academia SD Switch Any
 
 Picks one of several inputs of any type (latent, CFG, model, image...), a replacement for the Impact Pack switch.
