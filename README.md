@@ -364,6 +364,19 @@ The Toggle's sibling for "how many": a stepped slider **OFF, 1, 2, 3…** that t
 
 ---
 
+## 🔀 Academia SD Switch Any
+
+Picks one of several inputs of any type (latent, CFG, model, image...), a replacement for the Impact Pack switch.
+
+*   **Three `select` inputs:** the chosen input is the **largest** select that arrives; with none, **input 1**. A select coming from a bypassed node does not arrive and does not count, so a Fast Switch group can raise the choice to 2 without another branch having to lower it.
+*   **Inputs grow as you connect them:** there is always one free input after the last connected one, up to 10.
+*   **Only the chosen branch runs:** the inputs are lazy, so the branches you do not pick are never computed.
+*   **Forgiving:** if the chosen number has nothing connected, it uses the closest connected input below it and says so in the console.
+*   **🔌 Outputs:** `output` (the chosen value), `selected` (its number) and `value_text` (the value as text when it is an integer or a float, empty otherwise: wire it to a Preview Any while testing).
+*   **👁️ Result on the node:** after each run the node shows the chosen input and its value at the bottom, e.g. `input_2 → 8`.
+
+---
+
 ## 🎭 Academia SD H3 RefMods (multi-character)
 
 Two nodes for using several MiniMax H3 RefMods in one shot without the faces blending, one character being cloned, or the voices swapping.
