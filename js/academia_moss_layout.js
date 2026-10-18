@@ -26,7 +26,7 @@ const CSS = `
 .asd-ml button.gen { background:#1f4a35; border-color:#3f8f58; color:#c8f7d6; font-weight:600; }
 .asd-ml-sep { width:1px; height:18px; background:#444; margin:0 2px; }
 .asd-ml-main { flex:1; display:flex; gap:8px; min-height:0; }
-.asd-ml-stage { flex:1; position:relative; background:#0e1014; border:1px solid #333; border-radius:6px; min-width:0; min-height:160px; overflow:hidden; }
+.asd-ml-stage { flex:1; position:relative; background:#0c1a2e; border:1px solid #333; border-radius:6px; min-width:0; min-height:160px; overflow:hidden; }
 .asd-ml-canvas { position:absolute; background:#1a1d24; outline:1px solid #555; overflow:hidden; }
 .asd-ml-canvas img { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; pointer-events:none; }
 .asd-ml-size { position:absolute; right:6px; bottom:4px; color:#888; font:11px Consolas, monospace; pointer-events:none; }

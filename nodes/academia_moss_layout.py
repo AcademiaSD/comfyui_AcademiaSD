@@ -26,7 +26,7 @@ from server import PromptServer
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.6.1"
+    ACADEMIASD_VERSION = "2.6.2"
 
 LABELS = ("object", "character", "text")
 CANVAS = ("single", "multi_panel", "collage")

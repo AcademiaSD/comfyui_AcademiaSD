@@ -15,7 +15,7 @@ not count. Inputs are lazy: only the chosen branch is computed.
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.6.1"
+    ACADEMIASD_VERSION = "2.6.2"
 
 ENTRADAS = 10
 SELECTS = ("select_1", "select_2", "select_3")
