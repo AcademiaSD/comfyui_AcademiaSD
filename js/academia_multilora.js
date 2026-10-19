@@ -94,6 +94,14 @@ app.registerExtension({
 
                     .asd-step-btn { background: transparent; border: none; color: #888; font-size: 14px; font-weight: bold; cursor: pointer; padding: 0 4px; transition: color 0.2s; user-select: none; }
                     .asd-step-btn:hover { color: #fff; }
+
+                    /* Asa para reordenar, igual que en el Automatic Downloader */
+                    .asd-lora-handle { cursor: grab; color: #777; font-size: 15px; user-select: none; padding: 0 2px; display: flex; align-items: center; flex-shrink: 0; }
+                    .asd-lora-handle:hover { color: #fff; }
+                    .asd-lora-handle:active { cursor: grabbing; }
+                    .asd-lora-row.dragging { opacity: 0.4; }
+                    .asd-lora-row.drag-over-top { box-shadow: 0 -3px 0 0 #00e676; }
+                    .asd-lora-row.drag-over-bottom { box-shadow: 0 3px 0 0 #00e676; }
                 `;
                 container.appendChild(style);
 
@@ -266,16 +274,71 @@ app.registerExtension({
                     if(loraTooltip) loraTooltip.style.display = "none";
                 };
 
+                // Fila que se esta arrastrando. Solo el asa activa el arrastre:
+                // asi el buscador y la fuerza siguen aceptando seleccion de
+                // texto con el raton.
+                let draggedIdx = null;
+
+                const moveLora = (from, to) => {
+                    if (from === null || to === null || from === to) return;
+                    const [moved] = _this.loraState.splice(from, 1);
+                    _this.loraState.splice(to > from ? to - 1 : to, 0, moved);
+                    syncWidget();
+                    _this.renderUI();
+                };
+
                 this.renderUI = () => {
                     _this.rowsContainer.innerHTML = "";
 
                     _this.loraState.forEach((item, idx) => {
                         const row = document.createElement("div");
                         row.className = "asd-lora-row";
-                        row.style.zIndex = 1000 - idx; 
-                        
+                        row.style.zIndex = 1000 - idx;
+
                         const isEnabled = item.enabled !== undefined ? item.enabled : true;
                         if(!isEnabled) row.classList.add("disabled");
+
+                        const handle = document.createElement("div");
+                        handle.className = "asd-lora-handle";
+                        handle.title = "Drag to reorder";
+                        handle.innerText = "⠿";
+                        handle.addEventListener("mousedown", () => { row.draggable = true; });
+                        handle.addEventListener("mouseup", () => { row.draggable = false; });
+
+                        row.addEventListener("dragstart", (e) => {
+                            draggedIdx = idx;
+                            row.classList.add("dragging");
+                            e.dataTransfer.effectAllowed = "move";
+                            try { e.dataTransfer.setData("text/plain", String(idx)); } catch (err) {}
+                        });
+                        row.addEventListener("dragend", () => {
+                            row.draggable = false;
+                            draggedIdx = null;
+                            for (const r of _this.rowsContainer.children) {
+                                r.classList.remove("dragging", "drag-over-top", "drag-over-bottom");
+                            }
+                        });
+                        row.addEventListener("dragover", (e) => {
+                            if (draggedIdx === null) return;
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            const rect = row.getBoundingClientRect();
+                            const top = e.clientY < rect.top + rect.height / 2;
+                            row.classList.toggle("drag-over-top", top);
+                            row.classList.toggle("drag-over-bottom", !top);
+                        });
+                        row.addEventListener("dragleave", () => {
+                            row.classList.remove("drag-over-top", "drag-over-bottom");
+                        });
+                        row.addEventListener("drop", (e) => {
+                            e.preventDefault();
+                            if (draggedIdx === null) return;
+                            const rect = row.getBoundingClientRect();
+                            const target = e.clientY < rect.top + rect.height / 2 ? idx : idx + 1;
+                            const from = draggedIdx;
+                            draggedIdx = null;
+                            moveLora(from, target);
+                        });
 
                         const labelToggle = document.createElement("label");
                         labelToggle.className = "asd-switch";
@@ -448,6 +511,7 @@ app.registerExtension({
                             _this.renderUI();
                         });
 
+                        row.appendChild(handle);
                         row.appendChild(labelToggle);
                         row.appendChild(searchContainer);
                         row.appendChild(strengthContainer);

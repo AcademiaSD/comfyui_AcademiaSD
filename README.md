@@ -115,6 +115,7 @@ An ultra-compact, high-performance seed generator node built specifically for Co
 
 Load multiple LoRAs in a hyper-compact space without cluttering your workflow with dozens of chained nodes.
 *   **Global & Individual Toggles:** Enable or disable LoRAs with a single click for quick testing without disconnecting cables.
+*   **Drag to Reorder:** Grab a LoRA by its `⠿` handle and drop it above or below another one. LoRAs are applied in list order.
 *   **On-the-fly Metadata:** Hover your mouse over a LoRA in the menu and a floating *tooltip* will appear showing the base model, training resolution, and the Top 15 Trigger Words.
 *   **Agnostic & Native:** Uses ComfyUI's official injection engine. 100% compatible with SD1.5, SDXL, Flux, and complex video architectures. Allows "Model Only" injection to bypass text errors in video models.
 
