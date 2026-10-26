@@ -346,13 +346,17 @@ app.registerExtension({
                     const b = cv.querySelectorAll(".asd-ml-box")[i];
                     Object.assign(b.style, { left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${(x2 - x1) * 100}%`, height: `${(y2 - y1) * 100}%` });
                 };
+                // En fase de captura: con Nodes 2.0 el WidgetDOM de Vue hace stop de
+                // pointermove/pointerup y no subirian hasta window mientras el raton este en el nodo.
                 const soltar = () => {
-                    window.removeEventListener("pointermove", mover);
-                    window.removeEventListener("pointerup", soltar);
+                    window.removeEventListener("pointermove", mover, true);
+                    window.removeEventListener("pointerup", soltar, true);
+                    window.removeEventListener("pointercancel", soltar, true);
                     cambio(false);
                 };
-                window.addEventListener("pointermove", mover);
-                window.addEventListener("pointerup", soltar);
+                window.addEventListener("pointermove", mover, true);
+                window.addEventListener("pointerup", soltar, true);
+                window.addEventListener("pointercancel", soltar, true);
             };
 
             const nueva = (label) => {
