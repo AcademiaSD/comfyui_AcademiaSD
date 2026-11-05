@@ -386,6 +386,25 @@ A box editor for MOSS-Image's layout prompts: place text, objects and characters
 
 ---
 
+## 🎼 Academia SD Score Viewer
+
+Shows the ABC score from YuE2 or SheetSage2 as sheet music inside the node. Connect the `abc` output of `YuE2 Generate ABC` or `SheetSage2 Audio to ABC` and run the workflow.
+
+*   **Readable score:** the vocal and instrumental melodies on their own staves, with chords and sections (Verse, Chorus...). Notes are grouped by beat and each bar of rest is written out so both staves line up. The score keeps the bars and sections the model wrote; only the way they are drawn changes.
+*   **Both / Vocal / Instrumental:** shows both staves or just one. Play, Save SVG and Print / PDF follow what is shown.
+*   **Sync with the song:** connect the generated audio to the optional `audio` input and an audio player replaces Play. The score highlights each note as the song plays and follows you when you jump along the player's bar. The start of the music is found automatically by comparing the score's notes with the audio; if it lands off, correct it with **Offset** (seconds). Sync stops where the audio ends, even if the score goes on. Connect the same score that fed `YuE2 Generate Music`.
+*   **Play:** without audio connected, plays the melodies on screen with a simple built-in synth and highlights each note, to check a score before generating the song. It is a preview, not the song.
+*   **Transpose:** up or down 12 semitones, chords included.
+*   **Do Re Mi:** writes the name of each note under it, following the key signature and accidentals.
+*   **Stays inside the node:** the score scrolls in its own frame, with vertical and horizontal scrollbars, the mouse wheel and Shift + wheel to move sideways. It fits the width of the node; **Zoom** enlarges it (100% to 300%), and resizing the node gives it more room.
+*   **Save SVG** and **Print / PDF** export the score.
+*   **Works offline:** abcjs ships with the node and the sound is generated in the browser, so nothing is downloaded. The last score, transposition, staves, note-name setting, zoom and offset are saved with the workflow. The audio is a temporary file: after restarting ComfyUI the node returns to the synth until the workflow runs again.
+*   **Lyrics are not shown:** YuE2's ABC does not contain them, so they cannot be matched to the notes. The score is also what the model planned, and the sung result may differ from it.
+
+Sheet music rendering by [abcjs](https://github.com/paulrosen/abcjs) 6.7.2, © Paul Rosen and Gregory Dyke, MIT license, in `vendor/abcjs/`.
+
+---
+
 ## 🔀 Academia SD Switch Any
 
 Picks one of several inputs of any type (latent, CFG, model, image...), a replacement for the Impact Pack switch.
