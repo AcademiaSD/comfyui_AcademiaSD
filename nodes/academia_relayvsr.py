@@ -55,7 +55,12 @@ SCALE = 4
 LATENT_STRIDE = 8  # LR pixels of one Wan token (32 px at x4)
 WAN_LATENT_SCALE = 16  # HR pixels of one latent cell
 WAN_TIMESTEP = 1000.0
-KEYFRAME_WINDOW = 16  # Native RelayVSR uses a keyframe every 15 frames
+NATIVE_MAX_WINDOW = 16  # VSR Decode only takes two keyframes per call up to this many frames
+# En una sola pasada los fotogramas de todas las referencias van a la VRAM y a 5K la
+# llenan con 25. Por lotes el coste no depende de la duracion: 32768 tokens es el tope
+# por tramo del modelo nativo, y las 3 referencias previas mantienen su contexto.
+WAN_PASS_TOKENS = 32768
+WAN_CONTEXT = 3
 MP4_AUDIO_CODECS = ("aac", "mp3", "ac3", "eac3", "opus", "flac", "alac")
 
 
@@ -287,7 +292,6 @@ class _JobProgress:
         PromptServer.instance.send_sync("asd_relayvsr_progress", self.state, PromptServer.instance.client_id)
 
     def references(self, count):
-        """count=0 when the keyframes go in one pass, and the bar can only pulse."""
         self.state["part_size"] = count
         self._send()
 
@@ -335,9 +339,10 @@ def _upscale_file(source, settings, size, window_size, segment_seconds, crf, fil
     Flash empieza de cero, de modo que una parte terminada es definitiva y se puede
     reanudar en la ventana siguiente sin costura.
 
-    Disk to disk, resumable at window boundaries without seams. sample_keyframes turns an
-    iterable of keyframes into latents; decode_windows(indices, latents, first_slot,
-    read_window) yields the output frames of the windows from first_slot on."""
+    Disk to disk, resumable at window boundaries without seams. sample_keyframes(keyframes,
+    done, progress) yields lists of new latents, skipping the first `done` keyframes;
+    decode_windows(indices, latents, first_slot, read_window) yields the output frames of
+    the windows from first_slot on."""
     fps, _, _, estimate = _probe_video(source)
     height, width = size
     step = window_size - 1
@@ -356,12 +361,27 @@ def _upscale_file(source, settings, size, window_size, segment_seconds, crf, fil
         frames = int(metadata["frames"])
         latents = [saved[str(index)] for index in range(len(saved))]
     else:
-        progress.references(-(-estimate // step) + 1)
+        progress.references(-(-(estimate - 1) // step) + 1)
+        latents = []
+        batches = []
+        while os.path.exists(path := os.path.join(parts_dir, f"refs_{len(batches):05}.safetensors")):
+            saved = comfy.utils.load_torch_file(path, safe_load=True)
+            latents += [saved[str(index)] for index in range(len(saved))]
+            batches.append(path)
+        progress.update(len(latents))
         count = []
         keyframes = _iter_keyframes(_iter_video(source, height, width), step, count)
-        latents = [latent.cpu() for latent in sample_keyframes(keyframes, progress)]
+        for new in sample_keyframes(keyframes, len(latents), progress):
+            new = [latent.cpu() for latent in new]
+            path = os.path.join(parts_dir, f"refs_{len(batches):05}.safetensors")
+            save_file({str(index): latent for index, latent in enumerate(new)}, f"{path}.tmp")
+            os.replace(f"{path}.tmp", path)
+            batches.append(path)
+            latents += new
         frames = count[0]
         save_file({str(index): latent for index, latent in enumerate(latents)}, latents_path, metadata={"frames": str(frames)})
+        for path in batches:
+            os.remove(path)
         comfy.model_management.soft_empty_cache()
 
     indices = _keyframe_indices(frames, window_size)
@@ -489,7 +509,7 @@ class AcademiaRelayVSRVideoFile:
             "required": {
                 "relayvsr_model": ("RELAYVSR_MODEL",),
                 "video": (_video_files(), {"video_upload": True}),
-                "input_height": ("INT", {"default": 0, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources: 360 gives 1440p."}),
+                "input_height": ("INT", {"default": 360, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources: 360 gives 1440p, and 720 would give 5K and be far slower."}),
                 "window_size": ("INT", {"default": 16, "min": 2, "max": 64, "tooltip": "Wan creates a reference every window_size-1 frames. Lower is slower and steadier, higher is faster."}),
                 "output_scale": ("FLOAT", {"default": 4.0, "min": 1.0, "max": 4.0, "step": 0.25, "tooltip": "The model always works at x4; lower values downscale each frame."}),
                 "segment_seconds": ("INT", {"default": 60, "min": 5, "max": 3600, "tooltip": "A part is saved every this many seconds. If the run stops, queueing it again with the same settings continues from the last finished part."}),
@@ -520,8 +540,8 @@ class AcademiaRelayVSRVideoFile:
         output_size = _even_size(height, width, output_scale)
         dtype = relayvsr_model.dtype
 
-        def sample(keyframes, progress):
-            return _sample_keyframes(relayvsr_model, keyframes, height, width, seed, progress)
+        def sample(keyframes, done, progress):
+            yield _sample_keyframes(relayvsr_model, keyframes, height, width, seed, progress)
 
         def decode(indices, latents, first_slot, read_window):
             flash, stream = _load_flash(relayvsr_model, height, width)
@@ -545,7 +565,8 @@ class AcademiaRelayVSRNativeVideo:
                 "model": ("MODEL", {"tooltip": "RelayVSR model from Load Diffusion Model."}),
                 "vae": ("VAE", {"tooltip": "RelayVSR Flash decoder of the same factor, from Load VAE."}),
                 "video": (_video_files(), {"video_upload": True}),
-                "input_height": ("INT", {"default": 0, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources."}),
+                "input_height": ("INT", {"default": 360, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources: at x4, 360 gives 1440p, and 720 would give 5K and be far slower."}),
+                "window_size": ("INT", {"default": NATIVE_MAX_WINDOW, "min": 2, "max": NATIVE_MAX_WINDOW, "tooltip": "Wan creates a reference every window_size-1 frames. 16 is the native value, the fastest; lower is slower and steadier."}),
                 "output_scale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 4.0, "step": 0.25, "tooltip": "0 keeps the factor of the model, x4 or x2. Other values resize each frame."}),
                 "detail": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01, "tooltip": "How much of the detail added by the decoder is kept. 1 is the full model output."}),
                 "segment_seconds": ("INT", {"default": 60, "min": 5, "max": 3600, "tooltip": "A part is saved every this many seconds. If the run stops, queueing it again with the same settings continues from the last finished part."}),
@@ -569,7 +590,7 @@ class AcademiaRelayVSRNativeVideo:
             return f"Invalid video file: {video}"
         return True
 
-    def upscale(self, model, vae, video, input_height, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id):
+    def upscale(self, model, vae, video, input_height, window_size, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id):
         diffusion_model = model.model.diffusion_model
         if not hasattr(diffusion_model, "positive_conditioning"):
             raise ValueError("Connect a RelayVSR model. It needs a ComfyUI version with native RelayVSR support.")
@@ -581,15 +602,24 @@ class AcademiaRelayVSRNativeVideo:
         patch = diffusion_model.latent_stride * 2
         latent_size = (-(-height // patch) * 2, -(-width // patch) * 2)
 
-        def sample(keyframes, progress):
-            images = torch.stack(list(keyframes))
-            progress.references(0)
+        def sample(keyframes, done, progress):
+            tokens = latent_size[0] * latent_size[1] // 4
+            batch_size = max(WAN_CONTEXT + 2, WAN_PASS_TOKENS // tokens) - WAN_CONTEXT
             prompt = diffusion_model.positive_conditioning.unsqueeze(0).clone()
-            positive = [[prompt, {"lq_images": images}]]
-            negative = [[prompt, {"lq_images": images}]]
-            empty = torch.zeros([1, model.model.latent_format.latent_channels, len(images), *latent_size], device=comfy.model_management.intermediate_device())
-            samples = nodes.common_ksampler(model, seed, 1, 1.0, "euler", "simple", positive, negative, {"samples": empty})[0]["samples"]
-            return [latent.clone() for latent in samples.unbind(2)]
+            keyframes = iter(keyframes)
+            context = list(islice(keyframes, done))[-WAN_CONTEXT:]
+            batch = done // batch_size
+            while new := list(islice(keyframes, batch_size)):
+                images = torch.stack(context + new)
+                positive = [[prompt, {"lq_images": images}]]
+                negative = [[prompt, {"lq_images": images}]]
+                empty = torch.zeros([1, model.model.latent_format.latent_channels, len(images), *latent_size], device=comfy.model_management.intermediate_device())
+                batch_seed = (seed + batch) % 2**64
+                samples = nodes.common_ksampler(model, batch_seed, 1, 1.0, "euler", "simple", positive, negative, {"samples": empty})[0]["samples"]
+                yield [latent.clone() for latent in samples.unbind(2)[len(context):]]
+                progress.update(len(new))
+                context = (context + new)[-WAN_CONTEXT:]
+                batch += 1
 
         def decode(indices, latents, first_slot, read_window):
             for slot in range(first_slot, max(len(indices), 2)):
@@ -601,7 +631,7 @@ class AcademiaRelayVSRNativeVideo:
                     yield _resize_output(image.cpu(), output_size)
 
         settings = ("native", factor, output_size, detail, seed)
-        return _upscale_file(source, settings, (height, width), KEYFRAME_WINDOW, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
+        return _upscale_file(source, settings, (height, width), window_size, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
 
 
 NODE_CLASS_MAPPINGS = {
