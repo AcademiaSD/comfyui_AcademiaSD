@@ -97,7 +97,7 @@ function compilar(st, w, h) {
 }
 
 function estadoVacio() {
-    return { summary: { caption: "", meta: "", canvas: "single", palette: "" }, items: [], auto: true, json: "", bg_opacity: 0.6 };
+    return { summary: { caption: "", meta: "", canvas: "single", palette: "" }, items: [], auto: true, json: "", bg_opacity: 0.6, instructions: "" };
 }
 
 app.registerExtension({
@@ -217,6 +217,9 @@ app.registerExtension({
             const gPal = tx("palette: navy, cream…");
             gRow.append(gCanvas, gPal);
             campo("Canvas", gRow);
+            const gIns = campo("Analyze", ta(2, "Extra instructions for Analyze Image (optional)…"));
+            gIns.title = "Added to the fixed instructions of Analyze Image, for example: describe the clothes in detail, ignore the background.";
+            gIns.oninput = () => { st.instructions = gIns.value; guardar(); };
             const iHead = el("div", "asd-ml-hint");
             campo("Box", iHead);
             const iLabel = el("select"); Object.keys(LABELS).forEach((k) => iLabel.add(new Option(LABELS[k].name, k)));
@@ -462,7 +465,7 @@ app.registerExtension({
                     aviso("Analyzing the image …");
                     const prompt = aguasArriba(output, [img, vlm]);
                     prompt.moss_analyze = { class_type: "AcademiaSD_MossLayoutAnalyze",
-                        inputs: { vlm, image: img } };
+                        inputs: { vlm, image: img, instructions: st.instructions } };
                     const outputs = await runPrompt(prompt);
                     const res = JSON.parse(outputs.moss_analyze?.moss_layout_analysis?.[0] || "{}");
                     const nuevas = (res.items || []).map((it) => ({ label: it.label, caption: it.caption || "",
@@ -493,7 +496,7 @@ app.registerExtension({
                 leer();
                 leido = true;
                 enviado = st.json; enviadoNeg = String(negW?.value ?? "");
-                opac.value = st.bg_opacity; auto.checked = st.auto; jsonTa.readOnly = st.auto;
+                opac.value = st.bg_opacity; auto.checked = st.auto; jsonTa.readOnly = st.auto; gIns.value = st.instructions;
                 jsonTa.value = st.json && st.json.startsWith("{") ? (() => { try { return JSON.stringify(JSON.parse(st.json), null, 2); } catch { return st.json; } })() : st.json;
                 sel = -1; pintar(); ficha(); fondo(); encajar();
             };

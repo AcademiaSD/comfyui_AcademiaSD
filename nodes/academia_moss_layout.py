@@ -51,6 +51,8 @@ ANALIZAR = (
     "with \\n between its lines. Omit the field for other labels.\n"
     "If there is no legible text, use no text items."
 )
+PRIORIDAD = ("\nThe user also asks for the following. It takes priority over the rules above, except the JSON "
+             "format and bbox_2d, which must stay the same:\n")
 
 
 def _lista(v):
@@ -220,6 +222,11 @@ class AcademiaMossLayoutAnalyze:
                 "vlm": ("CLIP", {"tooltip": "A Qwen3-VL text encoder, e.g. the one you use in the Prompt Enhancer."}),
                 "image": ("IMAGE",),
             },
+            "optional": {
+                "instructions": ("STRING", {"default": "", "multiline": True,
+                                            "tooltip": "Extra instructions for the analysis. They add to the fixed ones, "
+                                                       "which keep the output format."}),
+            },
         }
 
     @classmethod
@@ -233,15 +240,20 @@ class AcademiaMossLayoutAnalyze:
     OUTPUT_NODE = True
     CATEGORY = "Academia SD/MOSS-Image"
 
-    def analyze(self, vlm, image):
+    def analyze(self, vlm, image, instructions=""):
         img = image[:1]
         h, w = int(img.shape[1]), int(img.shape[2])
         k = min(1.0, (1024 * 1024 / float(h * w)) ** 0.5)
         if k < 1:
             img = comfy.utils.common_upscale(img.movedim(-1, 1), max(16, int(w * k)), max(16, int(h * k)),
                                              "area", "disabled").movedim(1, -1)
+        # Al final y con prioridad: como turno de sistema o como simple anadido el modelo
+        # las ignora. No sustituyen a ANALIZAR, que sin su formato no habria cajas.
+        peticion = ANALIZAR
+        if instructions.strip():
+            peticion += PRIORIDAD + instructions.strip()
         text = ("<|im_start|>user\n{}{}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-                .format(VISION_BLOCK, ANALIZAR))
+                .format(VISION_BLOCK, peticion))
         tokens = vlm.tokenize(text, images=[img])
         # Greedy y sin repetition_penalty: la penalizacion castiga los digitos repetidos
         # de las coordenadas y desplaza las cajas.
