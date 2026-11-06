@@ -1,0 +1,126 @@
+{
+  "id": "b7d2e1c4-3a65-4c8e-8f02-6e1d9a7c2b10",
+  "revision": 0,
+  "last_node_id": 3,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "AcademiaSD_RelayVSRLoader",
+      "pos": [
+        40,
+        220
+      ],
+      "size": [
+        340,
+        106
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "relayvsr_model",
+          "type": "RELAYVSR_MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcademiaSD_RelayVSRLoader"
+      },
+      "widgets_values": [
+        "relayvsr_wan.safetensors",
+        "relayvsr_flash.safetensors"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "AcademiaSD_RelayVSRVideoFile",
+      "pos": [
+        420,
+        220
+      ],
+      "size": [
+        420,
+        520
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "relayvsr_model",
+          "type": "RELAYVSR_MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video_path",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AcademiaSD_RelayVSRVideoFile"
+      },
+      "widgets_values": [
+        "relayvsr_demo.mp4",
+        0,
+        16,
+        4.0,
+        60,
+        16,
+        42,
+        "fixed",
+        "RelayVSR/video"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "Note",
+      "pos": [
+        40,
+        0
+      ],
+      "size": [
+        800,
+        190
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "RelayVSR para videos largos\n\nEste nodo no carga el video en memoria: lee el archivo, guarda cada parte en output/RelayVSR_parts y al final une todo en un MP4 con el audio original.\n\ninput_height: reduce la fuente antes de reescalar. 360 da 1440p, 270 da 1080p. 0 mantiene su tamano.\nsegment_seconds: cada cuanto se guarda una parte. No cambia el resultado.\nSi se corta, vuelve a lanzarlo con los mismos ajustes y continua desde la ultima parte terminada."
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "RELAYVSR_MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 1,
+      "offset": [
+        60,
+        60
+      ]
+    }
+  },
+  "version": 0.4
+}

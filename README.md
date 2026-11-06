@@ -405,6 +405,43 @@ Sheet music rendering by [abcjs](https://github.com/paulrosen/abcjs) 6.7.2, © P
 
 ---
 
+## 🎞️ Academia SD RelayVSR
+
+4x video upscaler based on [RelayVSR](https://github.com/kopperx/RelayVSR): a large Wan model creates a reference every few frames and a small decoder upscales all the frames between two references.
+
+Download `wan.safetensors` (10 GB) and `flash.safetensors` (128 MB) from [kopper/RelayVSR](https://huggingface.co/kopper/RelayVSR) into `models/diffusion_models`. Any file name works; `relayvsr_wan` and `relayvsr_flash` are clearer. Connect **RelayVSR Loader** to **RelayVSR Upscale x4** with the frames of your video as `images`.
+
+*   **`window_size`:** Wan creates a reference every `window_size - 1` frames. 16 is the original value; higher is faster and lower is steadier.
+*   **`output_scale`:** the model always works at x4. Lower values downscale each frame on the way out, so the result needs much less RAM.
+*   **Low VRAM:** Wan leaves VRAM before the decoder starts, and ComfyUI offloads part of Wan when it does not fit. Tested with the VRAM limited to 6 GB (240p input) and 8 GB (360p input).
+*   **Works on a portable ComfyUI:** the attention is pure PyTorch and needs neither Triton nor diffusers. It matches the original at FP32; at BF16 the difference is rounding (about 53 dB).
+*   **Long videos:** **RelayVSR Long Video** reads the file from disk instead of loading it as `images`, so RAM does not grow with the duration. It saves a part every `segment_seconds` in `output/RelayVSR_parts` and joins them with the original audio in one MP4. If the run stops, queue it again with the same settings and it continues from the last finished part. The parts join at reference points, so the result is the same as a single pass. `input_height` resizes the source first: 360 gives 1440p. The audio is copied, so it must be a codec MP4 accepts, such as AAC.
+*   **Progress and result in the node:** both Long Video nodes show a **Total** bar with the time left and a **Part** bar for the current piece. When they finish, the node plays the final MP4 with its audio.
+*   **Input size:** it is meant for small sources. A 360p frame becomes 1440p, and x4 frames are heavy: one 1440×2496 frame takes 43 MB of RAM.
+
+### Native RelayVSR
+
+ComfyUI supports RelayVSR natively since November 2026, with `int8` models of about 5 GB in x4 and x2 from [Comfy-Org/RelayVSR](https://huggingface.co/Comfy-Org/RelayVSR). In a 720p test it was about 4 times faster than the port in `vendor/relayvsr/`, with half the VRAM and very similar quality. The port stays for ComfyUI versions without native support.
+
+*   **Short clips:** `AcademiaSD_RelayVSR_Native_v01.json` uses the native **RelayVSR Conditioning**, KSampler (1 step, cfg 1) and **VSR Decode** nodes, and adds Before / After.
+*   **Long videos:** **RelayVSR Long Video (Native)** works like RelayVSR Long Video but takes `MODEL` from Load Diffusion Model and `VAE` from Load VAE, so it accepts the x4 and x2 models. See `AcademiaSD_RelayVSR_Native_LongVideo_v01.json`. `output_scale` 0 keeps the factor of the model, and `detail` sets how much of the detail added by the decoder is kept. All the keyframes go through Wan in one pass, so the first stage cannot be resumed; the parts can. There is no `window_size`: native RelayVSR uses a reference every 15 frames.
+
+RelayVSR by Xijun Wang, Xin Li, Zirui Lang, Suhang Yao, Haoran Li and Zhibo Chen, Apache-2.0 license, ported in `vendor/relayvsr/`. It builds on [Wan](https://github.com/Wan-Video/Wan2.2), [Diffusers](https://github.com/huggingface/diffusers) and [FlashVSR](https://github.com/OpenImagingLab/FlashVSR). The native nodes and models are part of ComfyUI and [Comfy-Org](https://huggingface.co/Comfy-Org/RelayVSR).
+
+---
+
+## 🪟 Academia SD Before / After
+
+Compares two videos or images with a sliding wipe, for example the input and the output of an upscaler.
+
+*   **Viewer in the node:** drag the wipe with the mouse while the clip plays. Both sides stay frame-locked, and Play and the time bar let you stop on any frame. It previews at up to 1280 px per side.
+*   **`wipe_video` output:** a video with the wipe animated, ready for Video Combine. `direction` sets which way it travels and `line_width` the white line.
+*   **`wipe_frames`:** 0 spreads the wipe over the whole clip. With two images, the output lasts this many frames.
+*   **`fps`:** playback speed of the viewer. Connect it to the frame rate of your video.
+*   **Different sizes:** `before` is resized to match `after`. If one clip is shorter, its last frame is held.
+
+---
+
 ## 🔀 Academia SD Switch Any
 
 Picks one of several inputs of any type (latent, CFG, model, image...), a replacement for the Impact Pack switch.
