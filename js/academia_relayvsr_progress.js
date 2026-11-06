@@ -3,13 +3,15 @@ import { api } from "../../scripts/api.js";
 
 // Long Video: dos barras propias porque ComfyUI solo tiene una por nodo, y RelayVSR
 // nativo la reinicia en cada ventana. Python envia el estado en asd_relayvsr_progress.
-// Debajo va el reproductor del MP4 final, que se guarda con el workflow.
+// Debajo va el reproductor del MP4 final, que se guarda con el workflow. La vista
+// previa de la entrada es la de ComfyUI y sigue visible junto a el.
 const NODE_NAMES = ["AcademiaSD_RelayVSRVideoFile", "AcademiaSD_RelayVSRNativeVideo"];
 
 const CSS = `
 .asd-rv { display:flex; flex-direction:column; gap:6px; height:100%; padding:4px 2px; box-sizing:border-box; font:11px 'Segoe UI', system-ui, sans-serif; color:#bbb; }
 .asd-rv video { flex:1 1 0; min-height:0; width:100%; background:#111; border-radius:6px; }
 .asd-rv [hidden] { display:none; }
+.asd-rv-result { font-weight:600; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .asd-rv-row { display:flex; flex-direction:column; gap:2px; }
 .asd-rv-text { display:flex; justify-content:space-between; gap:8px; font-variant-numeric:tabular-nums; }
 .asd-rv-text span:first-child { font-weight:600; color:#ddd; }
@@ -69,7 +71,10 @@ app.registerExtension({
             video.playsInline = true;
             video.hidden = true;
             video.addEventListener("pointerdown", (e) => e.stopPropagation());
-            root.append(total.el, parte.el, video);
+            const titulo = document.createElement("div");
+            titulo.className = "asd-rv-result";
+            titulo.hidden = true;
+            root.append(total.el, parte.el, titulo, video);
             const self = this;
             this.properties = Object.assign({ asd_video: null }, this.properties);
 
@@ -79,31 +84,18 @@ app.registerExtension({
                 const q = new URLSearchParams({ filename: v.filename, subfolder: v.subfolder, type: v.type, rand: Date.now() });
                 video.src = api.apiURL(`/view?${q}`);
                 video.hidden = false;
-                if (self.size[1] < 860) self.setSize([Math.max(self.size[0], 560), 860]);
+                titulo.hidden = false;
+                titulo.textContent = `Result: ${v.filename}`;
+                if (self.size[1] < 1240) self.setSize([Math.max(self.size[0], 560), 1240]);
             };
-            // La subida de archivo trae su propia vista previa de la entrada, que llega
-            // despues que este widget y le quitaria casi todo el alto al resultado.
-            const ocultarEntrada = (oculta) => {
-                const entrada = self.widgets.find((w) => w.name === "video-preview");
-                if (entrada) entrada.hidden = oculta;
-                self.setDirtyCanvas(true, true);
-            };
-            const addCustomWidget = this.addCustomWidget;
-            this.addCustomWidget = function (widget) {
-                const w = addCustomWidget.apply(this, arguments);
-                if (widget.name === "video-preview" && !video.hidden) widget.hidden = true;
-                return w;
-            };
-            video.addEventListener("loadeddata", () => ocultarEntrada(true));
-            video.addEventListener("error", () => { video.hidden = true; ocultarEntrada(false); });
+            video.addEventListener("error", () => { video.hidden = true; titulo.hidden = true; });
 
             this.asdProgreso = (p) => {
                 const tiempo = p.eta == null ? "" : ` · ${duracion(p.eta)} left`;
                 pintar(total, p.frames_done, p.frames, `${p.frames_done} / ${p.frames || "?"}${tiempo}`);
                 if (p.phase === "wan") {
                     parte.nombre.textContent = "Wan references";
-                    pintar(parte, p.part_done, p.part_size, p.part_size ? `${p.part_done} / ${p.part_size}` : "");
-                    parte.el.classList.toggle("pulse", !p.part_size);
+                    pintar(parte, p.part_done, p.part_size, `${p.part_done} / ${p.part_size}`);
                 } else if (p.phase === "parts") {
                     parte.nombre.textContent = `Part ${p.part} / ${p.parts}`;
                     pintar(parte, p.part_done, p.part_size, `${p.part_done} / ${p.part_size}`);
@@ -114,7 +106,7 @@ app.registerExtension({
                 }
             };
 
-            this.addDOMWidget("relayvsr_progress", "relayvsr_progress", root, { getMinHeight: () => (video.hidden ? 72 : 320), serialize: false });
+            this.addDOMWidget("relayvsr_progress", "relayvsr_progress", root, { getMinHeight: () => (video.hidden ? 72 : 400), serialize: false });
             return r;
         };
 
