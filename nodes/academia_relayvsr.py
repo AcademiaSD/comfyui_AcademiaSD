@@ -482,6 +482,15 @@ def _write_preview(source, path):
     os.replace(temporary, path)
 
 
+@PromptServer.instance.routes.get("/academia/relayvsr/size")
+async def _size(request):
+    filename = request.query.get("filename", "")
+    if filename not in _video_files():
+        return web.Response(status=404)
+    _, height, width, _ = _probe_video(folder_paths.get_annotated_filepath(filename))
+    return web.json_response({"width": width, "height": height})
+
+
 @PromptServer.instance.routes.get("/academia/relayvsr/preview")
 async def _preview(request):
     filename = request.query.get("filename", "")

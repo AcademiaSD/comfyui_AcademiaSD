@@ -14,6 +14,7 @@ const CSS = `
 .asd-rv video { flex:1 1 0; min-height:0; width:100%; background:#111; border-radius:6px; }
 .asd-rv [hidden] { display:none; }
 .asd-rv-result { font-weight:600; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.asd-rv-size { text-align:center; font-variant-numeric:tabular-nums; margin-top:-2px; }
 .asd-rv-row { display:flex; flex-direction:column; gap:2px; }
 .asd-rv-text { display:flex; justify-content:space-between; gap:8px; font-variant-numeric:tabular-nums; }
 .asd-rv-text span:first-child { font-weight:600; color:#ddd; }
@@ -49,11 +50,19 @@ function reproductor(nombre) {
     video.playsInline = true;
     video.hidden = true;
     video.addEventListener("pointerdown", (e) => e.stopPropagation());
+    const tamano = document.createElement("div");
+    tamano.className = "asd-rv-size";
+    tamano.hidden = true;
     return {
-        titulo, video,
+        titulo, video, tamano,
+        medida(ancho, alto) {
+            tamano.textContent = `${ancho} × ${alto}`;
+            tamano.hidden = false;
+        },
         mostrar(texto, src) {
             titulo.textContent = `${nombre}: ${texto}`;
             titulo.hidden = false;
+            tamano.hidden = true;
             video.hidden = !src;
             if (src) video.src = src;
             else video.removeAttribute("src");
@@ -100,7 +109,7 @@ app.registerExtension({
             const parte = fila("Part", "part");
             const entrada = reproductor("Input");
             const resultado = reproductor("Result");
-            root.append(total.el, parte.el, entrada.titulo, entrada.video, resultado.titulo, resultado.video);
+            root.append(total.el, parte.el, entrada.titulo, entrada.video, entrada.tamano, resultado.titulo, resultado.video, resultado.tamano);
             const self = this;
             this.properties = Object.assign({ asd_video: null }, this.properties);
             const crecer = () => {
@@ -126,8 +135,16 @@ app.registerExtension({
                 entrada.titulo.textContent = `Input: ${archivo.value} (preparing preview…)`;
                 entrada.video.src = api.apiURL(`/academia/relayvsr/preview?${new URLSearchParams({ filename: archivo.value })}`);
             });
-            entrada.video.addEventListener("loadeddata", () => {
-                if (convertido) entrada.titulo.textContent = `Input: ${archivo.value} (preview)`;
+            // La vista previa convertida es mas pequena: la medida real la da Python.
+            entrada.video.addEventListener("loadedmetadata", async () => {
+                if (!convertido) return entrada.medida(entrada.video.videoWidth, entrada.video.videoHeight);
+                entrada.titulo.textContent = `Input: ${archivo.value} (preview)`;
+                const nombre = archivo.value;
+                const res = await api.fetchApi(`/academia/relayvsr/size?${new URLSearchParams({ filename: nombre })}`);
+                if (res.ok && archivo.value === nombre) {
+                    const { width, height } = await res.json();
+                    entrada.medida(width, height);
+                }
             });
             const alCambiar = archivo.callback;
             archivo.callback = function () {
@@ -163,7 +180,8 @@ app.registerExtension({
                 resultado.mostrar(v.filename, api.apiURL(`/view?${q}`));
                 crecer();
             };
-            resultado.video.addEventListener("error", () => { resultado.video.hidden = true; resultado.titulo.hidden = true; });
+            resultado.video.addEventListener("loadedmetadata", () => resultado.medida(resultado.video.videoWidth, resultado.video.videoHeight));
+            resultado.video.addEventListener("error", () => { resultado.video.hidden = true; resultado.titulo.hidden = true; resultado.tamano.hidden = true; });
 
             this.asdProgreso = (p) => {
                 const tiempo = p.eta == null ? "" : ` · ${duracion(p.eta)} left`;
