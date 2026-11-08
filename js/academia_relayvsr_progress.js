@@ -3,7 +3,8 @@ import { api } from "../../scripts/api.js";
 
 // Long Video: dos barras propias porque ComfyUI solo tiene una por nodo, y RelayVSR
 // nativo la reinicia en cada ventana. Python envia el estado en asd_relayvsr_progress.
-// Debajo van la entrada y el MP4 final, que se guarda con el workflow. La entrada y
+// Debajo van la entrada y el MP4 final, que se guarda con el workflow; con los dos
+// cargados se ven superpuestos en un canvas con una cortinilla que se arrastra. La entrada y
 // la subida son propias porque las de ComfyUI no aceptan AVI: si el navegador no
 // puede reproducir el archivo, Python prepara un MP4 pequeno solo para verlo.
 const NODE_NAMES = ["AcademiaSD_RelayVSRVideoFile", "AcademiaSD_RelayVSRNativeVideo"];
@@ -15,6 +16,14 @@ const CSS = `
 .asd-rv [hidden] { display:none; }
 .asd-rv-result { font-weight:600; color:#ddd; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .asd-rv-size { text-align:center; font-variant-numeric:tabular-nums; margin-top:-2px; }
+.asd-rv-cmp { position:relative; flex:1 1 0; min-height:0; background:#111; border-radius:6px; overflow:hidden; }
+.asd-rv-cmp canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; cursor:ew-resize; touch-action:none; }
+.asd-rv-tag { position:absolute; top:6px; padding:1px 7px; border-radius:4px; background:#0009; color:#fff; font-size:12px; pointer-events:none; }
+.asd-rv-tag.a { left:6px; } .asd-rv-tag.b { right:6px; }
+.asd-rv-bar { display:flex; align-items:center; gap:6px; }
+.asd-rv-bar button { background:#1f4a35; border:1px solid #3f8f58; border-radius:5px; color:#c8f7d6; padding:3px 9px; font:inherit; font-weight:600; min-width:64px; cursor:pointer; }
+.asd-rv-bar input { flex:1; min-width:0; }
+.asd-rv-bar span { color:#aaa; min-width:84px; text-align:right; font-variant-numeric:tabular-nums; }
 .asd-rv-row { display:flex; flex-direction:column; gap:2px; }
 .asd-rv-text { display:flex; justify-content:space-between; gap:8px; font-variant-numeric:tabular-nums; }
 .asd-rv-text span:first-child { font-weight:600; color:#ddd; }
@@ -65,7 +74,10 @@ function reproductor(nombre) {
             tamano.hidden = true;
             video.hidden = !src;
             if (src) video.src = src;
-            else video.removeAttribute("src");
+            else {
+                video.removeAttribute("src");
+                video.load();
+            }
         },
     };
 }
@@ -77,6 +89,11 @@ async function subir(file) {
     if (res.status !== 200) throw new Error(`${res.status} ${res.statusText}`);
     const { name, subfolder } = await res.json();
     return subfolder ? `${subfolder}/${name}` : name;
+}
+
+function reloj(segundos) {
+    const s = Math.floor(segundos || 0);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 function pintar(f, hecho, total, texto) {
@@ -109,13 +126,99 @@ app.registerExtension({
             const parte = fila("Part", "part");
             const entrada = reproductor("Input");
             const resultado = reproductor("Result");
-            root.append(total.el, parte.el, entrada.titulo, entrada.video, entrada.tamano, resultado.titulo, resultado.video, resultado.tamano);
+            const vista = document.createElement("div");
+            vista.className = "asd-rv-cmp";
+            vista.hidden = true;
+            vista.innerHTML = `<canvas></canvas><div class="asd-rv-tag a">Before</div><div class="asd-rv-tag b">After</div>`;
+            const controles = document.createElement("div");
+            controles.className = "asd-rv-bar";
+            controles.hidden = true;
+            controles.innerHTML = `<button>▶ Play</button><input type="range" min="0" max="1000" value="0"><span>0:00 / 0:00</span>`;
+            root.append(total.el, parte.el, entrada.titulo, entrada.video, entrada.tamano, resultado.titulo, resultado.video, resultado.tamano, vista, controles);
             const self = this;
             this.properties = Object.assign({ asd_video: null }, this.properties);
             const crecer = () => {
-                const alto = 360 + (entrada.video.hidden ? 0 : 340) + (resultado.video.hidden ? 0 : 340);
+                const alto = 360 + (entrada.video.hidden ? 0 : 340) + (resultado.video.hidden ? 0 : 340) + (vista.hidden ? 0 : 440);
                 if (self.size[1] < alto) self.setSize([Math.max(self.size[0], 560), alto]);
             };
+
+            // Comparacion: el resultado manda (lleva el audio) y la entrada lo sigue.
+            const antes = entrada.video, despues = resultado.video;
+            const lienzo = vista.querySelector("canvas");
+            const contexto = lienzo.getContext("2d");
+            const [btnPlay, barra, tiempo] = controles.children;
+            let divisor = 0.5;
+            const dibujar = () => {
+                const ancho = despues.videoWidth, alto = despues.videoHeight;
+                if (vista.hidden || !ancho) return;
+                if (lienzo.width !== ancho || lienzo.height !== alto) { lienzo.width = ancho; lienzo.height = alto; }
+                const x = Math.round(ancho * divisor);
+                contexto.drawImage(despues, 0, 0, ancho, alto);
+                if (x > 0 && antes.videoWidth) contexto.drawImage(antes, 0, 0, (antes.videoWidth * x) / ancho, antes.videoHeight, 0, 0, x, alto);
+                contexto.fillStyle = "#fff";
+                contexto.fillRect(x - 1, 0, Math.max(2, Math.round(ancho / 640)), alto);
+                tiempo.textContent = `${reloj(despues.currentTime)} / ${reloj(despues.duration)}`;
+                if (!barra.matches(":active")) barra.value = (1000 * despues.currentTime) / (despues.duration || 1);
+            };
+            // Los <video> estan ocultos y no entregan requestVideoFrameCallback: se pinta por animationFrame.
+            const alFrame = () => {
+                if (vista.hidden || despues.paused) return;
+                if (Math.abs(antes.currentTime - despues.currentTime) > 0.1) antes.currentTime = despues.currentTime;
+                dibujar();
+                requestAnimationFrame(alFrame);
+            };
+            const comparar = () => {
+                const activo = antes.readyState >= 2 && despues.readyState >= 2 && !!antes.getAttribute("src") && !!despues.getAttribute("src");
+                vista.hidden = controles.hidden = !activo;
+                antes.hidden = activo || !antes.getAttribute("src");
+                despues.hidden = activo || !despues.getAttribute("src");
+                antes.muted = activo;
+                if (activo) {
+                    despues.pause();
+                    antes.pause();
+                    antes.currentTime = despues.currentTime;
+                }
+                crecer();
+                dibujar();
+            };
+            for (const v of [antes, despues]) {
+                v.addEventListener("loadeddata", comparar);
+                v.addEventListener("emptied", comparar);
+                v.addEventListener("seeked", dibujar);
+            }
+            despues.addEventListener("play", () => {
+                btnPlay.textContent = "❚❚ Pause";
+                if (vista.hidden) return;
+                antes.play().catch(() => {});
+                requestAnimationFrame(alFrame);
+            });
+            despues.addEventListener("pause", () => { antes.pause(); btnPlay.textContent = "▶ Play"; });
+            btnPlay.onclick = () => (despues.paused ? despues.play() : despues.pause());
+            barra.oninput = () => {
+                despues.pause();
+                despues.currentTime = antes.currentTime = (barra.value / 1000) * (despues.duration || 0);
+            };
+            // object-fit deja bandas: la posicion se mide sobre la imagen, no sobre el canvas.
+            const mover = (e) => {
+                const caja = lienzo.getBoundingClientRect();
+                const ancho = Math.min(caja.width, (caja.height * lienzo.width) / (lienzo.height || 1));
+                divisor = Math.min(1, Math.max(0, (e.clientX - caja.left - (caja.width - ancho) / 2) / ancho));
+                dibujar();
+            };
+            // En fase de captura: con Nodes 2.0 el WidgetDOM hace stop de pointermove y pointerup.
+            const soltar = () => {
+                window.removeEventListener("pointermove", mover, true);
+                window.removeEventListener("pointerup", soltar, true);
+                window.removeEventListener("pointercancel", soltar, true);
+            };
+            lienzo.addEventListener("pointerdown", (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                mover(e);
+                window.addEventListener("pointermove", mover, true);
+                window.addEventListener("pointerup", soltar, true);
+                window.addEventListener("pointercancel", soltar, true);
+            });
 
             const archivo = this.widgets.find((w) => w.name === "video");
             let convertido = false;
@@ -181,7 +284,11 @@ app.registerExtension({
                 crecer();
             };
             resultado.video.addEventListener("loadedmetadata", () => resultado.medida(resultado.video.videoWidth, resultado.video.videoHeight));
-            resultado.video.addEventListener("error", () => { resultado.video.hidden = true; resultado.titulo.hidden = true; resultado.tamano.hidden = true; });
+            resultado.video.addEventListener("error", () => {
+                if (!resultado.video.getAttribute("src")) return;
+                resultado.mostrar("", null);
+                resultado.titulo.hidden = true;
+            });
 
             this.asdProgreso = (p) => {
                 const tiempo = p.eta == null ? "" : ` · ${duracion(p.eta)} left`;
@@ -200,7 +307,7 @@ app.registerExtension({
             };
 
             this.addDOMWidget("relayvsr_progress", "relayvsr_progress", root, {
-                getMinHeight: () => 72 + (entrada.video.hidden ? 0 : 200) + (resultado.video.hidden ? 0 : 200),
+                getMinHeight: () => 72 + (entrada.video.hidden ? 0 : 200) + (resultado.video.hidden ? 0 : 200) + (vista.hidden ? 0 : 260),
                 serialize: false,
             });
             this.asdEntrada();
