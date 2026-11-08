@@ -167,8 +167,11 @@ app.registerExtension({
                 dibujar();
                 requestAnimationFrame(alFrame);
             };
+            // Solo se compara el resultado con la entrada de la que salio.
             const comparar = () => {
-                const activo = antes.readyState >= 2 && despues.readyState >= 2 && !!antes.getAttribute("src") && !!despues.getAttribute("src");
+                const origen = self.properties.asd_video?.source;
+                const activo = !!origen && origen === archivo.value && self.inputs?.find((i) => i.name === "video_input")?.link == null
+                    && antes.readyState >= 2 && despues.readyState >= 2 && !!antes.getAttribute("src") && !!despues.getAttribute("src");
                 vista.hidden = controles.hidden = !activo;
                 antes.hidden = activo || !antes.getAttribute("src");
                 despues.hidden = activo || !despues.getAttribute("src");
@@ -176,7 +179,8 @@ app.registerExtension({
                 if (activo) {
                     despues.pause();
                     antes.pause();
-                    antes.currentTime = despues.currentTime;
+                    // Un <video> oculto no entrega imagen hasta que busca un fotograma.
+                    despues.currentTime = antes.currentTime = despues.currentTime;
                 }
                 crecer();
                 dibujar();
@@ -344,7 +348,7 @@ app.registerExtension({
         nodeType.prototype.onExecuted = function (message) {
             onExecuted?.apply(this, arguments);
             if (message?.asd_video?.length) {
-                this.properties.asd_video = message.asd_video[0];
+                this.properties.asd_video = { ...message.asd_video[0], source: message.asd_source?.[0] ?? "" };
                 this.asdMostrar?.();
             }
         };

@@ -34,10 +34,11 @@ import av
 import comfy.model_management
 import comfy.model_patcher
 import comfy.ops
+import comfy.sample
 import comfy.storage
 import comfy.utils
 import folder_paths
-import nodes
+import latent_preview
 import torch
 import torch.nn.functional as F
 from aiohttp import web
@@ -625,7 +626,9 @@ class AcademiaRelayVSRVideoFile:
                 yield from _decode_window(flash, stream, read_window(start, end), conditions, start > 0, output_size, dtype)
 
         settings = ("port", output_size, seed)
-        return _upscale_file(source, settings, (height, width), window_size, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
+        output = _upscale_file(source, settings, (height, width), window_size, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
+        output["ui"]["asd_source"] = ["" if video_input is not None else video]
+        return output
 
 
 class AcademiaRelayVSRNativeVideo:
@@ -648,6 +651,7 @@ class AcademiaRelayVSRNativeVideo:
                 "crf": ("INT", {"default": 16, "min": 0, "max": 51, "tooltip": "H.264 quality. Lower is better and larger."}),
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0xffffffffffffffff}),
                 "filename_prefix": ("STRING", {"default": "RelayVSR/video"}),
+                "wan_preview": ("BOOLEAN", {"default": False, "tooltip": "Shows the image of each Wan batch on the node while it runs."}),
             },
             "optional": {
                 "video_input": ("VIDEO", {"tooltip": "Video from another node, such as Load Video or Create Video for IMAGE frames. Replaces the file above."}),
@@ -666,7 +670,7 @@ class AcademiaRelayVSRNativeVideo:
     def VALIDATE_INPUTS(s, video, input_types):
         return _validate_video(video, input_types)
 
-    def upscale(self, model, vae, video, input_height, window_size, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id, video_input=None):
+    def upscale(self, model, vae, video, input_height, window_size, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id, wan_preview, video_input=None):
         diffusion_model = model.model.diffusion_model
         if not hasattr(diffusion_model, "positive_conditioning"):
             raise ValueError("Connect a RelayVSR model. It needs a ComfyUI version with native RelayVSR support.")
@@ -690,8 +694,11 @@ class AcademiaRelayVSRNativeVideo:
                 positive = [[prompt, {"lq_images": images}]]
                 negative = [[prompt, {"lq_images": images}]]
                 empty = torch.zeros([1, model.model.latent_format.latent_channels, len(images), *latent_size], device=comfy.model_management.intermediate_device())
+                empty = comfy.sample.fix_empty_latent_channels(model, empty)
                 batch_seed = (seed + batch) % 2**64
-                samples = nodes.common_ksampler(model, batch_seed, 1, 1.0, "euler", "simple", positive, negative, {"samples": empty})[0]["samples"]
+                noise = comfy.sample.prepare_noise(empty, batch_seed)
+                callback = latent_preview.prepare_callback(model, 1) if wan_preview else None
+                samples = comfy.sample.sample(model, noise, 1, 1.0, "euler", "simple", positive, negative, empty, callback=callback, disable_pbar=not comfy.utils.PROGRESS_BAR_ENABLED, seed=batch_seed)
                 yield [latent.clone() for latent in samples.unbind(2)[len(context):]]
                 progress.update(len(new))
                 context = (context + new)[-WAN_CONTEXT:]
@@ -707,7 +714,9 @@ class AcademiaRelayVSRNativeVideo:
                     yield _resize_output(image.cpu(), output_size)
 
         settings = ("native", factor, output_size, detail, seed)
-        return _upscale_file(source, settings, (height, width), window_size, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
+        output = _upscale_file(source, settings, (height, width), window_size, segment_seconds, crf, filename_prefix, unique_id, sample, decode)
+        output["ui"]["asd_source"] = ["" if video_input is not None else video]
+        return output
 
 
 NODE_CLASS_MAPPINGS = {
