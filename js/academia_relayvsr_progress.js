@@ -21,6 +21,9 @@ const CSS = `
 .asd-rv-tag { position:absolute; top:6px; padding:1px 7px; border-radius:4px; background:#0009; color:#fff; font-size:12px; pointer-events:none; }
 .asd-rv-tag.a { left:6px; } .asd-rv-tag.b { right:6px; }
 .asd-rv-bar { display:flex; align-items:center; gap:6px; }
+.asd-rv-modes { display:flex; gap:2px; align-self:center; background:#2b2f36; border-radius:6px; padding:2px; }
+.asd-rv-modes button { background:none; border:0; border-radius:4px; color:#aaa; padding:3px 12px; font:inherit; font-weight:600; cursor:pointer; }
+.asd-rv-modes button.on { background:#3f8f58; color:#fff; }
 .asd-rv-bar button { background:#1f4a35; border:1px solid #3f8f58; border-radius:5px; color:#c8f7d6; padding:3px 9px; font:inherit; font-weight:600; min-width:64px; cursor:pointer; }
 .asd-rv-bar input { flex:1; min-width:0; }
 .asd-rv-bar span { color:#aaa; min-width:84px; text-align:right; font-variant-numeric:tabular-nums; }
@@ -91,6 +94,14 @@ async function subir(file) {
     return subfolder ? `${subfolder}/${name}` : name;
 }
 
+// ComfyUI no tiene API para quitar la vista previa de un nodo: se usa su store nodeOutput.
+function quitarVistaPrevia(node) {
+    const pinia = document.querySelector("[data-v-app]")?.__vue_app__?.config.globalProperties.$pinia;
+    pinia?._s.get("nodeOutput")?.revokePreviewsByExecutionId(String(node.id));
+    node.imgs = undefined;
+    node.setDirtyCanvas(true, true);
+}
+
 function reloj(segundos) {
     const s = Math.floor(segundos || 0);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -134,9 +145,13 @@ app.registerExtension({
             controles.className = "asd-rv-bar";
             controles.hidden = true;
             controles.innerHTML = `<button>▶ Play</button><input type="range" min="0" max="1000" value="0"><span>0:00 / 0:00</span>`;
-            root.append(total.el, parte.el, entrada.titulo, entrada.video, entrada.tamano, resultado.titulo, resultado.video, resultado.tamano, vista, controles);
+            const modos = document.createElement("div");
+            modos.className = "asd-rv-modes";
+            modos.hidden = true;
+            modos.innerHTML = `<button data-modo="separate">Input / Result</button><button data-modo="compare">Compare</button>`;
+            root.append(total.el, parte.el, modos, entrada.titulo, entrada.video, entrada.tamano, resultado.titulo, resultado.video, resultado.tamano, vista, controles);
             const self = this;
-            this.properties = Object.assign({ asd_video: null }, this.properties);
+            this.properties = Object.assign({ asd_video: null, asd_view: "compare" }, this.properties);
             const crecer = () => {
                 const alto = 360 + (entrada.video.hidden ? 0 : 340) + (resultado.video.hidden ? 0 : 340) + (vista.hidden ? 0 : 440);
                 if (self.size[1] < alto) self.setSize([Math.max(self.size[0], 560), alto]);
@@ -170,8 +185,11 @@ app.registerExtension({
             // Solo se compara el resultado con la entrada de la que salio.
             const comparar = () => {
                 const origen = self.properties.asd_video?.source;
-                const activo = !!origen && origen === archivo.value && self.inputs?.find((i) => i.name === "video_input")?.link == null
+                const posible = !!origen && origen === archivo.value && self.inputs?.find((i) => i.name === "video_input")?.link == null
                     && antes.readyState >= 2 && despues.readyState >= 2 && !!antes.getAttribute("src") && !!despues.getAttribute("src");
+                const activo = posible && self.properties.asd_view === "compare";
+                modos.hidden = !posible;
+                for (const b of modos.children) b.classList.toggle("on", b.dataset.modo === self.properties.asd_view);
                 vista.hidden = controles.hidden = !activo;
                 antes.hidden = activo || !antes.getAttribute("src");
                 despues.hidden = activo || !despues.getAttribute("src");
@@ -185,6 +203,15 @@ app.registerExtension({
                 crecer();
                 dibujar();
             };
+            for (const b of modos.children) {
+                b.onclick = (e) => {
+                    e.stopPropagation();
+                    if (self.properties.asd_view === b.dataset.modo) return;
+                    self.properties.asd_view = b.dataset.modo;
+                    despues.pause();
+                    comparar();
+                };
+            }
             for (const v of [antes, despues]) {
                 v.addEventListener("loadeddata", comparar);
                 v.addEventListener("emptied", comparar);
@@ -259,6 +286,16 @@ app.registerExtension({
                 self.asdEntrada();
                 return r;
             };
+
+            const vistaWan = this.widgets.find((w) => w.name === "wan_preview");
+            if (vistaWan) {
+                const alMarcar = vistaWan.callback;
+                vistaWan.callback = function (valor) {
+                    const r = alMarcar?.apply(this, arguments);
+                    if (!valor) quitarVistaPrevia(self);
+                    return r;
+                };
+            }
 
             const selector = document.createElement("input");
             selector.type = "file";
