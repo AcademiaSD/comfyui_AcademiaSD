@@ -3,9 +3,11 @@ import { api } from "../../scripts/api.js";
 
 // Long Video: dos barras propias porque ComfyUI solo tiene una por nodo, y RelayVSR
 // nativo la reinicia en cada ventana. Python envia el estado en asd_relayvsr_progress.
-// Debajo va el reproductor del MP4 final, que se guarda con el workflow. La vista
-// previa de la entrada es la de ComfyUI y sigue visible junto a el.
+// Debajo van la entrada y el MP4 final, que se guarda con el workflow. La entrada y
+// la subida son propias porque las de ComfyUI no aceptan AVI: si el navegador no
+// puede reproducir el archivo, Python prepara un MP4 pequeno solo para verlo.
 const NODE_NAMES = ["AcademiaSD_RelayVSRVideoFile", "AcademiaSD_RelayVSRNativeVideo"];
+const ACCEPT = "video/*,.avi,.mkv,.mov,.wmv,.flv,.m4v,.mpg,.mpeg,.ts,.mts,.webm";
 
 const CSS = `
 .asd-rv { display:flex; flex-direction:column; gap:6px; height:100%; padding:4px 2px; box-sizing:border-box; font:11px 'Segoe UI', system-ui, sans-serif; color:#bbb; }
@@ -37,6 +39,37 @@ function fila(titulo, clase) {
     return { el, nombre, valor, relleno: el.querySelector(".asd-rv-fill") };
 }
 
+function reproductor(nombre) {
+    const titulo = document.createElement("div");
+    titulo.className = "asd-rv-result";
+    titulo.hidden = true;
+    const video = document.createElement("video");
+    video.controls = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.hidden = true;
+    video.addEventListener("pointerdown", (e) => e.stopPropagation());
+    return {
+        titulo, video,
+        mostrar(texto, src) {
+            titulo.textContent = `${nombre}: ${texto}`;
+            titulo.hidden = false;
+            video.hidden = !src;
+            if (src) video.src = src;
+            else video.removeAttribute("src");
+        },
+    };
+}
+
+async function subir(file) {
+    const body = new FormData();
+    body.append("image", file);
+    const res = await api.fetchApi("/upload/image", { method: "POST", body });
+    if (res.status !== 200) throw new Error(`${res.status} ${res.statusText}`);
+    const { name, subfolder } = await res.json();
+    return subfolder ? `${subfolder}/${name}` : name;
+}
+
 function pintar(f, hecho, total, texto) {
     f.el.classList.remove("pulse");
     f.relleno.style.width = `${total ? (100 * hecho) / total : 0}%`;
@@ -65,30 +98,72 @@ app.registerExtension({
             root.className = "asd-rv";
             const total = fila("Total", "total");
             const parte = fila("Part", "part");
-            const video = document.createElement("video");
-            video.controls = true;
-            video.loop = true;
-            video.playsInline = true;
-            video.hidden = true;
-            video.addEventListener("pointerdown", (e) => e.stopPropagation());
-            const titulo = document.createElement("div");
-            titulo.className = "asd-rv-result";
-            titulo.hidden = true;
-            root.append(total.el, parte.el, titulo, video);
+            const entrada = reproductor("Input");
+            const resultado = reproductor("Result");
+            root.append(total.el, parte.el, entrada.titulo, entrada.video, resultado.titulo, resultado.video);
             const self = this;
             this.properties = Object.assign({ asd_video: null }, this.properties);
+            const crecer = () => {
+                const alto = 360 + (entrada.video.hidden ? 0 : 340) + (resultado.video.hidden ? 0 : 340);
+                if (self.size[1] < alto) self.setSize([Math.max(self.size[0], 560), alto]);
+            };
+
+            const archivo = this.widgets.find((w) => w.name === "video");
+            let convertido = false;
+            this.asdEntrada = () => {
+                convertido = false;
+                if (self.inputs?.find((i) => i.name === "video_input")?.link != null) return entrada.mostrar("video_input", null);
+                if (!archivo.value) return entrada.mostrar("none", null);
+                const q = new URLSearchParams({ filename: archivo.value, type: "input", rand: Date.now() });
+                entrada.mostrar(archivo.value, api.apiURL(`/view?${q}`));
+                crecer();
+            };
+            // Lo que el navegador no reproduce, como AVI, pasa a un MP4 de vista previa.
+            entrada.video.addEventListener("error", () => {
+                if (!archivo.value) return;
+                if (convertido) return entrada.mostrar(`${archivo.value} (no preview)`, null);
+                convertido = true;
+                entrada.titulo.textContent = `Input: ${archivo.value} (preparing preview…)`;
+                entrada.video.src = api.apiURL(`/academia/relayvsr/preview?${new URLSearchParams({ filename: archivo.value })}`);
+            });
+            entrada.video.addEventListener("loadeddata", () => {
+                if (convertido) entrada.titulo.textContent = `Input: ${archivo.value} (preview)`;
+            });
+            const alCambiar = archivo.callback;
+            archivo.callback = function () {
+                const r = alCambiar?.apply(this, arguments);
+                self.asdEntrada();
+                return r;
+            };
+
+            const selector = document.createElement("input");
+            selector.type = "file";
+            selector.accept = ACCEPT;
+            selector.onchange = () => {
+                const file = selector.files?.[0];
+                selector.value = "";
+                if (file) self.asdSubir(file);
+            };
+            this.asdSubir = async (file) => {
+                try {
+                    const nombre = await subir(file);
+                    if (!archivo.options.values.includes(nombre)) archivo.options.values.push(nombre);
+                    archivo.value = nombre;
+                    archivo.callback(nombre);
+                } catch (e) {
+                    app.extensionManager?.toast?.add({ severity: "error", summary: "Upload failed", detail: `${file.name}: ${e.message}`, life: 6000 });
+                }
+            };
+            this.addWidget("button", "choose video to upload", null, () => selector.click()).serialize = false;
 
             this.asdMostrar = () => {
                 const v = self.properties.asd_video;
                 if (!v) return;
                 const q = new URLSearchParams({ filename: v.filename, subfolder: v.subfolder, type: v.type, rand: Date.now() });
-                video.src = api.apiURL(`/view?${q}`);
-                video.hidden = false;
-                titulo.hidden = false;
-                titulo.textContent = `Result: ${v.filename}`;
-                if (self.size[1] < 1240) self.setSize([Math.max(self.size[0], 560), 1240]);
+                resultado.mostrar(v.filename, api.apiURL(`/view?${q}`));
+                crecer();
             };
-            video.addEventListener("error", () => { video.hidden = true; titulo.hidden = true; });
+            resultado.video.addEventListener("error", () => { resultado.video.hidden = true; resultado.titulo.hidden = true; });
 
             this.asdProgreso = (p) => {
                 const tiempo = p.eta == null ? "" : ` · ${duracion(p.eta)} left`;
@@ -106,16 +181,38 @@ app.registerExtension({
                 }
             };
 
-            this.addDOMWidget("relayvsr_progress", "relayvsr_progress", root, { getMinHeight: () => (video.hidden ? 72 : 400), serialize: false });
+            this.addDOMWidget("relayvsr_progress", "relayvsr_progress", root, {
+                getMinHeight: () => 72 + (entrada.video.hidden ? 0 : 200) + (resultado.video.hidden ? 0 : 200),
+                serialize: false,
+            });
+            this.asdEntrada();
             return r;
         };
 
-        // Las propiedades guardadas llegan despues de onNodeCreated.
+        // Los valores y propiedades guardados llegan despues de onNodeCreated.
         const onConfigure = nodeType.prototype.onConfigure;
         nodeType.prototype.onConfigure = function () {
             const r = onConfigure?.apply(this, arguments);
+            this.asdEntrada?.();
             this.asdMostrar?.();
             return r;
+        };
+
+        const onConnectionsChange = nodeType.prototype.onConnectionsChange;
+        nodeType.prototype.onConnectionsChange = function () {
+            const r = onConnectionsChange?.apply(this, arguments);
+            this.asdEntrada?.();
+            return r;
+        };
+
+        nodeType.prototype.onDragOver = function (e) {
+            return !!e?.dataTransfer?.types?.includes("Files");
+        };
+        nodeType.prototype.onDragDrop = function (e) {
+            const file = e?.dataTransfer?.files?.[0];
+            if (!file) return false;
+            this.asdSubir(file);
+            return true;
         };
 
         const onExecuted = nodeType.prototype.onExecuted;

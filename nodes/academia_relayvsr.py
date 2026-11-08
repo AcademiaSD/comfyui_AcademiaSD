@@ -15,6 +15,7 @@ Modelo original: https://github.com/kopperx/RelayVSR (Apache-2.0).
 Port en vendor/relayvsr/ / Port in vendor/relayvsr/.
 """
 
+import asyncio
 import hashlib
 import importlib
 import importlib.util
@@ -24,6 +25,7 @@ import os
 import shutil
 import sys
 import time
+import uuid
 from fractions import Fraction
 from itertools import islice
 from pathlib import Path
@@ -38,7 +40,9 @@ import folder_paths
 import nodes
 import torch
 import torch.nn.functional as F
+from aiohttp import web
 from comfy.utils import ProgressBar
+from comfy_api.latest import InputImpl
 from safetensors.torch import save_file
 from server import PromptServer
 
@@ -61,7 +65,7 @@ NATIVE_MAX_WINDOW = 16  # VSR Decode only takes two keyframes per call up to thi
 # por tramo del modelo nativo, y las 3 referencias previas mantienen su contexto.
 WAN_PASS_TOKENS = 32768
 WAN_CONTEXT = 3
-MP4_AUDIO_CODECS = ("aac", "mp3", "ac3", "eac3", "opus", "flac", "alac")
+MP4_AUDIO_CODECS = ("aac", "mp3", "mp3float", "ac3", "eac3", "opus", "flac", "alac")
 
 
 class RelayVSRModel:
@@ -232,16 +236,26 @@ def _write_part(path, frames, fps, crf):
     os.replace(temporary, path)
 
 
+def _mp4_audio(source, path):
+    """The file to take the audio from: the source, or an AAC copy when its audio does not fit in MP4, like the PCM of many AVI."""
+    with av.open(source) as original:
+        if not original.streams.audio or original.streams.audio[0].codec_context.name in MP4_AUDIO_CODECS:
+            return source
+        audio_in = original.streams.audio[0]
+        with av.open(path, mode="w") as converted:
+            audio = converted.add_stream("aac", rate=audio_in.rate, layout="mono" if audio_in.channels == 1 else "stereo")
+            for frame in original.decode(audio_in):
+                converted.mux(audio.encode(frame))
+            converted.mux(audio.encode(None))
+    return path
+
+
 def _join_parts(parts, source, output, fps, frames):
     """Remuxes the parts and the audio of the source without encoding them again."""
     with av.open(output, mode="w") as joined, av.open(source) as original:
         video = None
         audio_in = original.streams.audio[0] if original.streams.audio else None
-        audio = None
-        if audio_in is not None and audio_in.codec_context.name in MP4_AUDIO_CODECS:
-            audio = joined.add_stream_from_template(audio_in)
-        elif audio_in is not None:
-            logging.warning(f"[RelayVSR] {audio_in.codec_context.name} audio does not fit in MP4; the output has no sound.")
+        audio = joined.add_stream_from_template(audio_in) if audio_in is not None else None
         audio_packets = iter(original.demux(audio_in)) if audio is not None else iter(())
         audio_start = None
         pending = None
@@ -420,16 +434,67 @@ def _upscale_file(source, settings, size, window_size, segment_seconds, crf, fil
     folder, filename, counter, subfolder, _ = folder_paths.get_save_image_path(filename_prefix, folder_paths.get_output_directory())
     output_name = f"{filename}_{counter:05}_.mp4"
     output_path = os.path.join(folder, output_name)
-    _join_parts(parts, source, output_path, fps, frames)
+    _join_parts(parts, _mp4_audio(source, os.path.join(parts_dir, "audio.m4a")), output_path, fps, frames)
     shutil.rmtree(parts_dir)
     progress.finish_phase("done")
-    return {"ui": {"asd_video": [{"filename": output_name, "subfolder": subfolder, "type": "output"}]}, "result": (output_path,)}
+    return {"ui": {"asd_video": [{"filename": output_name, "subfolder": subfolder, "type": "output"}]}, "result": (output_path, InputImpl.VideoFromFile(output_path))}
 
 
 def _video_files():
     input_dir = folder_paths.get_input_directory()
     files = [f for f in os.listdir(input_dir) if os.path.isfile(os.path.join(input_dir, f))]
     return sorted(folder_paths.filter_files_content_types(files, ["video"]))
+
+
+def _validate_video(video, input_types):
+    if "video_input" not in input_types and not folder_paths.exists_annotated_filepath(video):
+        return f"Invalid video file: {video}"
+    return True
+
+
+def _source_path(video, video_input):
+    """A file on disk to read: the input video, or a copy of a VIDEO that is not a plain file."""
+    if video_input is None:
+        return folder_paths.get_annotated_filepath(video)
+    source = video_input.get_stream_source()
+    if isinstance(video_input, InputImpl.VideoFromFile) and isinstance(source, str) and video_input.get_active_trim_window() == (0.0, 0.0):
+        return source
+    path = os.path.join(folder_paths.get_temp_directory(), f"relayvsr_input_{uuid.uuid4().hex[:12]}.mp4")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    video_input.save_to(path)
+    return path
+
+
+def _write_preview(source, path):
+    """Small MP4 of a source the browser cannot play, such as AVI."""
+    temporary = f"{path}.{uuid.uuid4().hex[:8]}.tmp.mp4"
+    with av.open(source) as original, av.open(temporary, mode="w") as preview:
+        video_in = original.streams.video[0]
+        video_in.thread_type = "AUTO"
+        height = min(360, video_in.height // 2 * 2)
+        width = round(video_in.width * height / video_in.height / 2) * 2
+        stream = preview.add_stream("libx264", rate=video_in.average_rate)
+        stream.height, stream.width, stream.pix_fmt = height, width, "yuv420p"
+        stream.options = {"crf": "28", "preset": "ultrafast"}
+        for frame in original.decode(video_in):
+            preview.mux(stream.encode(frame.reformat(width=width, height=height, format="yuv420p")))
+        preview.mux(stream.encode(None))
+    os.replace(temporary, path)
+
+
+@PromptServer.instance.routes.get("/academia/relayvsr/preview")
+async def _preview(request):
+    filename = request.query.get("filename", "")
+    if filename not in _video_files():
+        return web.Response(status=404)
+    source = folder_paths.get_annotated_filepath(filename)
+    info = os.stat(source)
+    key = hashlib.sha1(repr((filename, info.st_size, info.st_mtime_ns)).encode()).hexdigest()[:12]
+    path = os.path.join(folder_paths.get_temp_directory(), "relayvsr_preview", f"{key}.mp4")
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        await asyncio.get_running_loop().run_in_executor(None, _write_preview, source, path)
+    return web.FileResponse(path)
 
 
 class AcademiaRelayVSRLoader:
@@ -508,7 +573,7 @@ class AcademiaRelayVSRVideoFile:
         return {
             "required": {
                 "relayvsr_model": ("RELAYVSR_MODEL",),
-                "video": (_video_files(), {"video_upload": True}),
+                "video": (_video_files(), {"tooltip": "Video in the input folder. Ignored when video_input is connected."}),
                 "input_height": ("INT", {"default": 360, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources: 360 gives 1440p, and 720 would give 5K and be far slower."}),
                 "window_size": ("INT", {"default": 16, "min": 2, "max": 64, "tooltip": "Wan creates a reference every window_size-1 frames. Lower is slower and steadier, higher is faster."}),
                 "output_scale": ("FLOAT", {"default": 4.0, "min": 1.0, "max": 4.0, "step": 0.25, "tooltip": "The model always works at x4; lower values downscale each frame."}),
@@ -517,24 +582,25 @@ class AcademiaRelayVSRVideoFile:
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0xffffffffffffffff}),
                 "filename_prefix": ("STRING", {"default": "RelayVSR/video"}),
             },
+            "optional": {
+                "video_input": ("VIDEO", {"tooltip": "Video from another node, such as Load Video or Create Video for IMAGE frames. Replaces the file above."}),
+            },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("video_path",)
+    RETURN_TYPES = ("STRING", "VIDEO")
+    RETURN_NAMES = ("video_path", "video")
     FUNCTION = "upscale"
     OUTPUT_NODE = True
     CATEGORY = "Academia SD/RelayVSR"
     DESCRIPTION = "Upscales a whole video file from disk to disk in resumable parts, keeps its audio, and joins everything in one MP4."
 
     @classmethod
-    def VALIDATE_INPUTS(s, video):
-        if not folder_paths.exists_annotated_filepath(video):
-            return f"Invalid video file: {video}"
-        return True
+    def VALIDATE_INPUTS(s, video, input_types):
+        return _validate_video(video, input_types)
 
-    def upscale(self, relayvsr_model, video, input_height, window_size, output_scale, segment_seconds, crf, seed, filename_prefix, unique_id):
-        source = folder_paths.get_annotated_filepath(video)
+    def upscale(self, relayvsr_model, video, input_height, window_size, output_scale, segment_seconds, crf, seed, filename_prefix, unique_id, video_input=None):
+        source = _source_path(video, video_input)
         _, source_h, source_w, _ = _probe_video(source)
         height, width = _input_size(source_h, source_w, input_height)
         output_size = _even_size(height, width, output_scale)
@@ -564,7 +630,7 @@ class AcademiaRelayVSRNativeVideo:
             "required": {
                 "model": ("MODEL", {"tooltip": "RelayVSR model from Load Diffusion Model."}),
                 "vae": ("VAE", {"tooltip": "RelayVSR Flash decoder of the same factor, from Load VAE."}),
-                "video": (_video_files(), {"video_upload": True}),
+                "video": (_video_files(), {"tooltip": "Video in the input folder. Ignored when video_input is connected."}),
                 "input_height": ("INT", {"default": 360, "min": 0, "max": 2160, "step": 2, "tooltip": "Resizes the source before upscaling. 0 keeps its size. The model works best on small sources: at x4, 360 gives 1440p, and 720 would give 5K and be far slower."}),
                 "window_size": ("INT", {"default": NATIVE_MAX_WINDOW, "min": 2, "max": NATIVE_MAX_WINDOW, "tooltip": "Wan creates a reference every window_size-1 frames. 16 is the native value, the fastest; lower is slower and steadier."}),
                 "output_scale": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 4.0, "step": 0.25, "tooltip": "0 keeps the factor of the model, x4 or x2. Other values resize each frame."}),
@@ -574,27 +640,28 @@ class AcademiaRelayVSRNativeVideo:
                 "seed": ("INT", {"default": 42, "min": 0, "max": 0xffffffffffffffff}),
                 "filename_prefix": ("STRING", {"default": "RelayVSR/video"}),
             },
+            "optional": {
+                "video_input": ("VIDEO", {"tooltip": "Video from another node, such as Load Video or Create Video for IMAGE frames. Replaces the file above."}),
+            },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("video_path",)
+    RETURN_TYPES = ("STRING", "VIDEO")
+    RETURN_NAMES = ("video_path", "video")
     FUNCTION = "upscale"
     OUTPUT_NODE = True
     CATEGORY = "Academia SD/RelayVSR"
     DESCRIPTION = "Long Video with ComfyUI's native RelayVSR models: disk to disk, resumable, with the original audio."
 
     @classmethod
-    def VALIDATE_INPUTS(s, video):
-        if not folder_paths.exists_annotated_filepath(video):
-            return f"Invalid video file: {video}"
-        return True
+    def VALIDATE_INPUTS(s, video, input_types):
+        return _validate_video(video, input_types)
 
-    def upscale(self, model, vae, video, input_height, window_size, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id):
+    def upscale(self, model, vae, video, input_height, window_size, output_scale, detail, segment_seconds, crf, seed, filename_prefix, unique_id, video_input=None):
         diffusion_model = model.model.diffusion_model
         if not hasattr(diffusion_model, "positive_conditioning"):
             raise ValueError("Connect a RelayVSR model. It needs a ComfyUI version with native RelayVSR support.")
-        source = folder_paths.get_annotated_filepath(video)
+        source = _source_path(video, video_input)
         _, source_h, source_w, _ = _probe_video(source)
         height, width = _input_size(source_h, source_w, input_height)
         factor = vae.first_stage_model.upscale_factor
