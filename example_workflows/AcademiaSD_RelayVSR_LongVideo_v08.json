@@ -1,0 +1,722 @@
+{
+  "id": "d9a1f7b3-2c46-4e8d-b1f5-7c3e9a6d4e22",
+  "revision": 0,
+  "last_node_id": 16,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -356.45468627950163,
+        349.8131404958682
+      ],
+      "size": [
+        479.66942148760324,
+        82
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.42.0",
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "relayvsr_x4_int8_convrot.safetensors",
+        "default"
+      ],
+      "widgets_values_named": {
+        "unet_name": "relayvsr_x4_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 2,
+      "type": "VAELoader",
+      "pos": [
+        -356.45468627950163,
+        694.6490998503571
+      ],
+      "size": [
+        480,
+        60
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.42.0",
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "relayvsr_flash_vae_x4_fp32.safetensors"
+      ],
+      "widgets_values_named": {
+        "vae_name": "relayvsr_flash_vae_x4_fp32.safetensors"
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 3,
+      "type": "AcademiaSD_RelayVSRNativeVideo",
+      "pos": [
+        161.1204412266919,
+        138.24672085240053
+      ],
+      "size": [
+        810.0176498816716,
+        1640.7698596144658
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 2
+        },
+        {
+          "name": "video_input",
+          "shape": 7,
+          "type": "VIDEO",
+          "link": null
+        },
+        {
+          "name": "output_scale",
+          "type": "FLOAT",
+          "widget": {
+            "name": "output_scale"
+          },
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video_path",
+          "type": "STRING",
+          "links": null
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {
+        "asd_video": {
+          "filename": "RelayVSR_00012_.mp4",
+          "subfolder": "",
+          "type": "output",
+          "metadata": {
+            "kind": "video",
+            "width": 3840,
+            "height": 2160,
+            "duration": 226.33333333333334,
+            "fps": 30,
+            "frame_count": 6790
+          },
+          "id": "bc9398b7-75c0-4bd5-af32-69c575441ff8",
+          "source": "VideoClip_3.mp4"
+        },
+        "asd_view": "separate",
+        "cnr_id": "academiasd",
+        "ver": "b64fcca388026614f4b8b3d8408a1122170ce9a7",
+        "Node name for S&R": "AcademiaSD_RelayVSRNativeVideo"
+      },
+      "widgets_values": [
+        "VideoClip_3.mp4",
+        0,
+        16,
+        4,
+        1,
+        60,
+        16,
+        42,
+        "fixed",
+        "RelayVSR",
+        false,
+        ""
+      ],
+      "widgets_values_named": {
+        "video": "VideoClip_3.mp4",
+        "input_height": 0,
+        "window_size": 16,
+        "output_scale": 4,
+        "detail": 1,
+        "segment_seconds": 60,
+        "crf": 16,
+        "seed": 42,
+        "control_after_generate": "fixed",
+        "filename_prefix": "RelayVSR",
+        "wan_preview": false,
+        "relayvsr_progress": ""
+      },
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 6,
+      "type": "Academia_Fast_Switch_Models",
+      "pos": [
+        -356.45468627950163,
+        143.71526094464687
+      ],
+      "size": [
+        481.6399999999999,
+        160
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model_name",
+          "type": "*",
+          "links": [
+            3
+          ]
+        },
+        {
+          "name": "label",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "8d6964c4448fad7605de3cd8e740350be2674948",
+        "Node name for S&R": "Academia_Fast_Switch_Models"
+      },
+      "widgets_values": [
+        "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"folder\":\"models/diffusion_models\",\"a\":\"relayvsr_x4_int8_convrot.safetensors\",\"b\":\"relayvsr_x2_lightx2v_int8_convrot.safetensors\",\"link\":\"9\",\"opts\":{\"shareLabels\":true}}",
+        ""
+      ],
+      "widgets_values_named": {
+        "switch_data": "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"folder\":\"models/diffusion_models\",\"a\":\"relayvsr_x4_int8_convrot.safetensors\",\"b\":\"relayvsr_x2_lightx2v_int8_convrot.safetensors\",\"link\":\"9\",\"opts\":{\"shareLabels\":true}}",
+        "AFS": ""
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 7,
+      "type": "AcademiaSD_Downloader",
+      "pos": [
+        -1438.6558324863458,
+        1075.5410400768822
+      ],
+      "size": [
+        1561.8181818181818,
+        378.81818181818176
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "8d6964c4448fad7605de3cd8e740350be2674948",
+        "Node name for S&R": "AcademiaSD_Downloader"
+      },
+      "widgets_values": [
+        ""
+      ],
+      "widgets_values_named": {
+        "UI": ""
+      },
+      "color": "#323",
+      "bgcolor": "#535",
+      "academia_models": [
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+          "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+          "filename": "relayvsr_x4_int8_convrot.safetensors",
+          "filesize": "4.81 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+          "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+          "filename": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+          "filesize": "4.81 GB",
+          "folder": "diffusion_models",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+          "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/vae/relayvsr_flash_vae_x4_fp32.safetensors",
+          "filename": "relayvsr_flash_vae_x4_fp32.safetensors",
+          "filesize": "121.84 MB",
+          "folder": "vae",
+          "subfolder": ""
+        },
+        {
+          "enabled": true,
+          "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+          "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/vae/relayvsr_flash_vae_x2_fp32.safetensors",
+          "filename": "relayvsr_flash_vae_x2_fp32.safetensors",
+          "filesize": "121.84 MB",
+          "folder": "vae",
+          "subfolder": ""
+        }
+      ],
+      "extensions": {
+        "academia_models": [
+          {
+            "enabled": true,
+            "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+            "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/diffusion_models/relayvsr_x4_int8_convrot.safetensors",
+            "filename": "relayvsr_x4_int8_convrot.safetensors",
+            "filesize": "4.81 GB",
+            "folder": "diffusion_models",
+            "subfolder": ""
+          },
+          {
+            "enabled": true,
+            "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+            "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/diffusion_models/relayvsr_x2_lightx2v_int8_convrot.safetensors",
+            "filename": "relayvsr_x2_lightx2v_int8_convrot.safetensors",
+            "filesize": "4.81 GB",
+            "folder": "diffusion_models",
+            "subfolder": ""
+          },
+          {
+            "enabled": true,
+            "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+            "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/vae/relayvsr_flash_vae_x4_fp32.safetensors",
+            "filename": "relayvsr_flash_vae_x4_fp32.safetensors",
+            "filesize": "121.84 MB",
+            "folder": "vae",
+            "subfolder": ""
+          },
+          {
+            "enabled": true,
+            "url": "https://huggingface.co/Comfy-Org/RelayVSR/tree/main",
+            "selected_url": "https://huggingface.co/Comfy-Org/RelayVSR/resolve/main/vae/relayvsr_flash_vae_x2_fp32.safetensors",
+            "filename": "relayvsr_flash_vae_x2_fp32.safetensors",
+            "filesize": "121.84 MB",
+            "folder": "vae",
+            "subfolder": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "Academia_Fast_Switch_Models",
+      "pos": [
+        -356.45468627950163,
+        485.2037632517172
+      ],
+      "size": [
+        480,
+        160
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "model_name",
+          "type": "*",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "label",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "title": "Academia SD Fast Switch · VAE",
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "8d6964c4448fad7605de3cd8e740350be2674948",
+        "Node name for S&R": "Academia_Fast_Switch_Models"
+      },
+      "widgets_values": [
+        "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"folder\":\"models/vae\",\"a\":\"relayvsr_flash_vae_x4_fp32.safetensors\",\"b\":\"relayvsr_flash_vae_x2_fp32.safetensors\",\"link\":\"9\",\"opts\":{\"shareLabels\":true}}",
+        ""
+      ],
+      "widgets_values_named": {
+        "switch_data": "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"folder\":\"models/vae\",\"a\":\"relayvsr_flash_vae_x4_fp32.safetensors\",\"b\":\"relayvsr_flash_vae_x2_fp32.safetensors\",\"link\":\"9\",\"opts\":{\"shareLabels\":true}}",
+        "AFS": ""
+      },
+      "color": "#323",
+      "bgcolor": "#535"
+    },
+    {
+      "id": 9,
+      "type": "Academia_Fast_Switch_Toggle",
+      "pos": [
+        -289.9046862795017,
+        -13.804501211092138
+      ],
+      "size": [
+        349.13828125,
+        99
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "RelayVSR Upscale switch",
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "be49377036b805e48c7cc548ef54dc00531a785b",
+        "Node name for S&R": "Academia_Fast_Switch_Toggle"
+      },
+      "widgets_values": [
+        "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"groups\":{\"4x\":\"a\",\"2x\":\"b\"},\"collapsed\":true,\"opts\":{\"off\":\"bypass\",\"applyOnLoad\":false,\"shareLabels\":true}}",
+        ""
+      ],
+      "widgets_values_named": {
+        "switch_data": "{\"side\":\"b\",\"labels\":{\"a\":\"4X\",\"b\":\"2X\"},\"groups\":{\"4x\":\"a\",\"2x\":\"b\"},\"collapsed\":true,\"opts\":{\"off\":\"bypass\",\"applyOnLoad\":false,\"shareLabels\":true}}",
+        "AFS": ""
+      },
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 11,
+      "type": "Float",
+      "pos": [
+        -347.91964482479983,
+        815.8371114335363
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 4,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            6
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyLiterals",
+        "ver": "bdddb08ca82d90d75d97b1d437a652e0284a32ac",
+        "Node name for S&R": "Float"
+      },
+      "widgets_values": [
+        "4"
+      ],
+      "widgets_values_named": {
+        "Number": "4"
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 12,
+      "type": "AcademiaSD_SwitchAny",
+      "pos": [
+        -114.78540576230131,
+        825.7796814335364
+      ],
+      "size": [
+        226.069921875,
+        144
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "select_1",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "select_2",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "select_3",
+          "shape": 7,
+          "type": "INT",
+          "link": null
+        },
+        {
+          "name": "input_1",
+          "shape": 7,
+          "type": "*",
+          "link": 6
+        },
+        {
+          "name": "input_2",
+          "shape": 7,
+          "type": "*",
+          "link": 7
+        },
+        {
+          "name": "input_3",
+          "shape": 7,
+          "type": "*",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "*",
+          "links": [
+            8
+          ]
+        },
+        {
+          "name": "selected",
+          "type": "INT",
+          "links": null
+        },
+        {
+          "name": "value_text",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "academiasd",
+        "ver": "be49377036b805e48c7cc548ef54dc00531a785b",
+        "Node name for S&R": "AcademiaSD_SwitchAny"
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    },
+    {
+      "id": 13,
+      "type": "Float",
+      "pos": [
+        -349.65811482480217,
+        940.4012114335338
+      ],
+      "size": [
+        210,
+        58
+      ],
+      "flags": {
+        "pinned": true
+      },
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyLiterals",
+        "ver": "bdddb08ca82d90d75d97b1d437a652e0284a32ac",
+        "Node name for S&R": "Float"
+      },
+      "widgets_values": [
+        "2"
+      ],
+      "widgets_values_named": {
+        "Number": "2"
+      },
+      "color": "#2a363b",
+      "bgcolor": "#3f5159"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      1,
+      "VAE"
+    ],
+    [
+      3,
+      6,
+      0,
+      1,
+      0,
+      "COMBO"
+    ],
+    [
+      4,
+      8,
+      0,
+      2,
+      0,
+      "COMBO"
+    ],
+    [
+      8,
+      12,
+      0,
+      3,
+      3,
+      "FLOAT"
+    ],
+    [
+      6,
+      11,
+      0,
+      12,
+      3,
+      "FLOAT"
+    ],
+    [
+      7,
+      13,
+      0,
+      12,
+      4,
+      "FLOAT"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "2x",
+      "bounding": [
+        -335.07035482480165,
+        915.8176414335358,
+        164.20000000000005,
+        80
+      ],
+      "color": "#3f789e",
+      "flags": {
+        "pinned": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "4x",
+      "bounding": [
+        -338.34219482480137,
+        790.4822114335362,
+        164.20000000000005,
+        80
+      ],
+      "color": "#3f789e",
+      "flags": {
+        "pinned": true
+      }
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.620921323059155,
+      "offset": [
+        2011.8433659199743,
+        205.42568076172316
+      ]
+    },
+    "frontendVersion": "1.58.5",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4,
+  "seed_widgets": {
+    "3": 7
+  }
+}
