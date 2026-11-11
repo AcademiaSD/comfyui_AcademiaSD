@@ -1,22 +1,15 @@
 """Score Viewer: dibuja en el nodo la partitura ABC de YuE2 o SheetSage2.
 
 El dibujo y el sonido van en el navegador (js/academia_score_viewer.js) con
-abcjs, incluido en vendor/abcjs (MIT, Paul Rosen y Gregory Dyke).
+abcjs, incluido en js/abcjs (MIT, Paul Rosen y Gregory Dyke).
 
 Draws the ABC score from YuE2 or SheetSage2 inside the node. Rendering and
-playback live in the browser, with abcjs bundled in vendor/abcjs.
+playback live in the browser, with abcjs bundled in js/abcjs.
 """
-
-import base64
-import os
 
 import torch
 
 from comfy_api.latest import IO, UI
-from server import PromptServer
-
-VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor", "abcjs")
-PromptServer.instance.routes.static("/academia/abcjs", VENDOR)
 TRAMAS_POR_SEGUNDO = 20  # js/academia_score_core.js usa la misma cifra
 VENTANA = 8192
 
@@ -53,7 +46,7 @@ class AcademiaScoreViewer:
         if audio is not None:
             # FLAC: el MP3 anade relleno al inicio y descuadraria la sincronia.
             ui["sync_audio"] = UI.AudioSaveHelper.save_audio(audio, "asd_score", IO.FolderType.temp, None)[:1]
-            ui["chroma"] = [base64.b64encode(cromagrama(audio["waveform"][0], audio["sample_rate"]).numpy().tobytes()).decode()]
+            ui["chroma"] = [cromagrama(audio["waveform"][0], audio["sample_rate"]).flatten().tolist()]
         return {"ui": ui}
 
 

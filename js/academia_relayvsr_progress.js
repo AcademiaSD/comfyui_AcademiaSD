@@ -94,11 +94,14 @@ async function subir(file) {
     return subfolder ? `${subfolder}/${name}` : name;
 }
 
-// ComfyUI no tiene API para quitar la vista previa de un nodo: se usa su store nodeOutput.
+// ComfyUI no tiene API para quitar la vista previa de un nodo: se usa su store nodeOutput
+// y se quita el widget que le reserva 220 px, como hace removeCanvasImagePreview.
 function quitarVistaPrevia(node) {
     const pinia = document.querySelector("[data-v-app]")?.__vue_app__?.config.globalProperties.$pinia;
     pinia?._s.get("nodeOutput")?.revokePreviewsByExecutionId(String(node.id));
     node.imgs = undefined;
+    const i = node.widgets?.findIndex((w) => w.name === "$$canvas-image-preview") ?? -1;
+    if (i > -1) node.widgets.splice(i, 1)[0].onRemove?.();
     node.setDirtyCanvas(true, true);
 }
 
@@ -331,7 +334,11 @@ app.registerExtension({
                 resultado.titulo.hidden = true;
             });
 
+            // La vista previa de Wan solo tiene sentido mientras se generan las referencias.
+            let fase = null;
             this.asdProgreso = (p) => {
+                if (p.phase !== fase && fase === "wan") quitarVistaPrevia(self);
+                fase = p.phase;
                 const tiempo = p.eta == null ? "" : ` · ${duracion(p.eta)} left`;
                 pintar(total, p.frames_done, p.frames, `${p.frames_done} / ${p.frames || "?"}${tiempo}`);
                 if (p.phase === "wan") {

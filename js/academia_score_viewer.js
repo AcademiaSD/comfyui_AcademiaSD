@@ -1,10 +1,11 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { anotarSolfeo, calcularDesfase, filtrarVoz, ordenarAbc } from "./academia_score_core.js";
+import ABCJS from "./abcjs/abcjs.js";
 
-// Score Viewer: partitura ABC dibujada con abcjs (vendor/abcjs, MIT). abcjs se carga
-// al crear el primer nodo. Sin audio conectado el sonido se sintetiza aqui, porque su
-// reproductor baja las muestras de internet.
+// Score Viewer: partitura ABC dibujada con abcjs (js/abcjs, MIT), compilado sin su
+// sintetizador porque baja las muestras de internet: sin audio conectado el sonido se
+// sintetiza aqui.
 const NODE_NAME = "AcademiaSD_ScoreViewer";
 
 const CSS = `
@@ -36,18 +37,6 @@ const CSS = `
 .asd-sv-status { color:#ffb86b; font-size:11px; min-height:14px; }
 `;
 
-let cargaAbcjs = null;
-function abcjs() {
-    cargaAbcjs ??= new Promise((ok, fallo) => {
-        const s = document.createElement("script");
-        s.src = api.fileURL("/academia/abcjs/abcjs-basic-min.js");
-        s.onload = () => ok(window.ABCJS);
-        s.onerror = () => fallo(new Error("abcjs could not be loaded"));
-        document.head.appendChild(s);
-    });
-    return cargaAbcjs;
-}
-
 function tocar(audio, midi, segundos) {
     const t = audio.currentTime;
     const hz = 440 * 2 ** ((midi - 69) / 12);
@@ -64,19 +53,17 @@ function tocar(audio, midi, segundos) {
     osc.stop(fin + 0.02);
 }
 
-const marcasDe = (ABCJS, visual) => {
+const marcasDe = (visual) => {
     // Rellena midiPitches, que TimingCallbacks entrega en cada evento.
     visual.setUpAudio();
     return new ABCJS.TimingCallbacks(visual, {}).noteTimings.filter((m) => m.type === "event");
 };
 
-async function situarAudio(abc, cromaBase64) {
-    const ABCJS = await abcjs();
-    const croma = Uint8Array.from(atob(cromaBase64), (c) => c.charCodeAt(0));
+function situarAudio(abc, croma) {
     // Las dos voces aunque se muestre una: cuantas mas notas, mejor se situa.
     const [visual] = ABCJS.renderAbc("*", ordenarAbc(abc));
     const redonda = 60 / visual.getBpm() / visual.getBeatLength();
-    const notas = marcasDe(ABCJS, visual).flatMap((m) => (m.midiPitches || []).map((n) => ({
+    const notas = marcasDe(visual).flatMap((m) => (m.midiPitches || []).map((n) => ({
         inicio: m.milliseconds / 1000, fin: m.milliseconds / 1000 + n.duration * redonda, nota: n.pitch,
     })));
     return calcularDesfase(croma, notas);
@@ -84,10 +71,9 @@ async function situarAudio(abc, cromaBase64) {
 
 function descargar(nombre, tipo, texto) {
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([texto], { type: tipo }));
+    a.href = `data:${tipo};charset=utf-8,${encodeURIComponent(texto)}`;
     a.download = nombre;
     a.click();
-    URL.revokeObjectURL(a.href);
 }
 
 app.registerExtension({
@@ -206,14 +192,13 @@ app.registerExtension({
                     hoja.innerHTML = `<div class="asd-sv-empty">Connect an ABC score and run the workflow</div>`;
                     return;
                 }
-                const ABCJS = await abcjs();
                 let texto = ordenarAbc(filtrarVoz(p.abc, p.voices));
                 if (p.transpose) texto = ABCJS.strTranspose(texto, ABCJS.renderAbc("*", texto), p.transpose);
                 if (p.solfege) texto = anotarSolfeo(texto);
                 [visual] = ABCJS.renderAbc(hoja, texto, { add_classes: true, responsive: "resize", staffwidth: 980 });
                 // abcjs deja el contenedor al 100 %: el zoom se aplica despues.
                 hoja.style.width = `${p.zoom}%`;
-                marcas = p.audio ? marcasDe(ABCJS, visual) : [];
+                marcas = p.audio ? marcasDe(visual) : [];
                 situar();
                 if (visual.warnings?.length) estado.textContent = `${visual.warnings.length} warnings in the score`;
             };
@@ -227,7 +212,6 @@ app.registerExtension({
             btnPlay.onclick = async () => {
                 if (reloj) return parar();
                 if (!visual) return;
-                const ABCJS = await abcjs();
                 audio ??= new AudioContext();
                 await audio.resume();
                 btnPlay.textContent = "■ Stop";
@@ -254,11 +238,14 @@ app.registerExtension({
             root.querySelector(".pdf").onclick = () => {
                 const svg = papel.querySelector("svg");
                 if (!svg) return;
-                const w = window.open("", "_blank");
-                w.document.write(`<!doctype html><title>Score</title><style>body{margin:0}svg{width:100%;height:auto}</style>${svg.outerHTML}`);
-                w.document.close();
-                w.focus();
-                w.print();
+                const marco = document.createElement("iframe");
+                marco.style.cssText = "position:fixed;width:0;height:0;border:0";
+                marco.srcdoc = `<!doctype html><title>Score</title><style>body{margin:0}svg{width:100%;height:auto}</style>${svg.outerHTML}`;
+                marco.onload = () => {
+                    marco.contentWindow.print();
+                    setTimeout(() => marco.remove(), 1000);
+                };
+                document.body.appendChild(marco);
             };
 
             this.addDOMWidget("score", "score_viewer", root, { getMinHeight: () => 320, serialize: false });
@@ -281,7 +268,7 @@ app.registerExtension({
             if (message?.abc?.length) {
                 this.properties.abc = message.abc[message.abc.length - 1];
                 this.properties.audio = message.sync_audio?.[0] ?? null;
-                if (message.chroma) this.properties.offset = await situarAudio(this.properties.abc, message.chroma[0]);
+                if (message.chroma) this.properties.offset = situarAudio(this.properties.abc, message.chroma[0]);
                 this.asdDibujar?.();
             }
         };

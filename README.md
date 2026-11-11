@@ -402,7 +402,7 @@ Shows the ABC score from YuE2 or SheetSage2 as sheet music inside the node. Conn
 *   **Works offline:** abcjs ships with the node and the sound is generated in the browser, so nothing is downloaded. The last score, transposition, staves, note-name setting, zoom and offset are saved with the workflow. The audio is a temporary file: after restarting ComfyUI the node returns to the synth until the workflow runs again.
 *   **Lyrics are not shown:** YuE2's ABC does not contain them, so they cannot be matched to the notes. The score is also what the model planned, and the sung result may differ from it.
 
-Sheet music rendering by [abcjs](https://github.com/paulrosen/abcjs) 6.7.2, © Paul Rosen and Gregory Dyke, MIT license, in `vendor/abcjs/`.
+Sheet music rendering by [abcjs](https://github.com/paulrosen/abcjs) 6.7.2, © Paul Rosen and Gregory Dyke, MIT license, in `js/abcjs/`. It is built from the npm source with only the renderer, the timing callbacks and the transposer; the synth, which downloads its samples from the internet, is left out.
 
 ---
 
