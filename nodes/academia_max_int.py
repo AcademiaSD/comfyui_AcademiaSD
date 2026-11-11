@@ -16,7 +16,7 @@ the two that are.
 try:
     from .. import __version__ as ACADEMIASD_VERSION
 except Exception:
-    ACADEMIASD_VERSION = "2.6.12"
+    ACADEMIASD_VERSION = "2.6.13"
 
 RANURAS = 8
 

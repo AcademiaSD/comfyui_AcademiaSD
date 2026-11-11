@@ -127,6 +127,12 @@ app.registerExtension({
             const id = String(detail.node).split(":").pop();
             app.graph.getNodeById(Number(id))?.asdProgreso?.(detail);
         });
+        // Python decide el callback al empezar: si se apaga wan_preview a mitad, lo que
+        // siga llegando se quita aqui, al acabar el evento para ir detras de ComfyUI.
+        api.addEventListener("b_preview_with_metadata", ({ detail }) => {
+            const node = app.graph.getNodeById(Number(String(detail.displayNodeId).split(":").pop()));
+            if (NODE_NAMES.includes(node?.type) && node.widgets.find((w) => w.name === "wan_preview")?.value === false) queueMicrotask(() => quitarVistaPrevia(node));
+        });
     },
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (!NODE_NAMES.includes(nodeData.name)) return;
