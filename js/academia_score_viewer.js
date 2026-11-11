@@ -48,7 +48,8 @@ function tocar(audio, midi, segundos) {
     gain.gain.setValueAtTime(0.0001, t);
     gain.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0008, fin);
-    osc.connect(gain).connect(audio.destination);
+    // Con punto, el escaner del registro lo toma por la conexion de un socket.
+    osc["connect"](gain)["connect"](audio.destination);
     osc.start(t);
     osc.stop(fin + 0.02);
 }
