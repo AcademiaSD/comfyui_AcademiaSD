@@ -24,6 +24,13 @@ from server import PromptServer
 # output names are generated from it.
 SLOT_COUNT = 10
 
+# Una ranura con este "fichero" no carga nada: sale una imagen lisa del color
+# de pad_color, al tamano de width x height (1024 si no hay). H3-Image trabaja
+# mejor con una referencia en blanco que con ninguna.
+# A slot with this "file" loads nothing: it outputs a flat image in pad_color.
+BLANK = "@blank"
+BLANK_SIZE = 1024
+
 # Los mismos nombres que usa el Upscale Image de ComfyUI, porque por debajo es
 # la misma llamada: comfy.utils.common_upscale.
 SCALE_METHODS = ["lanczos", "bicubic", "bilinear", "area", "nearest-exact"]
@@ -106,19 +113,36 @@ class AcademiaMultiImageReference:
         raw = data.get("slots") if isinstance(data, dict) else None
         if not isinstance(raw, list):
             raw = []
+        # Cuantas ranuras usa el modelo (MiniMax H3 Image: 4). Las de detras
+        # conservan su imagen en el panel pero no salen: van como apagadas.
+        # Without "count" (older workflows) all ten are in use.
+        try:
+            count = int(data.get("count", SLOT_COUNT)) if isinstance(data, dict) else SLOT_COUNT
+        except (TypeError, ValueError):
+            count = SLOT_COUNT
+        count = min(SLOT_COUNT, max(1, count))
 
         out = []
         for i in range(SLOT_COUNT):
             item = raw[i] if i < len(raw) and isinstance(raw[i], dict) else {}
             cn = item.get("cn") if isinstance(item.get("cn"), dict) else {}
             file = str(item.get("file") or "")
-            if file and cn.get("on") and cn.get("map"):
+            if file and file != BLANK and cn.get("on") and cn.get("map"):
                 file = str(cn["map"])
             out.append({
                 "file": file,
-                "on": bool(item.get("on", False)),
+                "on": bool(item.get("on", False)) and i < count,
             })
         return out
+
+    @classmethod
+    def _blank(cls, width, height, pad_color):
+        w = int(width) if width > 0 else BLANK_SIZE
+        h = int(height) if height > 0 else BLANK_SIZE
+        r, g, b = cls._parse_color(pad_color)
+        img = torch.empty((1, h, w, 3), dtype=torch.float32)
+        img[..., 0], img[..., 1], img[..., 2] = r, g, b
+        return img
 
     @staticmethod
     def _is_active(slot):
@@ -280,7 +304,14 @@ class AcademiaMultiImageReference:
         # por el mismo hilo.
         out = []
         for i, slot in enumerate(self._slots(refs_data)):
-            img = self._load_one(slot["file"]) if self._is_active(slot) else None
+            if not self._is_active(slot):
+                out.append(None)
+                continue
+            if slot["file"] == BLANK:
+                # Ya sale con el tamano del lienzo: no hay nada que reescalar.
+                out.append(self._blank(width, height, pad_color))
+                continue
+            img = self._load_one(slot["file"])
             if i == 0:
                 img = self._resize(img, width, height, scale_method, crop,
                                    pad_color, outpaint, self._placement(refs_data),
@@ -305,7 +336,7 @@ class AcademiaMultiImageReference:
         # imagenes en cada encolado.
         m = hashlib.sha256()
         for slot in s._slots(refs_data):
-            if not s._is_active(slot):
+            if not s._is_active(slot) or slot["file"] == BLANK:
                 continue
             try:
                 st = os.stat(folder_paths.get_annotated_filepath(slot["file"]))
@@ -324,7 +355,8 @@ class AcademiaMultiImageReference:
         # otra imagen sin que nada lo diga.
         missing = [
             str(i + 1) for i, slot in enumerate(s._slots(refs_data))
-            if s._is_active(slot) and not folder_paths.exists_annotated_filepath(slot["file"])
+            if s._is_active(slot) and slot["file"] != BLANK
+            and not folder_paths.exists_annotated_filepath(slot["file"])
         ]
         if missing:
             return "Academia SD Multi Image Reference: file missing in slot(s) {}".format(", ".join(missing))
@@ -433,6 +465,9 @@ async def multiref_save(request):
         slot = slot if isinstance(slot, dict) else {}
         file = str(slot.get("file") or "")
         cn = dict(slot["cn"]) if isinstance(slot.get("cn"), dict) else None
+        if file == BLANK:
+            slots.append({"file": BLANK, "on": bool(slot.get("on")), "cn": None})
+            continue
         try:
             if file:
                 file = _copy_into(file, folder, used)
@@ -445,7 +480,7 @@ async def multiref_save(request):
 
     content = {"kind": PROJECT_KIND, "version": 1, "project": safe, "slots": slots}
     # scene: lo que otros nodos Academia guardan con el proyecto (los prompts).
-    for key in ("place", "cropPos", "heroH", "cnRes", "widgets", "scene"):
+    for key in ("place", "cropPos", "heroH", "cnRes", "count", "tagName", "tagStart", "widgets", "scene"):
         if key in state:
             content[key] = state[key]
 
@@ -471,7 +506,7 @@ async def multiref_load(request):
             continue
         cn = slot.get("cn") if isinstance(slot.get("cn"), dict) else {}
         for owner, key in ((slot, "file"), (cn, "map")):
-            if owner.get(key):
+            if owner.get(key) and owner[key] != BLANK:
                 if not os.path.isfile(os.path.join(folder, owner[key])) and i + 1 not in missing:
                     missing.append(i + 1)
                 owner[key] = "{}/{}".format(safe, owner[key])

@@ -46,28 +46,27 @@ An ultra-sleek, highly responsive custom CLIP Text Encode implementation for Com
 ## Key Features
 
 *   **📐 Fluid Responsive Layout (`flex: 1`):** The primary prompt text area utilizes a fully fluid layout. Stretch, widen, or scale the node manually in any direction; the editor box will dynamically expand to fill 100% of the available vertical space.
-*   **🧠 Independent State Sizing (Size Memory):** The node intelligently remembers your manually adjusted dimensions separately for *both* collapsed and expanded modes. Toggling between them fluidly snaps the node to your preferred width and height without resetting or forcing generic dimensions.
+*   **🔌 CLIP is optional:** Without a CLIP connected the node is a prompt box with its prompt manager: the `STRING` output works and `CONDITIONING` comes out empty. Use it this way to feed nodes that encode the prompt themselves (e.g. MiniMax H3 Image Conditioning) without encoding it twice.
+*   **📏 Fixed Size:** The node keeps its size with the panel open or closed; opening the panel takes room from the text box. Drag the bar above the list to share the space between both.
 *   **🧹 Zero-Overlap DOM Injection:** Completely isolates and overrides ComfyUI's native multiline `<textarea>` element at the DOM level (`display: none !important`). This guarantees no duplicate text render overlays, no layout breaks, and a clean interface from the millisecond the node is created.
 *   **⏪ Auto-Queueing Recent Prompts (Last 10):** Generates and keeps a real-time rolling list (FIFO) of your last 10 queued prompts. Duplicate entries are automatically cleaned up and pushed to the top.
 *   **❤️ Favorites Vault:** Save your absolute best prompts directly to a dedicated Favorites list by clicking the heart button. They are styled as independent cards with quick-action utilities to load or delete them.
 *   **🔍 Scrollable Hover Preview:** Hovering a Recents or Favorites card pops up a floating panel with the **entire** prompt, line breaks intact and scrollable when it overflows. It stays open while the pointer is inside it, so long multi-line prompts can actually be read and scrolled — unlike a native tooltip, which truncates to a single strip and vanishes the moment you reach for it.
-*   **📂 Multi-Preset Saving & Loading:** Create custom preset files (e.g., `landscapes.json`, `portraits.json`). Supports saving, creating copies (`Save As`), and deleting presets directly from the node.
-*   **⚡ Default File Auto-Loading:** 
-    *   The **Positive Node** automatically loads `default_positive_prompt.json` on startup.
-    *   The **Negative Node** automatically loads `default_negative_prompt.json` on startup.
-*   **📤 Import / Export JSON:** Easily import custom prompt libraries or backup your favorites lists to standard JSON files.
+*   **📁 Prompt Groups:** Sort your prompts into groups (`JSON prompts`, `MiniMax`, `SFW`...). Picking a group in the panel shows only its favorites and recents right away, and the group in use is shown on the panel button. Create (➕), rename (✏️) and delete (🗑️) groups from the node; the default groups cannot be renamed or deleted.
+*   **➜ Move Between Groups:** Every card has a ➜ button that moves the prompt into the favorites of another group.
+*   **🔍 Filter:** Type in the filter box to show only the prompts of the open tab that contain that text.
+*   **⚡ Default Groups:** The **Positive Node** opens `default_positive_prompt` and the **Negative Node** `default_negative_prompt`; a saved workflow reopens the group it was using.
+*   **📥📤 Import / Export:** Export a group as a `.json` file, or import one as a new group. Importing into a group that already exists adds the new favorites to it and never removes anything.
 
 
 ### Interface Layout & Sizing Bounds
 
-*   **Collapsed (Compact) Mode (Height: `120px`):** Shows only the active prompt box and the control bar. Completely hides the lists to keep your canvas clear.
-*   **Expanded Mode (Height: `>= 275px`):** Reveals preset controls, tab selectors, scrollable card lists, and file utilities.
-*   **Minimum Width:** Locked at `420px` to maintain pristine, legible button alignments.
+*   **Minimum size:** `420 × 230px`, enough for the open panel.
 
 
 ### Folder Structure
 
-All prompt list files are stored locally within your custom node directory.
+Each group is a `<group>.json` file (`{"favorites": [...], "recents": [...]}`) stored locally within your custom node directory.
 
 custom_nodes/comfyui_AcademiaSD/prompt_lists/
 
@@ -268,7 +267,10 @@ A modern resolution calculator tailored for Megapixel-based models (like SDXL an
 Ten reference images in one node, for `Text Encode Qwen Image 2.1` and anything else that takes several references at once. Neither the node nor its file carries a model name on purpose: what it holds are images.
 
 *   **Every slot is a switch.** Turning one off sends `None` down the same wire, which is exactly what the encoder drops with its `if image is None: continue`. Bypassing a reference needs no rewiring, no reroute and no second node. Loaded and active reads green, loaded and bypassed reads red.
-*   **The tag on each card is the one the encoder will really use.** Qwen numbers `<imageN>` by position in the list *after* the empty ones are dropped, so turning slot 1 off makes slot 2 become `<image1>`. Printing the slot number instead would lie the moment you bypass one in the middle, and you would find out in the picture rather than in a message.
+*   **The tag on each card is the one the encoder will really use.** Qwen numbers its references by position in the list *after* the empty ones are dropped, so turning slot 1 off makes slot 2 become `<image1>`. Printing the slot number instead would lie the moment you bypass one in the middle, and you would find out in the picture rather than in a message.
+*   **As many slots as the model takes.** **Refs** (1–10) sets how many slots are in use -- MiniMax H3 Image takes 4 -- and the grid rearranges into the rows and columns that fit that number. Slots past it keep their image in the node but are not sent.
+*   **Tags named the way your model expects.** **Tag** picks `image`, `image_`, `picture` or `picture_`, and **First** starts the count at 0 or 1, so the cards read `<image1>`, `<image_0>`, `<picture2>`... The 💬 button on each active image writes its tag into the Academia Positive prompt at the cursor (or copies it if there are several prompts and none is selected).
+*   **Blank references.** **⬜ Blank** puts a flat image in the `pad_color` colour into the next empty slot, at the `width` × `height` size (1024×1024 when there is none). MiniMax H3 Image works better with a blank white reference than with none.
 *   **A missing file stops the prompt** rather than being skipped quietly, for the same reason: losing one reference shifts every tag behind it.
 *   **Image 1 carries the resize**, which takes an Upscale and a Get Image Size out of the graph. It is the only one whose size matters -- the encoder builds its latent from the first reference it receives -- and there are four ways to reach the target: `center` crops to fill, `custom` crops with the window dragged where you want it, `pad` fits the whole image and fills the rest with `pad_color`, `stretch` distorts. `center` and `stretch` stay delegated to `comfy.utils`, so anything already using them returns the same pixels as before.
 *   **The panel shows what will happen, it does not describe it.** The white rectangle is the real crop window, computed with the same arithmetic as `common_upscale`. In `pad` you see the destination canvas with the image placed inside it, and with **Outpaint** on you drag that image, scale it by the corner or the wheel, and put a face at the top of a 9:16 canvas without leaving the node.
