@@ -17,7 +17,9 @@ const BLANK = "@blank";
 
 // Como llama cada modelo a sus referencias en el prompt: <image1>, <image_0>,
 // <picture2>... El nombre y el primer numero se eligen en el panel.
-const TAG_NAMES = ["image", "image_", "picture", "picture_"];
+// "Picture " es el de MiniMax H3: <Picture 1>, con mayuscula y espacio.
+const TAG_NAMES = ["image", "image_", "picture", "picture_", "Picture "];
+const TAG_LABELS = { "Picture ": "Picture (H3)" };
 
 // Alturas en unidades de GRAFO, calculadas, nunca medidas del DOM. ComfyUI
 // dimensiona los widgets DOM en pixeles de PANTALLA mientras node.size va en
@@ -261,6 +263,10 @@ app.registerExtension({
             asdRefFileForOutput(slot) {
                 return this.source()?.asdRefFileForOutput?.(slot) || null;
             }
+
+            asdRefIsBlank(slot) {
+                return !!this.source()?.asdRefIsBlank?.(slot);
+            }
         }
         LiteGraph.registerNodeType(OUT_NAME, MultiImageReferenceOut);
     },
@@ -317,6 +323,12 @@ app.registerExtension({
             // La de la ranura 1, que es la que fija el lienzo. Resolution Calc
             // la pide mirando hacia delante, sin necesidad de un cable de vuelta.
             self.asdPrimaryRefFile = () => self.asdRefFileForOutput(HERO);
+            // Una vacia no tiene tamano propio: sale al de width x height. Resolution
+            // Calc lo pregunta para no pedir "conecta una imagen" sin motivo.
+            self.asdRefIsBlank = (slotIndex) => {
+                const slot = self.asdSlots?.[slotIndex];
+                return !!slot && isBlank(slot) && slot.on && slotIndex < self.asdCount;
+            };
 
             // Lo que usa Image Save & Send para devolver aqui una imagen recien
             // generada y poder seguir iterando sobre ella. Por defecto entra en
@@ -810,7 +822,7 @@ app.registerExtension({
             const startSel = container.querySelector(".asd-q-start-sel");
             const optsHint = container.querySelector(".asd-q-ohint");
             for (let n = 1; n <= SLOTS; n++) countSel.add(new Option(String(n), String(n)));
-            for (const t of TAG_NAMES) tagSel.add(new Option(t, t));
+            for (const t of TAG_NAMES) tagSel.add(new Option(TAG_LABELS[t] || t, t));
             for (const s of [0, 1]) startSel.add(new Option(String(s), String(s)));
 
             // El rotulo de al lado dice como quedan: "<picture_0> … <picture_3>".

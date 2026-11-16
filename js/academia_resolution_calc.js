@@ -334,6 +334,21 @@ app.registerExtension({
                     return null;
                 };
 
+                // La imagen de referencia es una vacia de Multi Image Reference: no
+                // hay nada que medir, porque sale al tamano que da este nodo.
+                const referenceIsBlank = () => {
+                    const inp = self.inputs?.find(i => i.type === "IMAGE");
+                    const link = inp?.link != null ? app.graph.links[inp.link] : null;
+                    if (link) return !!app.graph.getNodeById(link.origin_id)?.asdRefIsBlank?.(link.origin_slot);
+                    for (const out of self.outputs || []) {
+                        for (const linkId of out.links || []) {
+                            const l = app.graph.links[linkId];
+                            if (l && app.graph.getNodeById(l.target_id)?.asdRefIsBlank?.(0)) return true;
+                        }
+                    }
+                    return false;
+                };
+
                 const applyReference = (width, height) => {
                     self.properties.ref_size = { w: width, h: height };
                     mpW.value = Math.round(((width * height) / 1048576) * 10000) / 10000;
@@ -435,6 +450,11 @@ app.registerExtension({
                     }
 
                     const imgFile = findImageFile() || findImageFileDownstream();
+                    if (!imgFile && referenceIsBlank()) {
+                        note("image 1 is a blank: it takes the size set here");
+                        app.graph.setDirtyCanvas(true, true);
+                        return;
+                    }
                     if (!imgFile) {
                         note(linked ? "⚠ queue once so the size can be read"
                                     : "⚠ connect an image, or feed a node that has one");

@@ -72,6 +72,10 @@ const PRESETS = {
     "Enhance prompt Flux3": { template: "Flux3Klein_enhance.md", negative: "Flux3Klein_enhance_neg.md" },
     "Describe image Flux3": { text: "", template: "Flux3Klein_describe.md", negative: "Flux3Klein_describe_neg.md" },
     "Edit image Flux3": { template: "Flux3Klein_edit.md", negative: "Flux3Klein_edit_neg.md" },
+    // MiniMax-H3-Image: las reglas de su prompt expansion oficial (MiniMax-H3-Image-PE),
+    // pensadas para qwen3.5_9b. Describir deja la caja vacia: la imagen es el encargo.
+    "Enhance prompt MiniMax H3": { template: "MiniMaxH3Image_enhance.md", negative: "MiniMaxH3Image_neg.md" },
+    "Describe image MiniMax H3": { text: "", template: "MiniMaxH3Image_describe.md", negative: "MiniMaxH3Image_neg.md" },
     // MOSS-Image: tres estilos. El amateur conserva sus nombres de fichero para
     // que los workflows guardados con ellos sigan cargando.
     "Enhance prompt Moss (Amateur)": { template: "MossImage_enhance.md", negative: "MossImage_enhance_neg.md" },
