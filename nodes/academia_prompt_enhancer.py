@@ -294,6 +294,9 @@ def _parse(text):
             if isinstance(data, dict) and isinstance(data.get("rewritten_prompt"), str):
                 return (str(data.get("edit_instruction") or "").strip(), data["rewritten_prompt"].strip(),
                         str(data.get("wh_ratio") or "").strip())
+            # El formato de MiniMax-H3-Image-PE.
+            if isinstance(data, dict) and isinstance(data.get("expanded_caption"), str):
+                return "", data["expanded_caption"].strip(), str(data.get("aspect_ratio") or "").strip()
         except ValueError:
             pass
     if '"compositional_deconstruction"' in text:
@@ -301,7 +304,7 @@ def _parse(text):
         if data is not None:
             return "", _bbox_caption(data), str(data.get("aspect_ratio") or "").strip()
     # Cortado por max_length a mitad del JSON: vale la descripcion que haya.
-    cut = re.search(r'"rewritten_prompt"\s*:\s*"(.*)', text, flags=re.DOTALL)
+    cut = re.search(r'"(?:rewritten_prompt|expanded_caption)"\s*:\s*"(.*)', text, flags=re.DOTALL)
     if cut:
         # Hasta la primera comilla sin escapar, que es donde acaba la cadena.
         body = re.match(r'(?:[^"\\]|\\.)*', cut.group(1), flags=re.DOTALL).group(0)
@@ -362,7 +365,7 @@ def _compose(prompt, instruction, description):
     etiquetas <imageN> que no han llegado, va delante la peticion tal cual: el
     modelo puede resumir, pero lo que se pidio no se pierde."""
     out = "\n\n".join(p for p in (instruction, description) if p)
-    missing = [t for t in dict.fromkeys(re.findall(r"<image\d+>", prompt)) if t not in out]
+    missing = [t for t in dict.fromkeys(re.findall(r"<(?:image\d+|Picture \d+)>", prompt)) if t not in out]
     if missing:
         out = "\n\n".join(p for p in (prompt, out) if p)
     return out

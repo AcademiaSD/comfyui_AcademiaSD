@@ -74,7 +74,8 @@ async def save_prompt_file(request):
         
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(json.dumps(content, indent=4))
-        return web.json_response({"status": "success"})
+        # El nombre saneado, que es con el que el grupo queda en disco.
+        return web.json_response({"status": "success", "name": safe_name})
     except Exception:
         return web.json_response({"status": "error", "message": "Could not save the prompt list"}, status=400)
 
@@ -104,7 +105,6 @@ class AcademiaCLIPTextEncode:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True}),
-                "clip": ("CLIP", ),
             },
             # `prompt` es un ZÓCALO puro (`forceInput`), no un segundo widget: el
             # nodo ya tiene su caja con historial y favoritos, y otra caja en el
@@ -114,7 +114,12 @@ class AcademiaCLIPTextEncode:
             # `prompt` is a CONNECTOR only (`forceInput`), not a second widget: the
             # node already has its box with history and favourites, and another
             # box in the same role would only raise the question of which wins.
+            # Sin `clip` el nodo es solo una caja de texto con su gestor de
+            # prompts: la salida STRING funciona y CONDITIONING sale vacía.
+            # Without `clip` the node is just a text box with its prompt manager:
+            # STRING works and CONDITIONING comes out empty.
             "optional": {
+                "clip": ("CLIP", ),
                 "prompt": ("STRING", {"forceInput": True}),
             },
         }
@@ -127,7 +132,7 @@ class AcademiaCLIPTextEncode:
     FUNCTION = "encode"
     CATEGORY = "Academia SD/Conditioning"
 
-    def encode(self, clip, text, prompt=None):
+    def encode(self, text, clip=None, prompt=None):
         # Un prompt externo sustituye a la caja. La cadena VACÍA cuenta como
         # valor legítimo: quien conecta un Multi-Prompt sin nada escrito quiere
         # un vacío, no que reaparezca sin avisar lo que quedó en la caja. Solo un
@@ -138,6 +143,9 @@ class AcademiaCLIPTextEncode:
         # silent fallback to whatever the box still holds. Only a DISCONNECTED
         # `prompt` (None) hands control back to the widget.
         efectivo = text if prompt is None else str(prompt)
+
+        if clip is None:
+            return (None, efectivo)
 
         # Mapeo idéntico al codificador nativo de ComfyUI
         tokens = clip.tokenize(efectivo)

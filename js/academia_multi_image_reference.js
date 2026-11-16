@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { runPrompt } from "./academia_queue.js";
+import { target as promptTarget, POSITIVE } from "./academia_prompt_enhancer.js";
 
 // Vale para cualquier modelo que coma varias imagenes de referencia; Qwen Image
 // 2.1 es solo el primero. Por eso ni el nodo ni este fichero llevan su nombre.
@@ -8,8 +9,17 @@ const NODE_NAME = "AcademiaSD_MultiImageReference";
 const OUT_NAME = "AcademiaSD_MultiImageReferenceOut";
 
 const SLOTS = 10;         // los que maneja Qwen Image 2.1
-const COLS = 3;           // la grande y tres filas de tres: 1 + 9
 const HERO = 0;           // la ranura 1, en indice 0
+
+// Una ranura "en blanco": sin fichero, sale una imagen lisa del color de
+// pad_color. Mismo valor que BLANK en Python.
+const BLANK = "@blank";
+
+// Como llama cada modelo a sus referencias en el prompt: <image1>, <image_0>,
+// <picture2>... El nombre y el primer numero se eligen en el panel.
+// "Picture " es el de MiniMax H3: <Picture 1>, con mayuscula y espacio.
+const TAG_NAMES = ["image", "image_", "picture", "picture_", "Picture "];
+const TAG_LABELS = { "Picture ": "Picture (H3)" };
 
 // Alturas en unidades de GRAFO, calculadas, nunca medidas del DOM. ComfyUI
 // dimensiona los widgets DOM en pixeles de PANTALLA mientras node.size va en
@@ -21,6 +31,7 @@ const H = {
     gap: 4,
     head: 24,
     proj: 22,       // nombre del proyecto y sus botones
+    opts: 22,       // cuantas referencias, como se llaman, y la vacia
     bar: 16,       // la barra del rotulo, ENCIMA de la miniatura
     heroBar: 20,    // la del hero es mas alta: el rotulo va a 11 px
     chip: 24,       // ranura vacia: un cuadradito y ya
@@ -158,6 +169,7 @@ const CN_RES = { min: 64, max: 16384, def: 1024 };
 
 // Lo que se ensena y lo que sale por la ranura: el mapa si esta encendido.
 const shownFile = (slot) => (slot.cn?.on && slot.cn.map ? slot.cn.map : slot.file);
+const isBlank = (slot) => slot.file === BLANK;
 
 // Los parametros de cada procesador salen de su propia definicion, asi que el
 // formulario siempre coincide con la version instalada.
@@ -251,6 +263,10 @@ app.registerExtension({
             asdRefFileForOutput(slot) {
                 return this.source()?.asdRefFileForOutput?.(slot) || null;
             }
+
+            asdRefIsBlank(slot) {
+                return !!this.source()?.asdRefIsBlank?.(slot);
+            }
         }
         LiteGraph.registerNodeType(OUT_NAME, MultiImageReferenceOut);
     },
@@ -291,6 +307,10 @@ app.registerExtension({
             self.asdProject = "";
             // Resolucion a la que se generan los mapas, la misma para todo el nodo.
             self.asdCnRes = CN_RES.def;
+            // Cuantas ranuras usa el modelo y como se llaman en el prompt.
+            self.asdCount = SLOTS;
+            self.asdTagName = "image";
+            self.asdTagStart = 1;
 
             // Lo que otro nodo puede preguntarle a este. Resolution Calc lo usa,
             // a traves de Out, en "Get Size from Image": cada salida sirve un
@@ -298,11 +318,17 @@ app.registerExtension({
             // el cable.
             self.asdRefFileForOutput = (slotIndex) => {
                 const slot = self.asdSlots?.[slotIndex];
-                return slot ? shownFile(slot) || null : null;
+                return slot && !isBlank(slot) ? shownFile(slot) || null : null;
             };
             // La de la ranura 1, que es la que fija el lienzo. Resolution Calc
             // la pide mirando hacia delante, sin necesidad de un cable de vuelta.
             self.asdPrimaryRefFile = () => self.asdRefFileForOutput(HERO);
+            // Una vacia no tiene tamano propio: sale al de width x height. Resolution
+            // Calc lo pregunta para no pedir "conecta una imagen" sin motivo.
+            self.asdRefIsBlank = (slotIndex) => {
+                const slot = self.asdSlots?.[slotIndex];
+                return !!slot && isBlank(slot) && slot.on && slotIndex < self.asdCount;
+            };
 
             // Lo que usa Image Save & Send para devolver aqui una imagen recien
             // generada y poder seguir iterando sobre ella. Por defecto entra en
@@ -362,6 +388,9 @@ app.registerExtension({
                     if (typeof parsed.open === "boolean") self.asdOpen = parsed.open;
                     if (typeof parsed.project === "string") self.asdProject = parsed.project;
                     if (parsed.cnRes) self.asdCnRes = clamp(parsed.cnRes, CN_RES.min, CN_RES.max);
+                    if (parsed.count) self.asdCount = clamp(parsed.count, 1, SLOTS);
+                    if (TAG_NAMES.includes(parsed.tagName)) self.asdTagName = parsed.tagName;
+                    if (parsed.tagStart === 0 || parsed.tagStart === 1) self.asdTagStart = parsed.tagStart;
                     if (parsed.heroH) self.asdHeroH = clamp(parsed.heroH, HERO_H.min, HERO_H.max);
                     const cp = parsed.cropPos;
                     if (cp && typeof cp === "object") {
@@ -387,11 +416,16 @@ app.registerExtension({
                     heroH: self.asdHeroH,
                     place: self.asdPlace,
                     cropPos: self.asdCropPos,
+                    count: self.asdCount,
+                    tagName: self.asdTagName,
+                    tagStart: self.asdTagStart,
                     slots: self.asdSlots.map(s => ({ file: s.file, on: s.on, cn: s.cn })),
                 });
             };
 
-            const isActive = (s) => !!(s.on && s.file);
+            // Las ranuras de detras de "Refs" guardan su imagen pero no salen.
+            const inUse = (s) => self.asdSlots.indexOf(s) < self.asdCount;
+            const isActive = (s) => !!(s.on && s.file) && inUse(s);
 
             // La etiqueta que el encoder va a usar DE VERDAD. Qwen numera las
             // <imageN> por la posicion en la lista ya compactada (descarta los
@@ -405,15 +439,27 @@ app.registerExtension({
                 return tags;
             };
 
+            // <image1>, <image_0>, <picture2>...: el nombre elegido y la cuenta
+            // empezando en 0 o en 1.
+            const tagLabel = (tag) => `<${self.asdTagName}${self.asdTagStart + tag - 1}>`;
+
             // Con el mapa encendido el rotulo dice cual: lo que sale ya no es la foto.
             const tagText = (i, tag) => {
                 const s = self.asdSlots[i];
                 const map = s.cn?.on && s.cn.map ? ` ${CN_BY_NODE[s.cn.proc].suffix}` : "";
-                return (isActive(s) ? `<image${tag}>` : `${i + 1} off`) + map;
+                return (isActive(s) ? tagLabel(tag) : `${i + 1} off`) + map;
             };
 
-            // La rejilla: todas menos la 1, que va aparte en grande.
-            const GRID = Array.from({ length: SLOTS - 1 }, (_, i) => i + 1);
+            // La rejilla: las ranuras en uso menos la 1, que va aparte en grande.
+            // Filas y columnas salen del total: 3 -> 2+1, 4 -> 2x2, 9 -> 3x3.
+            // Mas filas que columnas, porque la columna de al lado es la imagen 1,
+            // que es alta.
+            const gridShape = () => {
+                const g = self.asdCount - 1;
+                if (g <= 0) return { g: 0, rows: 0, cols: 0 };
+                const rows = Math.ceil(Math.sqrt(g));
+                return { g, rows, cols: Math.ceil(g / rows) };
+            };
 
             /* --- medidas --- */
 
@@ -444,8 +490,11 @@ app.registerExtension({
 
             const heroCardH = () => H.heroBar + heroBox().h + H.heroCap + 2;
             const gridRows = () => {
+                const { g, cols } = gridShape();
                 const rows = [];
-                for (let i = 0; i < GRID.length; i += COLS) rows.push(GRID.slice(i, i + COLS));
+                for (let i = 1; i <= g; i += cols) {
+                    rows.push(Array.from({ length: Math.min(cols, g - i + 1) }, (_, k) => i + k));
+                }
                 return rows;
             };
 
@@ -467,13 +516,13 @@ app.registerExtension({
             const heroColW = () => heroBox().w + 2 + H.sliderGap + H.slider;
             // La rejilla no puede quedar por debajo de tres columnas legibles
             // solo porque el recuadro de la imagen 1 haya crecido.
-            const minWidth = () => Math.max(BASE_W, heroColW() + COL_MIN * COLS + 30);
+            const minWidth = () => Math.max(BASE_W, heroColW() + COL_MIN * gridShape().cols + 30);
 
             const panelHeight = () => {
                 if (!self.asdOpen) return H.head;
                 const hs = rowHeights();
                 const grid = hs.reduce((a, b) => a + b, 0) + Math.max(0, hs.length - 1) * H.gap;
-                return H.head + H.gap + H.proj + H.gap + Math.max(grid, heroColH()) + H.pad;
+                return H.head + H.gap + H.proj + H.gap + H.opts + H.gap + Math.max(grid, heroColH()) + H.pad;
             };
 
             /* --- DOM --- */
@@ -517,6 +566,19 @@ app.registerExtension({
                         margin-left: auto; min-width: 0; font-size: 10px; color: #9aa0a6;
                         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                     }
+                    .asd-q-opts { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; height: ${H.opts}px; }
+                    .asd-q-olabel { font-size: 10px; color: #9aa0a6; }
+                    .asd-q-sel {
+                        height: 20px; box-sizing: border-box; padding: 0 2px;
+                        background: #161616; color: #ddd; font-size: 11px;
+                        border: 1px solid #3d3d3d; border-radius: 4px; cursor: pointer;
+                    }
+                    .asd-q-sel:focus { outline: none; border-color: #4a6ee0; }
+                    .asd-q-ohint {
+                        min-width: 0; font-family: monospace; font-size: 10px; color: #6f7883;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    }
+                    .asd-q-opts .asd-q-pbtn { margin-left: auto; }
                     .asd-q-body { display: flex; gap: 6px; flex: 1 1 auto; min-height: 0; }
                     /* Filas flex y no CSS grid: una plantilla de columnas es la
                        misma para todas las filas, y aqui cada fila reparte su
@@ -560,6 +622,7 @@ app.registerExtension({
                        proporcion real del fichero, asi que el recuadro de recorte
                        se puede colocar en porcentajes y sale bien a cualquier zoom. */
                     .asd-q-shot {
+                        position: relative;
                         flex: 1 1 auto; min-height: 0; background: ${VOID};
                         display: flex; align-items: center; justify-content: center;
                         cursor: zoom-in; overflow: hidden;
@@ -579,6 +642,25 @@ app.registerExtension({
                         box-sizing: border-box; border: 1px solid #fff;
                     }
                     .asd-q-card.off img { filter: grayscale(1) brightness(.42); }
+                    /* La vacia: el color de pad_color tal cual, sin imagen. */
+                    .asd-q-blankfill {
+                        width: 100%; height: 100%; box-sizing: border-box;
+                        border: 1px solid #fff; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .55);
+                    }
+                    .asd-q-card.off .asd-q-blankfill { filter: brightness(.42); }
+                    .asd-q-blankfill.pad {
+                        display: flex; align-items: center; justify-content: center;
+                        font-size: 10px; color: rgba(0, 0, 0, .45); text-shadow: 0 0 2px rgba(255, 255, 255, .5);
+                    }
+                    /* Escribir la etiqueta de la ranura en el prompt. Arriba a la
+                       izquierda, sobre la imagen; solo en las que salen. */
+                    .asd-q-send {
+                        position: absolute; left: 3px; top: 3px; z-index: 5;
+                        width: 18px; height: 16px; padding: 0; line-height: 14px; text-align: center;
+                        border: 1px solid rgba(255, 255, 255, .35); border-radius: 3px;
+                        background: rgba(0, 0, 0, .65); color: #fff; font-size: 10px; cursor: pointer;
+                    }
+                    .asd-q-send:hover { background: #4a6ee0; border-color: #4a6ee0; }
                     .asd-q-crop {
                         position: absolute; box-sizing: border-box;
                         border: 1px solid #fff; pointer-events: none;
@@ -696,6 +778,18 @@ app.registerExtension({
                             title="Delete the folder input/&lt;name&gt; and everything in it">&#128465; Delete</button>
                     <span class="asd-q-pnote"></span>
                 </div>
+                <div class="asd-q-opts">
+                    <span class="asd-q-olabel">Refs</span>
+                    <select class="asd-q-sel asd-q-count-sel"
+                            title="How many references the model takes (MiniMax H3 Image: 4). Slots past this keep their image but are not sent."></select>
+                    <span class="asd-q-olabel">Tag</span>
+                    <select class="asd-q-sel asd-q-tag-sel" title="How the model names the references in the prompt"></select>
+                    <span class="asd-q-olabel">First</span>
+                    <select class="asd-q-sel asd-q-start-sel" title="Number of the first reference: image0 or image1"></select>
+                    <span class="asd-q-ohint"></span>
+                    <button class="asd-q-pbtn asd-q-blank"
+                            title="Put a blank image in the pad_color colour in the next empty slot">&#11036; Blank</button>
+                </div>
                 <div class="asd-q-body">
                     <div class="asd-q-grid"></div>
                     <div class="asd-q-hero">
@@ -719,6 +813,50 @@ app.registerExtension({
             const rail = container.querySelector(".asd-q-vh");
             const grip = container.querySelector(".asd-q-grip");
             const filePick = container.querySelector(".asd-q-file");
+
+            /* --- cuantas referencias y como se llaman --- */
+
+            const optsEl = container.querySelector(".asd-q-opts");
+            const countSel = container.querySelector(".asd-q-count-sel");
+            const tagSel = container.querySelector(".asd-q-tag-sel");
+            const startSel = container.querySelector(".asd-q-start-sel");
+            const optsHint = container.querySelector(".asd-q-ohint");
+            for (let n = 1; n <= SLOTS; n++) countSel.add(new Option(String(n), String(n)));
+            for (const t of TAG_NAMES) tagSel.add(new Option(TAG_LABELS[t] || t, t));
+            for (const s of [0, 1]) startSel.add(new Option(String(s), String(s)));
+
+            // El rotulo de al lado dice como quedan: "<picture_0> … <picture_3>".
+            const updateOpts = () => {
+                countSel.value = String(self.asdCount);
+                tagSel.value = self.asdTagName;
+                startSel.value = String(self.asdTagStart);
+                const n = self.asdCount;
+                optsHint.textContent = n === 1 ? tagLabel(1) : `${tagLabel(1)} … ${tagLabel(n)}`;
+            };
+
+            for (const sel of [countSel, tagSel, startSel]) {
+                sel.addEventListener("mousedown", (e) => e.stopPropagation());
+                sel.addEventListener("keydown", (e) => e.stopPropagation());
+            }
+            // Cambiar cuantas hay rehace la rejilla; el nombre solo los rotulos.
+            countSel.addEventListener("change", () => {
+                self.asdCount = clamp(countSel.value, 1, SLOTS);
+                commit();
+            });
+            tagSel.addEventListener("change", () => {
+                self.asdTagName = TAG_NAMES.includes(tagSel.value) ? tagSel.value : "image";
+                writeState();
+                refreshChrome();
+            });
+            startSel.addEventListener("change", () => {
+                self.asdTagStart = startSel.value === "0" ? 0 : 1;
+                writeState();
+                refreshChrome();
+            });
+            container.querySelector(".asd-q-blank").addEventListener("click", (e) => {
+                e.stopPropagation();
+                addBlank();
+            });
 
             /* --- carga de ficheros --- */
 
@@ -784,8 +922,9 @@ app.registerExtension({
             // encendida. Se copia la ORIGINAL: el mapa se genera aparte si hace
             // falta. El fichero propio lo hace Save project.
             const copySlot = (idx) => {
-                for (let k = 1; k < SLOTS; k++) {
-                    const j = (idx + k) % SLOTS;
+                const n = self.asdCount;
+                for (let k = 1; k < n; k++) {
+                    const j = (idx + k) % n;
                     const dst = self.asdSlots[j];
                     if (dst.file) continue;
                     const src = self.asdSlots[idx];
@@ -794,6 +933,32 @@ app.registerExtension({
                     return;
                 }
                 note("⚠ no empty slot");
+            };
+
+            // Una imagen lisa en la primera ranura libre de las que se usan.
+            const addBlank = () => {
+                const dst = self.asdSlots.slice(0, self.asdCount).find(s => !s.file);
+                if (!dst) return note("⚠ no empty slot — raise Refs or unload one");
+                Object.assign(dst, { file: BLANK, on: true, ver: dst.ver + 1, nw: 0, nh: 0, cn: null });
+                commit();
+            };
+
+            // Escribe la etiqueta en el Positive Prompt, donde este el cursor. Si
+            // no hay uno claro (ninguno, o varios sin elegir), al portapapeles.
+            const sendTag = async (text) => {
+                const node = promptTarget(POSITIVE);
+                if (node?.asdInsertText) {
+                    node.asdInsertText(text);
+                    app.graph?.setDirtyCanvas(true, true);
+                    return note(`✔ ${text} added to the prompt`);
+                }
+                try {
+                    await navigator.clipboard.writeText(text);
+                    note(node === undefined ? `✔ ${text} copied — several prompts, pick one to insert`
+                                            : `✔ ${text} copied to the clipboard`);
+                } catch (e) {
+                    note(`⚠ could not copy ${text}`);
+                }
             };
 
             /* --- menu CN: mapa de ControlNet de una ranura --- */
@@ -1206,6 +1371,19 @@ app.registerExtension({
                 hero.cap.title = `${shownFile(slot)}\n${line1} \u00b7 ${line2}`;
             };
 
+            // Las vacias van del color de pad_color: al cambiarlo, se repintan.
+            const paintBlank = () => {
+                const c = padColor();
+                for (const el of container.querySelectorAll(".asd-q-blankfill")) el.style.background = c;
+                for (const el of container.querySelectorAll(".asd-q-swatch")) el.value = c;
+                const cap = self.asdHero?.blankCap;
+                if (!cap) return;
+                const t = targetSize();
+                const size = Array.isArray(t) ? `${t[0]}×${t[1]}`
+                           : t === null ? "canvas size (linked)" : "1024×1024";
+                cap.textContent = `blank · ${c.toUpperCase()}\n${size}`;
+            };
+
             /* --- colocar la imagen a mano (outpaint) --- */
 
             let persistTimer = null;
@@ -1295,6 +1473,7 @@ app.registerExtension({
                 // volver a pintar dentro.
                 applyHeroBox();
                 paintHero();
+                paintBlank();
                 fit_();
             };
 
@@ -1353,41 +1532,45 @@ app.registerExtension({
                     b.addEventListener("click", (e) => { e.stopPropagation(); fn(); });
                     return b;
                 };
+                const blank = isBlank(slot);
                 const power = mk("&#9211;", on ? "Active - click to bypass this slot"
                                               : "Bypassed - click to activate",
                                  on ? "on" : "off", () => toggleSlot(idx));
                 btns.appendChild(power);
-                const cnBtn = mk("CN", "ControlNet map: pick a processor, generate, or switch back to the image",
-                                 "cn" + (slot.cn?.on && slot.cn.map ? " lit" : ""), () => openCN(idx, cnBtn));
-                btns.appendChild(cnBtn);
-                if (!big) btns.appendChild(mk("&#10548;", "Send to <image1> (swap with slot 1)", "",
+                if (!blank) {
+                    const cnBtn = mk("CN", "ControlNet map: pick a processor, generate, or switch back to the image",
+                                     "cn" + (slot.cn?.on && slot.cn.map ? " lit" : ""), () => openCN(idx, cnBtn));
+                    btns.appendChild(cnBtn);
+                }
+                if (!big) btns.appendChild(mk("&#10548;", "Move to slot 1 (swap with it)", "",
                                              () => swapSlots(idx, HERO)));
                 btns.appendChild(mk("&#10697;", "Copy to the next empty slot", "", () => copySlot(idx)));
                 // Reemplazar tiene boton propio porque el clic sobre la imagen
                 // pasa a ser "verla en grande", que es lo que se hace a menudo.
-                btns.appendChild(mk("&#8635;", "Replace this image", "", () => openPicker(idx)));
+                btns.appendChild(mk("&#8635;", blank ? "Load an image here instead" : "Replace this image",
+                                    "", () => openPicker(idx)));
                 btns.appendChild(mk("&#10005;", "Unload this slot", "", () => clearSlot(idx)));
-                if (big) {
-                    // El color solo pinta rellenando, y recentrar solo con el
-                    // outpaint encendido: fuera de eso serian dos botones que no
-                    // hacen nada.
+                // El color de relleno: en la vacia siempre (es su color), en la
+                // imagen 1 solo rellenando. Recentrar solo con algo que mover.
+                if (blank || big) {
                     const sw = document.createElement("input");
                     sw.type = "color";
                     sw.className = "asd-q-swatch";
-                    sw.title = "Fill colour for the padding";
+                    sw.title = blank ? "Colour of the blank image (pad_color)" : "Fill colour for the padding";
                     sw.value = padColor();
-                    sw.style.display = cropMode() === "pad" ? "" : "none";
+                    sw.style.display = blank || cropMode() === "pad" ? "" : "none";
                     sw.addEventListener("mousedown", (e) => e.stopPropagation());
                     sw.addEventListener("input", (e) => {
                         e.stopPropagation();
                         const w = self.widgets?.find(x => x.name === "pad_color");
                         if (w) w.value = sw.value.toUpperCase();
-                        paintHero();
+                        syncIfChanged();
                         app.graph?.setDirtyCanvas(true, true);
                     });
                     btns.insertBefore(sw, btns.firstChild);
-                    self.asdSwatch = sw;
-
+                    if (big && !blank) self.asdSwatch = sw;
+                }
+                if (big && !blank) {
                     const home = mk("&#8982;", "Recentre and fit the image", "", resetPlace);
                     home.style.display = dragKind() ? "" : "none";
                     btns.insertBefore(home, btns.firstChild);
@@ -1396,6 +1579,45 @@ app.registerExtension({
                 bar.appendChild(btns);
                 dragSource(bar, idx);
                 card.appendChild(bar);
+
+                // Escribir <image1> (o como se llame) en el prompt.
+                const send = document.createElement("button");
+                send.className = "asd-q-send";
+                send.innerHTML = "&#128172;";
+                send.style.display = on ? "" : "none";
+                send.title = on ? `Write ${tagLabel(tag)} into the prompt` : "";
+                send.addEventListener("mousedown", (e) => e.stopPropagation());
+                send.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    const t = liveTags()[idx];
+                    if (t) sendTag(tagLabel(t));
+                });
+
+                if (blank) {
+                    // Sin fichero: el color de pad_color y el tamano con que saldra.
+                    const shot = document.createElement("div");
+                    shot.className = "asd-q-shot";
+                    shot.style.cursor = "default";
+                    const fill = document.createElement("div");
+                    fill.className = "asd-q-blankfill pad";
+                    fill.style.background = padColor();
+                    fill.textContent = "blank";
+                    shot.appendChild(fill);
+                    shot.appendChild(send);
+                    card.appendChild(shot);
+                    if (big) {
+                        const cap = document.createElement("div");
+                        cap.className = "asd-q-name hero";
+                        card.appendChild(cap);
+                        // paintHero no tiene nada que pintar; applyHeroBox si
+                        // necesita la caja para darle alto.
+                        self.asdHero = { shot, blankCap: cap };
+                        paintBlank();
+                    }
+                    dropTarget(card, idx);
+                    self.asdCards[idx] = { card, tag: tagEl, power, send };
+                    return card;
+                }
 
                 const shot = document.createElement("div");
                 shot.className = "asd-q-shot";
@@ -1423,6 +1645,7 @@ app.registerExtension({
                         if (img.naturalWidth) { slot.nw = img.naturalWidth; slot.nh = img.naturalHeight; }
                     });
                 }
+                shot.appendChild(send);
                 card.appendChild(shot);
 
                 // naturalWidth no existe hasta que la imagen carga, y de ella sale
@@ -1488,7 +1711,7 @@ app.registerExtension({
                 }
 
                 dropTarget(card, idx);
-                self.asdCards[idx] = { card, tag: tagEl, power };
+                self.asdCards[idx] = { card, tag: tagEl, power, send };
                 return card;
             };
 
@@ -1534,7 +1757,7 @@ app.registerExtension({
 
             const updateCount = (tags) => {
                 const active = tags.filter(t => t !== null).length;
-                const loaded = self.asdSlots.filter(s => s.file).length;
+                const loaded = self.asdSlots.slice(0, self.asdCount).filter(s => s.file).length;
                 countEl.style.color = "#6f7883";
                 countEl.textContent = `${active} active / ${loaded} loaded`;
             };
@@ -1556,8 +1779,11 @@ app.registerExtension({
                     ref.power.className = "asd-q-btn " + (on ? "on" : "off");
                     ref.power.title = on ? "Active - click to bypass this slot"
                                          : "Bypassed - click to activate";
+                    ref.send.style.display = on ? "" : "none";
+                    ref.send.title = on ? `Write ${tagLabel(tags[i])} into the prompt` : "";
                 }
                 updateCount(tags);
+                updateOpts();
                 app.graph?.setDirtyCanvas(true, true);
             };
 
@@ -1567,9 +1793,11 @@ app.registerExtension({
                 self.asdRowEls = [];
                 const tags = liveTags();
                 updateCount(tags);
+                updateOpts();
                 chevron.innerHTML = self.asdOpen ? "&#9662;" : "&#9656;";
                 body.style.display = self.asdOpen ? "flex" : "none";
                 projEl.style.display = self.asdOpen ? "flex" : "none";
+                optsEl.style.display = self.asdOpen ? "flex" : "none";
                 if (document.activeElement !== pname) pname.value = self.asdProject;
                 lightbox.style.display = "none";
                 hidePeek(true);             // las tarjetas se rehacen: nada que esperar
