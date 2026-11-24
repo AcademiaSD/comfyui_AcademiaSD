@@ -35,6 +35,8 @@ app.registerExtension({
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function(o) {
                 if (onConfigure) onConfigure.apply(this, arguments);
+                // El workflow aun se esta montando: se espera a que acabe.
+                setTimeout(() => this.asdRefit?.(), 300);
                 if (o.academia_models) {
                     this.restored_models = o.academia_models;
                     
@@ -602,6 +604,11 @@ app.registerExtension({
 
                 container.addEventListener("mousedown", (e) => e.stopPropagation());
                 this.addDOMWidget("UI", "HTML", container);
+                // A veces, con Nodes 2.0 apagado, el frontend se queda con un ancho
+                // viejo del panel y lo pinta estrecho y con barra horizontal hasta
+                // que algo lo recalcula. Reaplicar el tamano es lo mismo que
+                // redimensionar el nodo a mano, que es lo que lo arregla.
+                this.asdRefit = forceResize;
                 
                 // INITIALIZATION
                 fetch("/academia/tokens").then(r => r.json()).then(d => {
@@ -622,6 +629,7 @@ app.registerExtension({
                                 addRow();
                             }
                         }
+                        forceResize();
                     });
                 });
             };
